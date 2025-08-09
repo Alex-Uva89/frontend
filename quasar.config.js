@@ -47,7 +47,11 @@ export default defineConfig((ctx) => {
 
       // publicPath: '/',
       // analyze: true,
-      // env: {},
+      // env: {
+      //   API_URL: ctx.dev
+      //   ? 'http://localhost:3000' // solo in locale
+      //   : process.env.API_URL
+      // },
       // rawDefine: {}
       // ignorePublicFolder: true,
       // minify: false,
@@ -96,7 +100,9 @@ export default defineConfig((ctx) => {
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
     framework: {
-      config: {},
+      config: {
+        dark: 'auto'
+      },
 
       // iconSet: 'material-icons', // Quasar icon set
       // lang: 'en-US', // Quasar language pack
