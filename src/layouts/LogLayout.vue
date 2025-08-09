@@ -3,8 +3,8 @@
     <q-header elevated :class="$q.dark.isActive ? 'bg-dark text-white' : 'bg-primary text-white'">
       <q-toolbar>
           <q-toolbar-title>
-  {{ user ? user.role + ' Dashboard' : 'Dashboard' }}
-</q-toolbar-title>
+            {{ user ? user.role + ' Dashboard' : 'Dashboard' }}
+          </q-toolbar-title>
 
 
         <q-btn dense flat :icon="$q.dark.isActive ? 'light_mode' : 'dark_mode'" @click="toggleDarkMode" />
