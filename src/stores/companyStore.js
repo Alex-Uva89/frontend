@@ -10,7 +10,7 @@ export const useCompanyStore = defineStore('company', () => {
     isLoading.value = true
     error.value = null
     try {
-      const response = await fetch('http://localhost:3001/company')
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/company`)
       if (!response.ok) throw new Error('Errore durante il recupero dei dati')
       const data = await response.json()
       company.value = data

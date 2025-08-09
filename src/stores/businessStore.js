@@ -12,7 +12,7 @@ export const useBusinessStore = defineStore('business', () => {
     isLoading.value = true
     error.value = null
     try {
-      const response = await fetch('http://localhost:3001/business')
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/business`)
       if (!response.ok) throw new Error('Errore durante il recupero dei dati')
       const data = await response.json()
       businesses.value = data

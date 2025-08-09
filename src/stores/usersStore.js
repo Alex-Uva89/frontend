@@ -31,7 +31,8 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch('http://localhost:3001/users')
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users`)
+      console.log('URL',import.meta.env.VITE_API_URL)
       if (!res.ok) throw new Error('Errore fetching users')
       users.value = await res.json()
     } catch (err) {
@@ -61,7 +62,7 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch('http://localhost:3001/me', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/me`, {
         headers: {
           Authorization: `Bearer ${token.value}`
         }
