@@ -59,7 +59,7 @@ import { useUsersStore } from 'src/stores/usersStore'
 
 // stato e store utenti
 const usersStore = useUsersStore()
-const user = computed(() => usersStore.currentUser)
+// const user = computed(() => usersStore.currentUser)
 const users = computed(() => usersStore.users)
 
 const roles = ['Owner', 'Supervisor', 'Manager', 'Staff', 'Dev']

@@ -1,7 +1,11 @@
 <template>
   <q-page class="q-pt-xl">
     <!-- 2. Staff sotto supervisione -->
-    <q-card class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto;" v-if="filteredStaff.length">
+    <q-card
+      class="q-mb-lg shadow-2"
+      style="max-width: 900px; margin: auto;"
+      v-if="filteredStaff.length"
+    >
       <q-card-section>
         <div class="row items-center justify-between q-mb-md">
           <div class="text-h6 text-primary">Staff sotto la tua supervisione</div>
@@ -12,7 +16,7 @@
             v-for="member in filteredStaff"
             :key="member.id"
             clickable
-            :style="{ opacity: member['isActive'] ? 1 : 0.5 }"
+            :style="{ opacity: member.isActive ? 1 : 0.5 }"
           >
             <q-item-section avatar>
               <q-avatar size="80px">
@@ -25,18 +29,22 @@
               <div class="text-caption text-grey-6">Ruolo: {{ member.role }}</div>
             </q-item-section>
             <q-item-section side>
-              <q-icon :name="'circle'" :color="member['isActive'] ? 'green' : 'grey-5'" size="14px" />
+              <q-icon :name="'circle'" :color="member.isActive ? 'green' : 'grey-5'" size="14px" />
             </q-item-section>
           </q-item>
         </q-list>
       </q-card-section>
     </q-card>
 
-    <div class="q-my-xl" style="max-width: 900px; margin: auto; margin-bottom: 20px;  margin-top: 20px;" v-if="filteredStaff.length">
+    <div
+      class="q-my-md"
+      style="max-width: 900px; margin: auto; margin-top: 20px; margin-bottom: 20px;"
+      v-if="filteredStaff.length"
+    >
       <div class="q-gutter-sm">
-          <q-btn color="primary" icon="add" label="Aggiungi Ordine" @click="aggiungiOrdine" />
-          <q-btn color="secondary" icon="edit" label="Modifica Ordine" @click="modificaOrdine" />
-          <q-btn color="negative" icon="delete" label="Elimina Ordine" @click="eliminaOrdine" />
+        <q-btn color="primary" icon="add" label="Aggiungi Ordine" @click="aggiungiOrdine" />
+        <q-btn color="secondary" icon="edit" label="Modifica Ordine" @click="modificaOrdine" />
+        <q-btn color="negative" icon="delete" label="Elimina Ordine" @click="eliminaOrdine" />
       </div>
     </div>
 
@@ -57,10 +65,6 @@
       <div class="text-h6 q-mb-md text-primary">Statistiche Ordini</div>
       <!-- <MyChartOrders /> -->
     </q-card>
-
-    <!-- 4. Attività Staff -->
-
-
   </q-page>
 </template>
 
@@ -77,10 +81,12 @@ const defaultAvatar = 'https://cdn.quasar.dev/img/avatar.png'
 function getUsersUnderSupervision(supervisorId) {
   return staff.value
     .filter(u => (u.role === 'Manager' || u.role === 'Staff') && u.supervisorId === supervisorId)
-    .sort((a, b) => (a.isActive === b.isActive ? -1 : 1))
+    .sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1))
 }
 
-const filteredStaff = computed(() => user.value ? getUsersUnderSupervision(user.value.id) : [])
+const filteredStaff = computed(() =>
+  user.value ? getUsersUnderSupervision(user.value.id) : []
+)
 
 const staffActivity = ref([
   { id: 1, name: 'Mario Rossi', ordersHandled: 25, lastLogin: '2025-08-11 09:23' },
@@ -93,10 +99,22 @@ const columnsActivity = [
   { name: 'lastLogin', label: 'Ultimo Login', field: 'lastLogin', align: 'center' }
 ]
 
-const errorLogs = ref([
-  { message: 'Errore connessione API ordini', time: '2025-08-11 09:12' },
-  { message: 'Timeout caricamento statistiche', time: '2025-08-10 15:40' }
-])
+// const errorLogs = ref([
+//   { message: 'Errore connessione API ordini', time: '2025-08-11 09:12' },
+//   { message: 'Timeout caricamento statistiche', time: '2025-08-10 15:40' }
+// ])
+
+function aggiungiOrdine() {
+  console.log('Funzione aggiungiOrdine non ancora implementata')
+}
+
+function modificaOrdine() {
+  console.log('Funzione modificaOrdine non ancora implementata')
+}
+
+function eliminaOrdine() {
+  console.log('Funzione eliminaOrdine non ancora implementata')
+}
 
 async function loadStaff() {
   await usersStore.fetchUsers()

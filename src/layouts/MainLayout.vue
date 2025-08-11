@@ -39,11 +39,6 @@ function toggleDarkMode() {
 
 // Classe per le card in base al tema
 
-
-function handleLogout() {
-  usersStore.logout(router)
-}
-
 onMounted(async () => {
   await companyStore.fetchCompany()
 })
