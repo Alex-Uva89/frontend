@@ -19,18 +19,18 @@
 <script setup>
 import { useCompanyStore } from 'src/stores/companyStore';
 import { onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+// import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { useUsersStore } from 'src/stores/usersStore'
+// import { useUsersStore } from 'src/stores/usersStore'
 
 const companyStore = useCompanyStore()
 
 const company = computed(() => companyStore.company)
-const usersStore = useUsersStore()
+// const usersStore = useUsersStore()
 
 
 const $q = useQuasar()
-const router = useRouter()
+// const router = useRouter()
 
 // Toggle tema dark/light
 function toggleDarkMode() {
