@@ -77,8 +77,8 @@ const user = computed(() => usersStore.currentUser)
 const defaultAvatar = 'https://cdn.quasar.dev/img/avatar.png'
 
 function getUsersUnderSupervision(supervisorId) {
-  // modifica questa funzione in base alla tua struttura dati
-  return staff.value.filter(u => u.managerId === supervisorId || u.id === supervisorId)
+  return staff.value
+    .filter(u => (u.role === 'Manager' || u.role === 'Staff') && u.supervisorId === supervisorId)
     .sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1))
 }
 
