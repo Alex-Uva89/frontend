@@ -1,29 +1,7 @@
 <template>
-  <q-layout view="lHh Lpr lFf" container style="height: 100vh">
-
-    <!-- Main content -->
     <q-page-container>
       <q-page padding>
 
-        <!-- Profilo (come da te) -->
-        <q-card class="q-mb-md" v-if="user">
-          <q-card-section class="row items-center">
-            <q-avatar size="120px" class="q-mr-md overflow-hidden">
-              <img
-                :src="user.photoUrl"
-                alt="Avatar"
-                style="object-fit: cover; object-position: center; width: 100%; height: 100%;"
-              />
-            </q-avatar>
-            <div>
-              <div class="text-h6">{{ user.firstName }} {{ user.lastName }}</div>
-              <div class="text-subtitle2 text-grey">Ruolo: {{ user.role }}</div>
-              <div class="text-caption">Email: {{ user.email }}</div>
-            </div>
-            <q-space />
-            <q-btn label="Modifica profilo" flat color="primary" />
-          </q-card-section>
-        </q-card>
 
         <!-- NUOVA SEZIONE: Gestione utenti per ruolo -->
         <q-card class="q-mb-xl">
@@ -73,7 +51,6 @@
 
       </q-page>
     </q-page-container>
-  </q-layout>
 </template>
 
 <script setup>
