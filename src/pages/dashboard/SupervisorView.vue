@@ -28,7 +28,7 @@
             :key="user.id"
             clickable
             class="hoverable"
-            :style="{ opacity: user.isActive ? 1 : 0.5 }"
+            :style="{ opacity: user['isActive'] ? 1 : 0.5 }"
           >
             <q-item-section avatar>
               <q-avatar size="80px">
