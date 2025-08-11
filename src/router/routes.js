@@ -20,6 +20,11 @@ const routes = [
     children: [{ path: '', component: () => import('pages/dashboard/OwnerView.vue') }],
   },
   {
+    path: '/dashboard/SupervisorView',
+    component: () => import('src/layouts/LogLayout.vue'),
+    children: [{ path: '', component: () => import('pages/dashboard/SupervisorView.vue') }],
+  },
+  {
     path: '/dashboard/StaffView',
     component: () => import('src/layouts/LogLayout.vue'),
     children: [{ path: '', component: () => import('pages/dashboard/StaffView.vue') }],

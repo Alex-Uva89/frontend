@@ -32,9 +32,9 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/users`)
-      console.log('URL',import.meta.env.VITE_API_URL)
       if (!res.ok) throw new Error('Errore fetching users')
-      users.value = await res.json()
+        users.value = await res.json()
+      console.log('USERS',users.value)
     } catch (err) {
       error.value = err.message
     } finally {

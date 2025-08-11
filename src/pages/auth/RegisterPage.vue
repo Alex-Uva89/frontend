@@ -9,7 +9,7 @@
       <q-select
         v-model="role"
         label="Ruolo"
-        :options="['Dev', 'Owner', 'Staff']"
+        :options="['Dev', 'Owner','Supervisor','Manager', 'Staff']"
         required
       />
 
@@ -65,7 +65,8 @@ async function handleRegister() {
         email: email.value,
         password: password.value,
         role: role.value,
-        business: business.value
+        business: business.value,
+        isActive: true
       })
     })
 
