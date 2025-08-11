@@ -26,13 +26,22 @@
           />
           <q-input
             v-model="password"
+            :type="isPwd ? 'password' : 'text'"
             label="Password"
-            type="password"
             outlined
             dense
             color="primary"
             :rules="[val => !!val || 'Password richiesta']"
-          />
+          >
+            <template v-slot:append>
+              <q-icon
+                :name="isPwd ? 'visibility_off' : 'visibility'"
+                class="cursor-pointer"
+                @click="isPwd = !isPwd"
+              />
+            </template>
+          </q-input>
+
 
           <q-btn
             label="Accedi"
@@ -84,6 +93,7 @@ const usersStore = useUsersStore()
 
 const email = ref('')
 const password = ref('')
+const isPwd = ref(true)
 const error = ref(null)
 const noPermission = ref(false)
 

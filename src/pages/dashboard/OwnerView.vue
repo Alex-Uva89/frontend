@@ -2,7 +2,7 @@
   <q-page class="q-pt-xl">
 
     <!-- Info Azienda -->
-    <q-card class="shadow-3" v-if="company" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
+    <q-card class="shadow-3 q-ma-lg" v-if="company">
       <q-card-section class="row items-center q-gutter-md">
         <q-avatar size="140px" class="overflow-hidden shadow-2" rounded>
           <img
@@ -23,7 +23,7 @@
     </q-card>
 
     <!-- Locali dell'owner -->
-    <q-card class="q-mb-lg shadow-2" v-if="ownerBusinesses.length" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
+    <q-card class="q-mb-lg shadow-2 q-ma-lg" v-if="ownerBusinesses.length">
       <q-card-section>
         <div class="text-h6 q-mb-md text-primary">Locali di tua proprietà</div>
         <q-list bordered padding class="rounded-borders">
@@ -55,7 +55,7 @@
     </q-card>
 
     <!-- Staff per ruolo -->
-    <q-card v-if="roles.length" class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
+    <q-card v-if="roles.length" class="q-ma-lg shadow-2">
       <q-card-section>
         <div class="text-h6 q-mb-md text-primary">Dipendenti</div>
 
@@ -110,7 +110,7 @@
     </q-card>
 
     <!-- Statistiche rapide -->
-    <q-card class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
+    <q-card class="q-ma-lg shadow-2" >
       <q-card-section>
         <div class="text-h6 q-mb-md text-primary">Statistiche Rapide</div>
         <div class="row q-col-gutter-md">
@@ -145,7 +145,7 @@
       </q-card-section>
     </q-card>
 
-    <q-card class="q-pa-md q-mb-lg" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
+    <q-card class="q-pa-md q-ma-lg">
       <div class="text-h6 q-mb-md text-primary">Statistiche Vendite Mensili</div>
       <MyChart />
     </q-card>

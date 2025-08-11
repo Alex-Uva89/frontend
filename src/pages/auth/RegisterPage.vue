@@ -4,7 +4,20 @@
       <q-input v-model="firstName" label="Nome" required />
       <q-input v-model="lastName" label="Cognome" required />
       <q-input v-model="email" label="Email" type="email" required />
-      <q-input v-model="password" label="Password" type="password" required />
+      <q-input
+        v-model="password"
+        :type="showPassword ? 'text' : 'password'"
+        label="Password"
+        required
+      >
+        <template v-slot:append>
+          <q-icon
+            :name="showPassword ? 'visibility_off' : 'visibility'"
+            class="cursor-pointer"
+            @click="showPassword = !showPassword"
+          />
+        </template>
+      </q-input>
 
       <q-select
         v-model="role"
@@ -28,6 +41,17 @@
       <q-banner v-if="error" type="negative">{{ error }}</q-banner>
       <q-banner v-if="success" type="positive">{{ success }}</q-banner>
     </q-form>
+
+
+    <q-btn
+      label="Torna indietro"
+      icon="arrow_back"
+      color="primary"
+      align="right"
+      flat
+      class="full-width"
+      @click="router.back()"
+    />
   </q-page>
 </template>
 
@@ -40,6 +64,7 @@ const firstName = ref('')
 const lastName = ref('')
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const role = ref('')
 const business = ref('')
 

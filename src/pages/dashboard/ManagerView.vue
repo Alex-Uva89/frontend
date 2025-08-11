@@ -1,9 +1,8 @@
 <template>
-  <q-page class="q-pt-xl">
+  <q-page class="q-pt-md">
     <!-- 2. Staff sotto supervisione -->
     <q-card
-      class="q-mb-lg shadow-2"
-      style="max-width: 900px; margin: auto;"
+      class="q-mb-lg q-mx-lg shadow-2"
       v-if="filteredStaff.length"
     >
       <q-card-section>
@@ -37,8 +36,7 @@
     </q-card>
 
     <div
-      class="q-my-md"
-      style="max-width: 900px; margin: auto; margin-top: 20px; margin-bottom: 20px;"
+      class="q-ma-lg"
       v-if="filteredStaff.length"
     >
       <div class="q-gutter-sm">
@@ -48,7 +46,7 @@
       </div>
     </div>
 
-    <q-card class="q-pa-md q-mb-lg" style="max-width: 900px; margin: auto;">
+    <q-card class="q-pa-md q-ma-lg">
       <div class="text-h6 q-mb-md text-primary">Storico Ordini</div>
       <q-table
         :rows="staffActivity"
@@ -61,7 +59,7 @@
     </q-card>
 
     <!-- 3. Statistiche Ordini -->
-    <q-card class="q-pa-md q-mb-lg" style="max-width: 900px; margin: auto;">
+    <q-card class="q-pa-md q-ma-lg">
       <div class="text-h6 q-mb-md text-primary">Statistiche Ordini</div>
       <!-- <MyChartOrders /> -->
     </q-card>

@@ -1,5 +1,5 @@
 <template>
-  <q-card class="q-my-lg q-py-lg" style="max-width: 900px; margin: auto; margin-bottom: 10px; margin-top: 40px;">
+  <q-card class="q-ma-lg q-pa-lg" style="margin-bottom: 10px; margin-top: 40px;">
     <q-card-section class="row items-center">
       <q-avatar size="120px" class="q-mr-md overflow-hidden">
         <img
