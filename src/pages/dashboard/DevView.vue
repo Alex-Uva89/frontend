@@ -116,7 +116,7 @@
               <q-item v-for="event in recentCriticalEvents" :key="event.id">
                 <q-item-section>
                   <q-item-label>{{ event.message }}</q-item-label>
-                  <q-item-label caption>{{ event.date | formatDate }}</q-item-label>
+                  <!-- <q-item-label caption>{{ event.date | formatDate }}</q-item-label> -->
                 </q-item-section>
               </q-item>
               <q-item v-if="recentCriticalEvents.length === 0">
@@ -136,7 +136,7 @@ import { useUsersStore } from 'src/stores/usersStore'
 
 // stato e store utenti
 const usersStore = useUsersStore()
-const user = computed(() => usersStore.currentUser)
+// const user = computed(() => usersStore.currentUser)
 const users = computed(() => usersStore.users)
 
 const roles = ['Owner', 'Supervisor', 'Manager', 'Staff', 'Dev']
@@ -162,7 +162,7 @@ function editUser(user) {
 }
 
 // filtro data esempio per format (da implementare filtro globale)
-function formatDate(date) {
-  return new Date(date).toLocaleString()
-}
+// function formatDate(date) {
+//   return new Date(date).toLocaleString()
+// }
 </script>
