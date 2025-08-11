@@ -14,6 +14,7 @@
     </q-header>
 
     <q-page-container>
+      <UserProfileCard :user="user"/>
       <router-view />
     </q-page-container>
   </q-layout>
@@ -25,6 +26,7 @@ import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useCompanyStore } from 'src/stores/companyStore'
+import UserProfileCard from 'src/components/userProfileCard.vue'
 
 const router = useRouter()
 const $q = useQuasar()

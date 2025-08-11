@@ -20,9 +20,19 @@ const routes = [
     children: [{ path: '', component: () => import('pages/dashboard/OwnerView.vue') }],
   },
   {
+    path: '/dashboard/HrView',
+    component: () => import('src/layouts/LogLayout.vue'),
+    children: [{ path: '', component: () => import('pages/dashboard/HrView.vue') }],
+  },
+  {
     path: '/dashboard/SupervisorView',
     component: () => import('src/layouts/LogLayout.vue'),
     children: [{ path: '', component: () => import('pages/dashboard/SupervisorView.vue') }],
+  },
+  {
+    path: '/dashboard/ManagerView',
+    component: () => import('src/layouts/LogLayout.vue'),
+    children: [{ path: '', component: () => import('pages/dashboard/ManagerView.vue') }],
   },
   {
     path: '/dashboard/StaffView',

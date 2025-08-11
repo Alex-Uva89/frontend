@@ -7,7 +7,6 @@
 
 
         <q-btn dense flat :icon="$q.dark.isActive ? 'light_mode' : 'dark_mode'" @click="toggleDarkMode" />
-        <q-btn dense flat icon="logout" @click="handleLogout" />
       </q-toolbar>
     </q-header>
 

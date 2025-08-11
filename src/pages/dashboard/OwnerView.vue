@@ -1,27 +1,8 @@
 <template>
   <q-page class="q-pt-xl">
 
-    <q-card class="q-mb-lg q-pb-lg" v-if="user" style="max-width: 900px; margin: auto;">
-          <q-card-section class="row items-center">
-            <q-avatar size="120px" class="q-mr-md overflow-hidden">
-              <img
-                :src="user.photoUrl || defaultAvatar"
-                alt="Avatar"
-                style="object-fit: cover; object-position: center; width: 100%; height: 100%;"
-              />
-            </q-avatar>
-            <div>
-              <div class="text-h6">{{ user.firstName }} {{ user.lastName }}</div>
-              <div class="text-subtitle2 text-grey">Ruolo: {{ user.role }}</div>
-              <div class="text-caption">Email: {{ user.email }}</div>
-            </div>
-            <q-space />
-            <q-btn label="Modifica profilo" flat color="primary" />
-          </q-card-section>
-    </q-card>
-
     <!-- Info Azienda -->
-    <q-card class="q-mb-lg shadow-3" v-if="company" style="max-width: 900px; margin: auto;">
+    <q-card class="shadow-3" v-if="company" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
       <q-card-section class="row items-center q-gutter-md">
         <q-avatar size="140px" class="overflow-hidden shadow-2" rounded>
           <img
@@ -42,7 +23,7 @@
     </q-card>
 
     <!-- Locali dell'owner -->
-    <q-card class="q-mb-lg shadow-2" v-if="ownerBusinesses.length" style="max-width: 900px; margin: auto;">
+    <q-card class="q-mb-lg shadow-2" v-if="ownerBusinesses.length" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
       <q-card-section>
         <div class="text-h6 q-mb-md text-primary">Locali di tua proprietà</div>
         <q-list bordered padding class="rounded-borders">
@@ -63,8 +44,8 @@
             </q-item-section>
             <q-item-section side class="text-right">
               <q-badge
-                :label="biz.active ? 'Attivo' : 'Inattivo'"
-                :color="biz.active ? 'green' : 'grey-5'"
+                :label="biz.isOpen ? 'Attivo' : 'Inattivo'"
+                :color="biz.isOpen ? 'green' : 'grey-5'"
                 align="top"
               />
             </q-item-section>
@@ -74,7 +55,7 @@
     </q-card>
 
     <!-- Staff per ruolo -->
-    <q-card v-if="roles.length" class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto;">
+    <q-card v-if="roles.length" class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
       <q-card-section>
         <div class="text-h6 q-mb-md text-primary">Dipendenti</div>
 
@@ -129,26 +110,26 @@
     </q-card>
 
     <!-- Statistiche rapide -->
-    <q-card class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto;">
+    <q-card class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
       <q-card-section>
         <div class="text-h6 q-mb-md text-primary">Statistiche Rapide</div>
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-4">
-            <q-card flat bordered class="bg-blue-grey-1 q-pa-md text-center rounded">
+            <q-card flat bordered class="q-pa-md text-center rounded shadow-4">
               <q-icon name="business" size="3rem" color="primary" />
               <div class="text-h6 q-mt-sm">{{ ownerBusinesses.length }}</div>
               <div class="text-caption text-grey-7">Locali Totali</div>
             </q-card>
           </div>
           <div class="col-12 col-sm-4">
-            <q-card flat bordered class="bg-blue-grey-1 q-pa-md text-center rounded">
+            <q-card flat bordered class=" q-pa-md text-center rounded shadow-4">
               <q-icon name="group" size="3rem" color="primary" />
               <div class="text-h6 q-mt-sm">{{ staff.length - 1 }}</div>
               <div class="text-caption text-grey-7">Dipendenti Totali</div>
             </q-card>
           </div>
           <div class="col-12 col-sm-4">
-            <q-card flat bordered class="bg-blue-grey-1 q-pa-md text-center rounded">
+            <q-card flat bordered class="q-pa-md text-center rounded shadow-4">
               <q-icon
                 :name="company && company.isOpen ? 'check_circle' : 'cancel'"
                 size="3rem"
@@ -164,7 +145,7 @@
       </q-card-section>
     </q-card>
 
-    <q-card class="q-pa-md q-mb-lg" style="max-width: 900px; margin: auto;">
+    <q-card class="q-pa-md q-mb-lg" style="max-width: 900px; margin: auto; margin-bottom: 40px;">
       <div class="text-h6 q-mb-md text-primary">Statistiche Vendite Mensili</div>
       <MyChart />
     </q-card>
