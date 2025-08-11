@@ -39,11 +39,11 @@
       class="q-ma-lg"
       v-if="filteredStaff.length"
     >
-      <div class="q-gutter-sm">
-        <q-btn color="primary" icon="add" label="Aggiungi Ordine" @click="aggiungiOrdine" />
-        <q-btn color="secondary" icon="edit" label="Modifica Ordine" @click="modificaOrdine" />
-        <q-btn color="negative" icon="delete" label="Elimina Ordine" @click="eliminaOrdine" />
-      </div>
+      <OrderActions
+        @add="aggiungiOrdine"
+        @edit="modificaOrdine"
+        @delete="eliminaOrdine"
+      />
     </div>
 
     <q-card class="q-pa-md q-ma-lg">
@@ -69,7 +69,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUsersStore } from 'src/stores/usersStore'
-// import MyChartOrders from 'src/components/MyChartOrders.vue'
+import OrderActions from 'src/components/OrderActions.vue'
 
 const usersStore = useUsersStore()
 const staff = ref([])

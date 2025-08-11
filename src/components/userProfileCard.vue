@@ -9,9 +9,10 @@
         />
       </q-avatar>
       <div>
-        <div class="text-h6">{{ user.firstName }} {{ user.lastName }}</div>
-        <div class="text-subtitle2 text-grey">Ruolo: {{ user.role }}</div>
-        <div class="text-caption">Email: {{ user.email }}</div>
+        <div class="text-h5">{{ user.firstName }} {{ user.lastName }}</div>
+        <div><strong class="text-grey">Dipendente presso: </strong>{{ user.business.name }}</div>
+        <div><strong class="text-grey">Ruolo: </strong>{{ user.role }}</div>
+        <div><strong class="text-grey">Email: </strong>{{ user.email }}</div>
       </div>
       <q-space />
       <q-btn label="Modifica profilo" flat color="primary" />

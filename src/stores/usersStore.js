@@ -84,6 +84,7 @@ export const useUsersStore = defineStore('users', () => {
     if (router) {
       router.push('/')
     }
+    users.value = null
     currentUser.value = null
     token.value = null
     localStorage.removeItem('token')
