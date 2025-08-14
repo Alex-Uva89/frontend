@@ -5,7 +5,7 @@
       style="width: 400px; max-width: 90vw; border-radius: 20px"
     >
       <q-card-section>
-        <div class="text-h5 text-center text-primary q-mb-md">Bentornato!</div>
+        <div class="text-h5 text-center text-teal q-mb-md">Bentornato!</div>
         <div class="text-subtitle2 text-center text-grey-7 q-mb-lg">
           Inserisci i tuoi dati per accedere
         </div>
@@ -21,7 +21,7 @@
             type="email"
             outlined
             dense
-            color="primary"
+            color="teal"
             :rules="[val => !!val || 'Email richiesta']"
           />
           <q-input
@@ -30,7 +30,7 @@
             label="Password"
             outlined
             dense
-            color="primary"
+            color="teal"
             :rules="[val => !!val || 'Password richiesta']"
           >
             <template v-slot:append>
@@ -46,7 +46,7 @@
           <q-btn
             label="Accedi"
             type="submit"
-            color="primary"
+            color="teal"
             class="full-width q-mt-sm"
             unelevated
             rounded
@@ -84,7 +84,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUsersStore } from 'src/stores/usersStore'
 
@@ -105,9 +105,6 @@ const currentUser = computed(() => usersStore.getUserByEmail(email.value))
 usersStore.fetchUsers()
 
 async function handleLogin() {
-  error.value = null
-  noPermission.value = false
-
   try {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
       method: 'POST',
@@ -117,21 +114,28 @@ async function handleLogin() {
 
     const data = await res.json()
 
-    if (!res.ok) {
-      error.value = data.error || 'Credenziali non valide'
-      return
-    }
+    if (!res.ok) throw new Error(data.error || 'Credenziali non valide')
 
-    // ⬇️ Salva user e token in Pinia
-    usersStore.setUserAndToken(data.user, data.token)
+    // Salva user e token
+    await usersStore.setUserAndToken(data.user, data.token)
 
-    // Redirect alla dashboard in base al ruolo
-    const role = data.user.role
-    router.push(`/dashboard/${role}View`)
+    // Aspetta che lo store sia aggiornato
+    await nextTick()
 
+    // Redirect
+    const role = data.user.role.toLowerCase()
+    const redirectPath = {
+      staff: '/dashboard/staff',
+      manager: '/dashboard/manager',
+      owner: '/dashboard/owner',
+      dev: '/dashboard/dev',
+      hr: '/dashboard/hr',
+      supervisor: '/dashboard/supervisor'
+    }[role] || '/dashboard/main'
+
+    router.push(redirectPath)
   } catch (err) {
-    error.value = 'Errore di rete'
-    console.error(err)
+    error.value = err.message
   }
 }
 

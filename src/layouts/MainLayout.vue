@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated :class="$q.dark.isActive ? 'bg-dark text-white' : 'bg-primary text-white'">
+    <q-header elevated :class="$q.dark.isActive ? 'bg-dark text-white' : 'bg-teal text-white'">
       <q-toolbar>
           <q-toolbar-title>{{ company.name }}</q-toolbar-title>
 

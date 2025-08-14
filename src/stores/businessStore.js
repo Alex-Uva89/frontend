@@ -6,6 +6,7 @@ export const useBusinessStore = defineStore('business', () => {
   const businesses = ref([])
   const isLoading = ref(false)
   const error = ref(null)
+  const currentBusiness = ref([])
 
   // Funzione per fare fetch dei dati
   const fetchBusinesses = async () => {
@@ -27,6 +28,7 @@ export const useBusinessStore = defineStore('business', () => {
 
   return {
     businesses,
+    currentBusiness,
     isLoading,
     error,
     fetchBusinesses

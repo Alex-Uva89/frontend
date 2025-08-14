@@ -14,10 +14,10 @@
           <q-icon v-else name="business" size="xl" />
         </q-avatar>
         <div class="col">
-          <div class="text-h5 text-primary">{{ company.name }}</div>
+          <div class="text-h5 text-teal">{{ company.name }}</div>
           <div class="text-subtitle2 text-secondary q-mb-sm">{{ company.brandName }}</div>
           <div class="text-body2 q-mb-md" style="white-space: pre-line;">{{ company.description }}</div>
-          <q-btn color="primary" label="Modifica Azienda" icon="edit" rounded dense />
+          <q-btn color="teal" label="Modifica Azienda" icon="edit" rounded dense />
         </div>
       </q-card-section>
     </q-card>
@@ -25,7 +25,7 @@
     <!-- Locali dell'owner -->
     <q-card class="q-mb-lg shadow-2 q-ma-lg" v-if="ownerBusinesses.length">
       <q-card-section>
-        <div class="text-h6 q-mb-md text-primary">Locali di tua proprietà</div>
+        <div class="text-h6 q-mb-md text-teal">Locali di tua proprietà</div>
         <q-list bordered padding class="rounded-borders">
           <q-item
             v-for="biz in ownerBusinesses"
@@ -35,7 +35,7 @@
             class="hoverable"
           >
             <q-item-section avatar>
-              <q-icon :name="getIconForType(biz.type)" color="primary" size="36px" />
+              <q-icon :name="getIconForType(biz.type)" color="teal" size="36px" />
             </q-item-section>
             <q-item-section>
               <div class="text-subtitle1">{{ biz.name }}</div>
@@ -54,10 +54,24 @@
       </q-card-section>
     </q-card>
 
+    <q-card class="q-mb-lg shadow-2 q-ma-lg" v-if="ownerBusinesses.length">
+      <q-card-section>
+
+        <OrderTool
+        :business-id="businessStore.currentBusiness._id"
+        :business-name="businessStore.currentBusiness.name"
+        :orders="orderStore.orders"
+        :loading="orderStore.loading"
+        :error-message="orderStore.error"
+        @order-created="handleOrderCreated"
+        />
+      </q-card-section>
+    </q-card>
+
     <!-- Staff per ruolo -->
     <q-card v-if="roles.length" class="q-ma-lg shadow-2">
       <q-card-section>
-        <div class="text-h6 q-mb-md text-primary">Dipendenti</div>
+        <div class="text-h6 q-mb-md text-teal">Dipendenti</div>
 
         <q-expansion-item
           v-for="role in roles"
@@ -112,18 +126,18 @@
     <!-- Statistiche rapide -->
     <q-card class="q-ma-lg shadow-2" >
       <q-card-section>
-        <div class="text-h6 q-mb-md text-primary">Statistiche Rapide</div>
+        <div class="text-h6 q-mb-md text-teal">Statistiche Rapide</div>
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-4">
             <q-card flat bordered class="q-pa-md text-center rounded shadow-4">
-              <q-icon name="business" size="3rem" color="primary" />
+              <q-icon name="business" size="3rem" color="teal" />
               <div class="text-h6 q-mt-sm">{{ ownerBusinesses.length }}</div>
               <div class="text-caption text-grey-7">Locali Totali</div>
             </q-card>
           </div>
           <div class="col-12 col-sm-4">
             <q-card flat bordered class=" q-pa-md text-center rounded shadow-4">
-              <q-icon name="group" size="3rem" color="primary" />
+              <q-icon name="group" size="3rem" color="teal" />
               <div class="text-h6 q-mt-sm">{{ staff.length - 1 }}</div>
               <div class="text-caption text-grey-7">Dipendenti Totali</div>
             </q-card>
@@ -146,33 +160,40 @@
     </q-card>
 
     <q-card class="q-pa-md q-ma-lg">
-      <div class="text-h6 q-mb-md text-primary">Statistiche Vendite Mensili</div>
+      <div class="text-h6 q-mb-md text-teal">Statistiche Vendite Mensili</div>
       <MyChart />
     </q-card>
+
+
 
   </q-page>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useOrderStore } from 'src/stores/orderStore'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
 import { useCompanyStore } from 'src/stores/companyStore'
 import MyChart from 'src/components/MyChart.vue'
+import OrderTool from 'src/components/dashboard/common/tools/OrderTool.vue'
 
 const usersStore = useUsersStore()
 const businessStore = useBusinessStore()
 const companyStore = useCompanyStore()
+const orderStore = useOrderStore()
 
 const company = ref(null)
 const ownerBusinesses = ref([])
 const staff = ref([])
-
-const roles = ref([]) // ruoli dinamici da Sanity
+const roles = ref([])
 
 const user = computed(() => usersStore.currentUser)
-
 const defaultAvatar = 'https://cdn.quasar.dev/img/avatar.png'
+
+function handleOrderCreated(newOrder) {
+  orderStore.orders.push(newOrder)
+}
 
 async function loadData() {
   await Promise.all([
@@ -185,7 +206,6 @@ async function loadData() {
   ownerBusinesses.value = businessStore.businesses
   staff.value = usersStore.users
 
-  // Prendo i ruoli unici dall'elenco staff, escludendo "Owner"
   roles.value = [...new Set(staff.value.map(u => u.role))]
     .filter(role => role.toLowerCase() !== 'owner')
     .sort()
@@ -214,8 +234,20 @@ function goToStaffProfile(id) {
   alert(`Vai al profilo staff ${id}`)
 }
 
-onMounted(() => {
-  if (user.value) loadData()
+// Correzione principale: aggiungere async prima della funzione
+onMounted(async () => {
+  if (user.value) await loadData()
+
+  const currentUser = usersStore.currentUser // Cambiato il nome da user a currentUser per evitare conflitti
+  businessStore.currentBusiness = currentUser.business
+
+  if (!currentUser?.business?._id) {
+    console.error('Business ID non trovato per l\'utente')
+    return
+  }
+
+  orderStore.currentBusinessId = currentUser.business._id
+  await orderStore.fetchOrders()
 })
 </script>
 

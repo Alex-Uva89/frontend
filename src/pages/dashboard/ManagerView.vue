@@ -7,7 +7,7 @@
     >
       <q-card-section>
         <div class="row items-center justify-between q-mb-md">
-          <div class="text-h6 text-primary">Staff sotto la tua supervisione</div>
+          <div class="text-h6 text-teal">Staff sotto la tua supervisione</div>
         </div>
 
         <q-list bordered padding class="rounded-borders">
@@ -47,7 +47,7 @@
     </div>
 
     <q-card class="q-pa-md q-ma-lg">
-      <div class="text-h6 q-mb-md text-primary">Storico Ordini</div>
+      <div class="text-h6 q-mb-md text-teal">Storico Ordini</div>
       <q-table
         :rows="staffActivity"
         :columns="columnsActivity"
@@ -60,7 +60,7 @@
 
     <!-- 3. Statistiche Ordini -->
     <q-card class="q-pa-md q-ma-lg">
-      <div class="text-h6 q-mb-md text-primary">Statistiche Ordini</div>
+      <div class="text-h6 q-mb-md text-teal">Statistiche Ordini</div>
       <!-- <MyChartOrders /> -->
     </q-card>
   </q-page>

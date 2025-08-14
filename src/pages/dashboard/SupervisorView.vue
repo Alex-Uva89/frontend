@@ -15,13 +15,13 @@
               <div class="text-caption">Email: {{ user.email }}</div>
             </div>
             <q-space />
-            <q-btn label="Modifica profilo" flat color="primary" />
+            <q-btn label="Modifica profilo" flat color="teal" />
           </q-card-section>
     </q-card>
 
     <q-card class="q-mb-lg shadow-2" style="max-width: 900px; margin: auto;" v-if="filteredStaff.length">
       <q-card-section>
-        <div class="text-h6 q-mb-md text-primary">Staff e Manager sotto la tua supervisione</div>
+        <div class="text-h6 q-mb-md text-teal">Staff e Manager sotto la tua supervisione</div>
         <q-list bordered padding class="rounded-borders">
           <q-item
             v-for="user in filteredStaff"
@@ -58,7 +58,7 @@
     </q-card>
 
     <q-card class="q-pa-md q-mb-lg" style="max-width: 900px; margin: auto;">
-      <div class="text-h6 q-mb-md text-primary">Statistiche Ordini</div>
+      <div class="text-h6 q-mb-md text-teal">Statistiche Ordini</div>
       <!-- <MyChartOrders /> -->
        Lista ordini
     </q-card>

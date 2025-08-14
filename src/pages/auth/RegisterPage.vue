@@ -46,7 +46,7 @@
     <q-btn
       label="Torna indietro"
       icon="arrow_back"
-      color="primary"
+      color="teal"
       align="right"
       flat
       class="full-width"

@@ -31,7 +31,7 @@
               <q-btn icon="analytics" label="Analizza traffico" flat color="info" />
               <q-btn icon="sync" label="Flush Cache" flat color="warning" />
               <q-btn icon="article" label="Genera Sitemap" flat color="secondary" />
-              <q-btn icon="download" label="Esporta dati" flat color="primary" />
+              <q-btn icon="download" label="Esporta dati" flat color="teal" />
             </div>
           </q-card-section>
         </q-card>
@@ -43,9 +43,9 @@
             <q-tabs
               v-model="selectedRole"
               dense
-              class="text-primary"
-              active-color="primary"
-              indicator-color="primary"
+              class="text-teal"
+              active-color="teal"
+              indicator-color="teal"
             >
               <q-tab v-for="r in roles" :key="r" :name="r" :label="r" />
             </q-tabs>
@@ -71,7 +71,7 @@
                   <q-chip :color="u.isActive ? 'green' : 'grey'" text-color="white" dense>
                     {{ u.isActive ? 'Attivo' : 'Inattivo' }}
                   </q-chip>
-                  <q-btn dense flat icon="edit" color="primary" @click="editUser(u)" />
+                  <q-btn dense flat icon="edit" color="teal" @click="editUser(u)" />
                 </q-item-section>
               </q-item>
               <q-item v-if="usersByRole(selectedRole).length === 0">
