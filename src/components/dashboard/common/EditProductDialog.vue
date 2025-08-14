@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" @hide="cancel">
-    <q-card style="min-width: 400px;">
+    <q-card style="min-width: 90vw;">
       <q-card-section class="text-h6">
         Modifica {{ product.reference.name }}
       </q-card-section>

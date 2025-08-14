@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="modelValue">
-    <q-card style="min-width: 500px">
+    <q-card style="min-width: 90vw">
       <q-card-section class="text-h6">
         Nuovo ordine per oggi
       </q-card-section>

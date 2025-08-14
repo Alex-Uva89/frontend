@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="modelValue">
-    <q-card style="min-width: 600px">
+    <q-card style="min-width: 90vw">
       <q-card-section class="text-h6">
         Nuova referenza
       </q-card-section>

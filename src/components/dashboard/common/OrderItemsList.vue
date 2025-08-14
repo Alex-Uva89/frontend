@@ -82,7 +82,7 @@
     </div>
 
     <q-dialog v-model="addReferenceDialog.visible">
-      <q-card style="min-width: 350px">
+      <q-card style="min-width: 90vw">
         <q-card-section>
           <div class="text-h6">Aggiungi referenza</div>
         </q-card-section>
@@ -120,7 +120,7 @@
     </q-dialog>
 
     <q-dialog v-model="deleteOrderDialog.visible">
-      <q-card style="min-width: 350px">
+      <q-card style="min-width: 90vw">
         <q-card-section>
           <div class="text-h6">Conferma eliminazione ordine</div>
           <div class="q-mt-sm">
