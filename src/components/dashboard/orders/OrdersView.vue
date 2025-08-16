@@ -1,0 +1,208 @@
+<template>
+  <div class="q-mt-lg">
+    <WeekTabs v-model="selectedDate" />
+
+    <!-- TOTALE GENERALE -->
+    <div class="text-h6 text-weight-bold q-pa-md bg-grey-2">
+      Totale generale: {{ calculateGlobalTotal(filteredItems).toFixed(2) }} €
+    </div>
+
+    <!-- MESSAGGIO SE NON CI SONO ORDINI -->
+    <div v-if="filteredItems.length === 0" class="text-center q-pa-xl">
+      <q-icon name="sentiment_dissatisfied" size="xl" color="grey" class="q-mb-md"/>
+      <div class="text-h5 text-grey-8 q-mb-xs">Nessun ordine trovato</div>
+      <div class="text-grey-6">Non ci sono ordini per la data selezionata</div>
+    </div>
+
+    <!-- LISTA ORDINI FILTRATI -->
+    <template v-else>
+      <!-- Raggruppa gli ordini per locale -->
+      <template v-for="(orders, businessName) in groupByBusiness(filteredItems)" :key="businessName">
+        <q-expansion-item
+          group="orders"
+          :label="businessName"
+          :caption="`${orders.length} ordine/i - Totale: ${calculateBusinessTotal(orders).toFixed(2)} €`"
+          header-class="text-h6 bg-blue-1"
+          expand-icon-class="text-primary"
+          class="q-mb-md"
+        >
+          <template v-for="(order) in orders" :key="order._id">
+            <q-card flat bordered class="q-mb-md" v-if="order.items && order.items.length > 0">
+              <!-- INTESTAZIONE ORDINE -->
+              <q-card-section class="row justify-between items-center">
+                <div class="text-caption text-grey-7">
+                  {{ formatOrderDate(order.orderDate) }}
+                </div>
+                <div class="text-caption text-grey-7" v-if="order.addedBy">
+                  Inserito da: {{ order.addedBy.name || 'Utente sconosciuto' }}
+                </div>
+              </q-card-section>
+
+              <!-- LISTA FORNITORI -->
+              <template v-for="(categories, supplierName) in groupBySupplierAndCategory(order.items)" :key="supplierName">
+                <q-card-section>
+                  <q-toolbar class="bg-teal-1">
+                    <q-toolbar-title>
+                      <q-icon name="local_shipping" color="blue" class="q-mr-sm"/>
+                      {{ supplierName }}
+                    </q-toolbar-title>
+                    <div class="text-subtitle2">
+                      Totale: {{ calculateSupplierTotal(categories).toFixed(2) }} €
+                    </div>
+                  </q-toolbar>
+
+                  <!-- LISTA CATEGORIE -->
+                  <template v-for="(products, categoryName) in categories" :key="categoryName">
+                    <div class="q-ml-sm q-mt-md">
+                      <div class="text-subtitle1 text-weight-medium q-mb-sm">
+                        <q-icon name="category" color="green" class="q-mr-sm"/>
+                        {{ categoryName }}
+                      </div>
+
+                      <!-- LISTA PRODOTTI -->
+                      <div v-for="product in products" :key="product._key" class="q-pa-sm row items-center">
+                        <div class="col-6">
+                          {{ product.reference?.name || 'Referenza sconosciuta' }}
+                          <div v-if="product.notes" class="text-caption text-grey-7">
+                            {{ product.notes }}
+                          </div>
+                        </div>
+                        <div class="col-3 text-right">
+                          {{ product.quantity }} x {{ product.reference?.unit || 'pz' }}
+                        </div>
+                        <div class="col-3 text-right text-weight-bold">
+                          {{ (product.quantity * (product.reference?.price || 0)).toFixed(2) }} €
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </q-card-section>
+                <q-separator size="5px" color="teal-4"/>
+              </template>
+
+              <!-- TOTALE ORDINE -->
+              <q-card-section class="bg-grey-2 text-right">
+                <div class="text-subtitle1 text-weight-bold">
+                  Totale ordine: {{ calculateOrderTotal(order.items).toFixed(2) }} €
+                </div>
+              </q-card-section>
+            </q-card>
+          </template>
+        </q-expansion-item>
+      </template>
+    </template>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import WeekTabs from 'src/components/WeekTabs.vue'
+import { useOrderStore } from 'stores/orderStore'
+
+const orderStore = useOrderStore()
+const selectedDate = ref(new Date().toISOString().split('T')[0])
+
+onMounted(async () => {
+  await orderStore.fetchAllOrder()
+})
+
+const filteredItems = computed(() => {
+  return orderStore.orders.filter(order => {
+    try {
+      if (!order.orderDate) return false
+
+      const dateObj = new Date(order.orderDate)
+      if (isNaN(dateObj.getTime())) return false
+
+      const orderDate = dateObj.toISOString().split('T')[0]
+      return orderDate === selectedDate.value
+    } catch (e) {
+      console.error('Invalid date format:', order.orderDate, e)
+      return false
+    }
+  })
+})
+
+function groupByBusiness(orders) {
+  const grouped = {}
+  orders.forEach(order => {
+    const businessName = order.business?.name || 'Locale sconosciuto'
+    if (!grouped[businessName]) {
+      grouped[businessName] = []
+    }
+    grouped[businessName].push(order)
+  })
+  return grouped
+}
+
+function groupBySupplierAndCategory(products) {
+  const grouped = {}
+  products.forEach(product => {
+    const supplierName = product.reference?.suppliers?.[0]?.name || 'Senza fornitore'
+    const categoryName = product.reference?.category?.name || 'Senza categoria'
+
+    if (!grouped[supplierName]) {
+      grouped[supplierName] = {}
+    }
+    if (!grouped[supplierName][categoryName]) {
+      grouped[supplierName][categoryName] = []
+    }
+    grouped[supplierName][categoryName].push(product)
+  })
+  return grouped
+}
+
+function formatOrderDate(dateString) {
+  if (!dateString) return ''
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
+  return new Date(dateString).toLocaleDateString('it-IT', options)
+}
+
+// Calcola il totale di un singolo prodotto
+function calculateProductTotal(product) {
+  return (product.quantity * (product.reference?.price || 0))
+}
+
+// Calcola il totale di un ordine
+function calculateOrderTotal(items) {
+  return items.reduce((total, product) => total + calculateProductTotal(product), 0)
+}
+
+// Calcola il totale di un fornitore
+function calculateSupplierTotal(categories) {
+  let total = 0
+  for (const category in categories) {
+    total += categories[category].reduce((sum, product) => sum + calculateProductTotal(product), 0)
+  }
+  return total
+}
+
+// Calcola il totale per un locale (business)
+function calculateBusinessTotal(orders) {
+  return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
+}
+
+// Calcola il totale globale
+function calculateGlobalTotal(orders) {
+  return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
+}
+</script>
+
+<style scoped>
+.q-expansion-item {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.q-expansion-item__container {
+  border: 1px solid rgba(0,0,0,0.12);
+  border-top: none;
+}
+
+.q-card {
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+}
+</style>

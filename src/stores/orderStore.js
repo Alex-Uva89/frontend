@@ -35,6 +35,20 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
+  const fetchAllOrder = async () => {
+    try {
+      const response = await api.get(`${import.meta.env.VITE_API_URL}/orders`)
+      orders.value = response.data
+      return response.data
+    } catch (err) {
+      error.value = 'Errore nel caricamento degli ordini'
+      console.error(err)
+      return []
+    } finally {
+      loading.value = false
+    }
+  }
+
   const createOrder = async (businessId, items, notes = '') => {
     loading.value = true
     error.value = null
@@ -158,6 +172,7 @@ const deleteOrder = async (orderId) => {
     error,
     currentBusinessId,
     fetchOrders,
+    fetchAllOrder,
     createOrder,
     deleteOrderItem,
     updateOrderItem,
