@@ -1,5 +1,5 @@
 <template>
-  <q-card class="q-ma-lg shadow-2">
+  <q-card class="q-my-lg shadow-2">
     <q-card-section>
       <div class="text-h6 q-mb-md text-teal">Dipendenti</div>
       <q-expansion-item

@@ -1,5 +1,5 @@
 <template>
-  <div :class="appSettingStore.layoutSpace">
+  <div class="q-mx-lg">
     <q-tabs
       v-model="currentTab"
       align="left"
@@ -32,7 +32,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useAppSettingStore } from 'src/stores/appSettingStore'
 import CompanyInfo from './tools/CompanyInfo.vue'
 import OwnerBusinesses from './tools/OwnerBusiness.vue'
 import StaffList from './tools/StaffList.vue'
@@ -40,7 +39,6 @@ import OrdersView from '../orders/OrdersView.vue'
 import StatisticsSection from './tools/StatisticsSection.vue'
 
 const currentTab = ref('company')
-const appSettingStore = useAppSettingStore()
 
 const tabs = [
   {

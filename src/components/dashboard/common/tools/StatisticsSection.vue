@@ -1,6 +1,6 @@
 <template>
   <div>
-    <q-card class="q-ma-lg shadow-2">
+    <q-card class="q-my-lg shadow-2">
       <q-card-section>
         <div class="text-h6 q-mb-md text-teal">Statistiche Rapide</div>
         <div class="row q-col-gutter-md">

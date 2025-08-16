@@ -1,5 +1,5 @@
 <template>
-  <q-card class="shadow-3 q-ma-lg">
+  <q-card class="shadow-3 q-my-lg">
     <q-card-section class="row items-center q-gutter-md">
       <q-avatar size="140px" class="overflow-hidden shadow-2" rounded>
         <img

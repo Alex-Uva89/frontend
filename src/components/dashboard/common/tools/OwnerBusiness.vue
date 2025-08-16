@@ -1,5 +1,5 @@
 <template>
-  <q-card class="q-mb-lg shadow-2 q-ma-lg" v-if="businesses.length">
+  <q-card class="shadow-2 q-my-lg" v-if="businesses.length">
     <q-card-section>
       <div class="text-h6 q-mb-md text-teal">Locali di tua proprietà</div>
       <q-list bordered padding class="rounded-borders">
