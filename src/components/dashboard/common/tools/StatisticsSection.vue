@@ -1,71 +1,82 @@
 <template>
   <div>
-    <q-card class="q-my-lg shadow-2">
+    <!-- Statistiche Rapide -->
+    <q-card class="shadow-2 q-mb-md">
+      <q-card-section class="bg-teal-1">
+        <div class="text-h6 text-teal-8">
+          Statistiche Rapide
+        </div>
+      </q-card-section>
+
+      <q-separator />
+
       <q-card-section>
-        <div class="text-h6 q-mb-md text-teal">Statistiche Rapide</div>
         <div class="row q-col-gutter-md">
-          <div class="col-12 col-sm-4">
-            <q-card flat bordered class="q-pa-md text-center rounded shadow-4">
-              <q-icon name="business" size="3rem" color="teal" />
-              <div class="text-h6 q-mt-sm">{{ ownerBusinesses.length }}</div>
-              <div class="text-caption text-grey-7">Locali Totali</div>
-            </q-card>
-          </div>
-          <div class="col-12 col-sm-4">
-            <q-card flat bordered class=" q-pa-md text-center rounded shadow-4">
-              <q-icon name="group" size="3rem" color="teal" />
-              <div class="text-h6 q-mt-sm">{{ staff.length - 1 }}</div>
-              <div class="text-caption text-grey-7">Dipendenti Totali</div>
-            </q-card>
-          </div>
-          <div class="col-12 col-sm-4">
-            <q-card flat bordered class="q-pa-md text-center rounded shadow-4">
-              <q-icon
-                :name="company && company.isOpen ? 'check_circle' : 'cancel'"
-                size="3rem"
-                :color="company && company.isOpen ? 'green' : 'red'"
-              />
-              <div class="text-h6 q-mt-sm">
-                {{ company && company.isOpen ? 'Azienda registrata' : 'Azienda non registrata' }}
-              </div>
-              <div class="text-caption text-grey-7">Stato azienda</div>
+          <div
+            v-for="stat in quickStats"
+            :key="stat.title"
+            class="col-6 col-sm-4"
+          >
+            <q-card bordered flat class="text-center q-pa-sm">
+              <q-icon :name="stat.icon" size="md" :color="stat.color" />
+              <div class="text-h6 q-mt-xs">{{ stat.value }}</div>
+              <div class="text-caption text-grey-7">{{ stat.title }}</div>
             </q-card>
           </div>
         </div>
       </q-card-section>
     </q-card>
 
-    <q-card class="q-pa-md q-ma-lg">
-      <div class="text-h6 q-mb-md text-teal">Statistiche Vendite Mensili</div>
-      <MyChart />
+    <!-- Grafico -->
+    <q-card class="shadow-2">
+      <q-card-section class="bg-teal-1">
+        <div class="text-h6 text-teal-8">
+          Andamento Mensile
+        </div>
+      </q-card-section>
+
+      <q-separator />
+
+      <q-card-section>
+        <MyChart />
+      </q-card-section>
     </q-card>
   </div>
 </template>
 
 <script setup>
+import MyChart from 'src/components/MyChart.vue'
 import { useBusinessStore } from 'src/stores/businessStore'
 import { useUsersStore } from 'src/stores/usersStore'
-import { useCompanyStore } from 'src/stores/companyStore'
-import MyChart from 'src/components/MyChart.vue'
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
 
 const businessStore = useBusinessStore()
 const usersStore = useUsersStore()
-const companyStore = useCompanyStore()
 
-const ownerBusinesses = ref([])
-const staff = ref([])
-const company = ref(null)
-
-onMounted(async () => {
-  await Promise.all([
-    businessStore.fetchBusinesses(),
-    usersStore.fetchUsers(),
-    companyStore.fetchCompany()
-  ])
-
-  ownerBusinesses.value = businessStore.businesses
-  staff.value = usersStore.users
-  company.value = companyStore.company
-})
+const quickStats = computed(() => [
+  {
+    title: 'Locali',
+    icon: 'store',
+    value: businessStore.businesses.length,
+    color: 'teal'
+  },
+  {
+    title: 'Dipendenti',
+    icon: 'groups',
+    value: usersStore.users.length - 1, // Esclude owner
+    color: 'blue'
+  },
+  {
+    title: 'Ordini Oggi',
+    icon: 'receipt',
+    value: '24', // Sostituire con dati reali
+    color: 'green'
+  },
+  {
+    title: 'Fatturato',
+    icon: 'euro',
+    value: '1.245€', // Sostituire con dati reali
+    color: 'orange'
+  }
+])
 </script>

@@ -1,60 +1,87 @@
 <template>
-  <q-card class="shadow-2 q-my-lg" v-if="businesses.length">
-    <q-card-section>
-      <div class="text-h6 q-mb-md text-teal">Locali di tua proprietà</div>
-      <q-list bordered padding class="rounded-borders">
-        <q-item
-          v-for="biz in businesses"
-          :key="biz._id"
-          clickable
-          @click="goToBusiness(biz._id)"
-          class="hoverable"
-        >
-          <q-item-section avatar>
-            <q-icon :name="getIconForType(biz.type)" color="teal" size="36px" />
-          </q-item-section>
-          <q-item-section>
-            <div class="text-subtitle1">{{ biz.name }}</div>
-            <div class="text-caption text-grey-6">{{ biz.type }}</div>
-            <div class="text-caption q-mt-xs">Email: {{ biz.email }}</div>
-          </q-item-section>
-          <q-item-section side class="text-right">
-            <q-badge
-              :label="biz.isOpen ? 'Attivo' : 'Inattivo'"
-              :color="biz.isOpen ? 'green' : 'grey-5'"
-              align="top"
-            />
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-card-section>
-  </q-card>
+  <div>
+    <q-card class="shadow-2 q-mb-md">
+      <q-card-section class="bg-teal-1">
+        <div class="text-h6 text-teal-8">
+          I Tuoi Locali
+        </div>
+        <div class="text-caption text-grey-7">
+          {{ businesses.length }} locali registrati
+        </div>
+      </q-card-section>
+
+      <q-separator />
+
+      <q-card-section class="q-pa-none">
+        <q-list bordered separator>
+          <q-item
+            v-for="biz in businesses"
+            :key="biz._id"
+            clickable
+            v-ripple
+            class="q-py-sm"
+          >
+            <q-item-section avatar>
+              <q-icon
+                :name="getIconForType(biz.type)"
+                color="teal"
+                size="md"
+              />
+            </q-item-section>
+
+            <q-item-section>
+              <q-item-label class="text-weight-medium">
+                {{ biz.name }}
+              </q-item-label>
+              <q-item-label caption>
+                {{ biz.type }} • {{ biz.address?.city || 'Nessuna città' }}
+              </q-item-label>
+            </q-item-section>
+
+            <q-item-section side>
+              <q-badge
+                :color="biz.isOpen ? 'green' : 'grey-5'"
+                :label="biz.isOpen ? 'APERTO' : 'CHIUSO'"
+              />
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn
+          color="teal"
+          icon="add"
+          label="Aggiungi Locale"
+          rounded
+          dense
+          size="sm"
+        />
+      </q-card-actions>
+    </q-card>
+  </div>
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { useBusinessStore } from 'src/stores/businessStore'
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
-const router = useRouter()
 const businessStore = useBusinessStore()
-const businesses = ref([])
-
-function getIconForType(type) {
-  switch (type?.toLowerCase()) {
-    case 'restaurant': return 'restaurant'
-    case 'bar': return 'local_bar'
-    case 'cafe': return 'coffee'
-    default: return 'store'
-  }
-}
-
-function goToBusiness(businessId) {
-  router.push({ name: 'BusinessDetail', params: { id: businessId } })
-}
+const { businesses } = storeToRefs(businessStore)
 
 onMounted(async () => {
   await businessStore.fetchBusinesses()
-  businesses.value = businessStore.businesses
 })
+
+function getIconForType(type) {
+  const types = {
+    restaurant: 'restaurant',
+    bar: 'local_bar',
+    cafe: 'coffee',
+    shop: 'store',
+    hotel: 'hotel'
+  }
+  return types[type?.toLowerCase()] || 'store'
+}
 </script>

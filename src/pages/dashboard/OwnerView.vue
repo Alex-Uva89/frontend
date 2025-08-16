@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pt-md">
+  <q-page class="q-mx-lg">
     <!-- Navbar a schede per la navigazione -->
     <NavbarPages />
   </q-page>

@@ -1,20 +1,52 @@
 <template>
-  <q-card class="shadow-3 q-my-lg">
-    <q-card-section class="row items-center q-gutter-md">
-      <q-avatar size="140px" class="overflow-hidden shadow-2" rounded>
-        <img
-          v-if="company.logo?.asset?.url"
-          :src="company.logo.asset.url"
-          alt="Logo azienda"
-          style="object-fit: contain; width: 100%; height: 100%;"
-        />
+  <q-card class="shadow-2">
+    <q-card-section class="row items-center q-gutter-sm">
+      <q-avatar
+        size="80px"
+        class="lt-md"
+        rounded
+      >
+        <img v-if="company.logo" :src="company.logo.asset.url">
         <q-icon v-else name="business" size="xl" />
       </q-avatar>
+
+      <q-avatar
+        size="120px"
+        class="gt-sm"
+        rounded
+      >
+        <img v-if="company.logo" :src="company.logo.asset.url">
+        <q-icon v-else name="business" size="xl" />
+      </q-avatar>
+
       <div class="col">
-        <div class="text-h5 text-teal">{{ company.name }}</div>
-        <div class="text-subtitle2 text-secondary q-mb-sm">{{ company.brandName }}</div>
-        <div class="text-body2 q-mb-md" style="white-space: pre-line;">{{ company.description }}</div>
-        <q-btn color="teal" label="Modifica Azienda" icon="edit" rounded dense />
+        <div class="text-h6 text-weight-bold text-teal-8">
+          {{ company.name }}
+        </div>
+        <div class="text-caption text-grey-8 q-mt-xs">
+          {{ company.brandName }}
+        </div>
+
+        <q-btn
+          color="teal"
+          icon="edit"
+          label="Modifica"
+          rounded
+          dense
+          class="q-mt-sm"
+          size="sm"
+        />
+      </div>
+    </q-card-section>
+
+    <q-separator />
+
+    <q-card-section class="q-pt-none">
+      <div class="text-caption text-grey-8">
+        Informazioni Azienda
+      </div>
+      <div class="text-body2 q-mt-sm" style="white-space: pre-line;">
+        {{ company.description || 'Nessuna descrizione inserita' }}
       </div>
     </q-card-section>
   </q-card>
@@ -22,13 +54,14 @@
 
 <script setup>
 import { useCompanyStore } from 'src/stores/companyStore'
-import { ref, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 
 const companyStore = useCompanyStore()
-const company = ref({})
-
-onMounted(async () => {
-  await companyStore.fetchCompany()
-  company.value = companyStore.company
-})
+const { company } = storeToRefs(companyStore)
 </script>
+
+<style scoped>
+.q-card {
+  border-radius: 12px;
+}
+</style>
