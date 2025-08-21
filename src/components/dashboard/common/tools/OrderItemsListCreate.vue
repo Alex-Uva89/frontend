@@ -131,7 +131,7 @@
 
     <!-- Dialog: Aggiungi referenza -->
     <q-dialog v-model="addReferenceDialog.visible">
-      <q-card style="min-width: 90vw; max-width: 1100px">
+      <q-card style="width: 90vw;">
         <q-card-section>
           <div class="text-h6">Aggiungi referenza</div>
         </q-card-section>
