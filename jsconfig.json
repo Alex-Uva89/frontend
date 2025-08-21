@@ -1,3 +1,11 @@
 {
-  "extends": "./.quasar/tsconfig.json"
+  "extends": "./.quasar/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@common/*": ["src/components/dashboard/common/*"],
+      "@tool/*": ["src/components/dashboard/common/tools/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".quasar"]
 }

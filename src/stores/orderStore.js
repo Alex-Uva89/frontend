@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from 'boot/axios'
+import { Notify } from 'quasar'
 
 export const useOrderStore = defineStore('orderStore', () => {
   // State
@@ -25,6 +26,7 @@ export const useOrderStore = defineStore('orderStore', () => {
         params: { businessId: currentBusinessId.value }
       })
       orders.value = response.data
+      console.log('ORDERS', orders.value)
       return response.data
     } catch (err) {
       error.value = 'Errore nel caricamento degli ordini'
@@ -36,9 +38,11 @@ export const useOrderStore = defineStore('orderStore', () => {
   }
 
   const fetchAllOrder = async () => {
+    loading.value = true
     try {
       const response = await api.get(`${import.meta.env.VITE_API_URL}/orders`)
       orders.value = response.data
+      console.log('ORDERS', orders.value)
       return response.data
     } catch (err) {
       error.value = 'Errore nel caricamento degli ordini'
@@ -163,6 +167,79 @@ const deleteOrder = async (orderId) => {
   }
 }
 
+const lockOrder = async (orderId, { sendEmail = false, to, finalize } = {}) => {
+  try {
+    const payload = { sendEmail, to }
+    if (typeof finalize !== 'undefined') payload.finalize = finalize
+
+    const { data } = await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, payload)
+
+    // Aggiorna lo stato locale subito (SSE aggiornerà comunque)
+    const idx = orders.value.findIndex(o => o._id === orderId)
+    if (idx !== -1) {
+      orders.value[idx] = {
+        ...orders.value[idx],
+        locked: true,
+        lockedAt: new Date().toISOString(),
+        ...(sendEmail ? { emailSent: true, emailSentAt: new Date().toISOString(), status: 'completed' } : {})
+      }
+    }
+
+    if (data?.alreadyLocked) {
+      Notify.create({ type: 'info', message: 'Ordine già chiuso' })
+    } else {
+      Notify.create({ type: 'positive', message: sendEmail ? 'Ordine chiuso e email inviata' : 'Ordine chiuso' })
+    }
+    return true
+  } catch (err) {
+    const msg = err?.response?.data?.error || err.message || 'Errore blocco ordine'
+    Notify.create({ type: 'negative', message: msg })
+    return false
+  }
+}
+
+
+const unlockOrder = async (orderId) => {
+  try {
+    // blocco lato client: non riaprire se già inviato
+    const idx = orders.value.findIndex(o => o._id === orderId)
+    const ord = idx !== -1 ? orders.value[idx] : null
+    if (ord?.emailSent) {
+      Notify.create({ type: 'warning', message: 'Ordine già inviato: non può essere riaperto' })
+      return false
+    }
+
+    // tenta endpoint dedicato
+    try {
+      await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/unlock`)
+    } catch (err) {
+      const status = err?.response?.status
+      // fallback su /lock con flag unlock
+      if (status === 404 || status === 405) {
+        await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, { unlock: true })
+      } else {
+        throw err
+      }
+    }
+
+    // aggiornamento ottimistico locale
+    if (idx !== -1) {
+      orders.value[idx] = {
+        ...orders.value[idx],
+        locked: false,
+        lockedAt: null
+      }
+    }
+
+    Notify.create({ type: 'positive', message: 'Ordine riaperto' })
+    return true
+  } catch (err) {
+    const msg = err?.response?.data?.error || err.message || 'Errore riapertura ordine'
+    Notify.create({ type: 'negative', message: msg })
+    return false
+  }
+}
+
 
 
 
@@ -176,6 +253,8 @@ const deleteOrder = async (orderId) => {
     createOrder,
     deleteOrderItem,
     updateOrderItem,
-    deleteOrder
+    deleteOrder,
+    lockOrder,
+    unlockOrder
   }
 })

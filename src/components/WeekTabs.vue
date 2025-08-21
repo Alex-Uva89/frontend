@@ -1,5 +1,5 @@
 <template>
-  <q-toolbar class="bg-grey-2 q-pa-xs">
+  <q-toolbar class="q-pa-xs" :class="toolbarClass">
     <!-- Mobile: Solo icona freccia -->
     <q-btn
       flat round dense
@@ -7,7 +7,7 @@
       @click="moveCenter(-1)"
       :disable="isFirstDate"
       class="lt-sm"
-    />
+      />
 
     <!-- Desktop: Icona + testo -->
     <q-btn
@@ -16,9 +16,9 @@
       @click="moveCenter(-1)"
       :disable="isFirstDate"
       class="gt-xs"
-    />
+      />
 
-    <div class="row items-center justify-center q-mx-sm" style="flex: 1; min-width: 0;">
+      <div class="row items-center justify-center q-mx-sm" style="flex: 1; min-width: 0;">
       <div
         ref="tabsContainer"
         class="row no-wrap scroll-x-hidden"
@@ -76,6 +76,8 @@ import { useQuasar } from 'quasar'
 
 const $q = useQuasar()
 const isMobile = computed(() => $q.screen.lt.sm)
+
+const toolbarClass = computed(() => $q.dark.isActive ? 'bg-grey-9' : 'bg-grey-2')
 
 defineProps({
   modelValue: {

@@ -40,8 +40,8 @@ export default defineRouter(function (/* { store, ssrContext } */) {
 
   // Se la route richiede autenticazione
   if (to.matched.some(record => record.meta.requiresAuth)) {
-    // Controlla se il token esiste nel localStorage
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token')
+
 
     if (!token) {
       next('/')

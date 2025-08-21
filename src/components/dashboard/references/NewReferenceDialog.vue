@@ -1,183 +1,269 @@
 <template>
-  <q-dialog v-model="modelValue">
-    <q-card style="min-width: 90vw">
+  <q-dialog v-model="modelValue" persistent>
+    <q-card style="min-width: 720px; max-width: 90vw">
       <q-card-section class="text-h6">
         Nuova referenza
       </q-card-section>
 
       <q-card-section>
-        <!-- Nome -->
-        <q-input
-          v-model="name"
-          label="Nome"
-          class="q-mb-md"
-          outlined
-        />
-
-        <!-- Categoria -->
-        <div class="row items-center q-mb-md">
-          <div class="col">
-            <q-select
-              v-model="selectedCategory"
-              :options="categoryStore.categories"
-              option-label="name"
-              option-value="_id"
-              label="Categoria merceologica"
-              emit-value
-              map-options
-              outlined
-            />
-          </div>
-          <q-btn
-            flat
-            round
-            color="primary"
-            icon="add"
-            @click="showCategoryDialog = true"
-            class="q-ml-sm"
+        <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md">
+          <!-- Nome (obbligatorio) -->
+          <q-input
+            v-model="name"
+            label="Nome *"
+            outlined
+            autofocus
+            :rules="[v => !!(v && v.trim()) || 'Il nome è obbligatorio']"
+            lazy-rules
           />
-        </div>
 
-        <!-- Unità di misura -->
-        <div class="row items-center q-mb-md">
-          <div class="col">
-            <q-select
-              v-model="unit"
-              :options="unitOptions"
-              label="Unità di misura disponibili"
-              multiple
-              use-chips
-              outlined
-            />
+          <!-- Categoria -->
+          <div class="row items-cente">
+            <div class="col">
+              <q-select
+                v-model="selectedCategory"
+                :options="categoryStore.categories"
+                option-label="name"
+                option-value="_id"
+                label="Categoria merceologica"
+                emit-value
+                map-options
+                outlined
+                :loading="categoryStore.loading"
+                clearable
+              />
+            </div>
+            <q-btn
+              flat
+              round
+              color="primary"
+              icon="add"
+              @click="showCategoryDialog = true"
+              aria-label="Nuova categoria"
+            >
+              <q-tooltip anchor="top middle" self="bottom middle">
+                Aggiungi nuova categoria
+              </q-tooltip>
+            </q-btn>
           </div>
-          <q-btn
-            flat
-            round
-            color="primary"
-            icon="add"
-            @click="showUnitDialog = true"
-            class="q-ml-sm"
+
+          <!-- Unità di misura (multiple) -->
+          <q-select
+            v-model="units"
+            :options="unitOptions"
+            option-label="label"
+            option-value="value"
+            emit-value
+            map-options
+            multiple
+            use-chips
+            outlined
+            label="Unità di misura disponibili"
+            hint="Seleziona una o più unità (es. kg, l, pz)"
           />
-        </div>
 
-        <!-- Volume -->
-        <q-input
-          v-model.number="volume"
-          type="number"
-          label="Volume (es. 0.75L)"
-          outlined
-          class="q-mb-md"
-        />
-
-        <!-- Fornitori -->
-        <div class="row items-center q-mb-md">
-          <div class="col">
-            <q-select
-              v-model="selectedSuppliers"
-              :options="supplierStore.suppliers"
-              option-label="name"
-              option-value="_id"
-              label="Fornitori associati"
-              multiple
-              emit-value
-              map-options
-              outlined
-            />
+          <!-- Fornitore (singolo) -->
+          <div class="row items-center">
+            <div class="col">
+              <q-select
+                v-model="selectedSupplier"
+                :options="supplierStore.suppliers"
+                option-label="name"
+                option-value="_id"
+                label="Fornitore"
+                emit-value
+                map-options
+                outlined
+                clearable
+              />
+            </div>
+            <q-btn
+              flat
+              round
+              color="primary"
+              icon="add"
+              @click="showSupplierDialog = true"
+              aria-label="Nuovo fornitore"
+            >
+              <q-tooltip anchor="top middle" self="bottom middle">
+                Aggiungi nuovo fornitore
+              </q-tooltip>
+            </q-btn>
           </div>
-          <q-btn
-            flat
-            round
-            color="primary"
-            icon="add"
-            @click="showSupplierDialog = true"
-            class="q-ml-sm"
+
+          <!-- Prezzo medio (opzionale) -->
+          <q-input
+            v-model.number="price"
+            type="number"
+            outlined
+            label="Prezzo medio (opzionale)"
+            :min="0"
           />
-        </div>
 
-        <!-- Prezzo -->
-        <q-input
-          v-model.number="price"
-          type="number"
-          label="Prezzo medio (opzionale)"
-          outlined
-          class="q-mb-md"
-        />
-
-        <!-- Note -->
-        <q-input
-          v-model="notes"
-          type="textarea"
-          label="Note"
-          outlined
-          class="q-mt-md"
-        />
+          <!-- Note -->
+          <q-input
+            v-model="notes"
+            type="textarea"
+            outlined
+            label="Note"
+            autogrow
+          />
+        </q-form>
       </q-card-section>
 
+      <q-separator />
+
       <q-card-actions align="right">
-        <q-btn flat label="Annulla" v-close-popup />
-        <q-btn color="primary" label="Salva" @click="createReference" />
+        <q-btn flat label="Annulla" :disable="saving" v-close-popup />
+        <q-btn color="primary" label="Salva" :loading="saving" :disable="saving" @click="submit" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 
-  <!-- Dialogs -->
-  <new-category-dialog v-model="showCategoryDialog" />
-  <new-unit-dialog v-model="showUnitDialog" />
-  <new-supplier-dialog v-model="showSupplierDialog" />
+  <!-- Dialogs secondari -->
+  <new-category-dialog
+    v-model="showCategoryDialog"
+    @created="handleCategoryCreated"
+  />
+  <new-supplier-dialog
+    v-model="showSupplierDialog"
+    @created="handleSupplierCreated"
+  />
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch, nextTick, onMounted } from 'vue'
 import { useCategoryStore } from 'src/stores/categoryStore'
 import { useSupplierStore } from 'src/stores/supplierStore'
 import NewCategoryDialog from '../categories/NewCategoryDialog.vue'
-import NewUnitDialog from '../units/NewUnitDialog.vue'
 import NewSupplierDialog from '../suppliers/NewSupplierDialog.vue'
 
-const props = defineProps({
-  modelValue: Boolean
-})
-const emit = defineEmits(['update:modelValue', 'reference-created'])
+/* Props & emits */
+const props = defineProps({ modelValue: Boolean })
+const emit = defineEmits(['update:modelValue', 'created'])
 
+/* v-model locale del dialog */
 const modelValue = ref(props.modelValue)
-watch(() => props.modelValue, val => modelValue.value = val)
-watch(modelValue, val => emit('update:modelValue', val))
+watch(() => props.modelValue, (v) => {
+  modelValue.value = v
+  if (v) nextTick(resetForm)
+})
+watch(modelValue, (v) => emit('update:modelValue', v))
 
+/* Store */
 const categoryStore = useCategoryStore()
 const supplierStore = useSupplierStore()
 
-// Stati dialog secondarie
+/* Stati dialog secondari */
 const showCategoryDialog = ref(false)
-const showUnitDialog = ref(false)
 const showSupplierDialog = ref(false)
 
-// Campi referenza
+/* Form state */
+const formRef = ref(null)
+const saving = ref(false)
+
 const name = ref('')
-const selectedCategory = ref(null)
-const unit = ref([])
-const unitOptions = ['bottiglia', 'cartone', 'litro', 'pezzo']
-const volume = ref(null)
-const selectedSuppliers = ref([])
+const selectedCategory = ref(null)     // _id string
+const units = ref([])                  // array di sigle (es. ['kg','l'])
+const selectedSupplier = ref(null)     // _id string
 const price = ref(null)
 const notes = ref('')
 
+/* Opzioni unità: { label, value } -> v-model (units) contiene solo le sigle */
+const unitOptions = [
+  // Peso
+  { label: 'mg (milligrammo)', value: 'mg' },
+  { label: 'g (grammo)', value: 'g' },
+  { label: 'hg (etto)', value: 'hg' },
+  { label: 'kg (chilogrammo)', value: 'kg' },
+  { label: 'q (quintale)', value: 'q' },
+  { label: 't (tonnellata)', value: 't' },
+  // Volume
+  { label: 'ml (millilitro)', value: 'ml' },
+  { label: 'cl (centilitro)', value: 'cl' },
+  { label: 'dl (decilitro)', value: 'dl' },
+  { label: 'l (litro)', value: 'l' },
+  { label: 'hl (ettolitro)', value: 'hl' },
+  { label: 'm³ (metro cubo)', value: 'm³' },
+  // Quantità / conteggio
+  { label: 'pz (pezzo)', value: 'pz' },
+  { label: 'cf (confezione)', value: 'cf' },
+  { label: 'scat (scatola)', value: 'scat' },
+  { label: 'ct (cartone)', value: 'ct' },
+  { label: 'colli (collo)', value: 'colli' },
+  { label: 'pallet (pallet)', value: 'pallet' },
+  { label: 'bancale (bancale)', value: 'bancale' },
+  { label: 'rotolo (rotolo)', value: 'rotolo' },
+  { label: 'fusto (fusto)', value: 'fusto' },
+  // Alimentare / agricolo
+  { label: 'bottiglia (bottiglia)', value: 'bottiglia' },
+  { label: 'lattina (lattina)', value: 'lattina' },
+  { label: 'barattolo (barattolo)', value: 'barattolo' },
+  { label: 'flacone (flacone)', value: 'flacone' },
+  { label: 'tanica (tanica)', value: 'tanica' },
+  { label: 'sacco (sacco)', value: 'sacco' },
+  { label: 'cassa (cassa)', value: 'cassa' },
+  { label: 'latta (latta)', value: 'latta' }
+]
+
+/* Lifecycle */
 onMounted(() => {
   categoryStore.fetchCategories()
   supplierStore.fetchSuppliers()
 })
 
-function createReference() {
+/* Helpers */
+function resetForm () {
+  name.value = ''
+  selectedCategory.value = null
+  units.value = []
+  selectedSupplier.value = null
+  price.value = null
+  notes.value = ''
+  saving.value = false
+}
+
+/* Submit */
+async function submit () {
+  if (formRef.value) {
+    const ok = await formRef.value.validate()
+    if (!ok) return
+  }
+  onSubmit()
+}
+
+function onSubmit () {
+  saving.value = true
+
   const newRef = {
     _type: 'referenceItem',
-    name: name.value,
-    category: { _ref: selectedCategory.value, _type: 'reference' },
-    unit: unit.value,
-    volume: volume.value,
-    supplier: selectedSuppliers.value.map(id => ({ _ref: id, _type: 'reference' })),
-    price: price.value || null,
-    notes: notes.value
+    name: name.value.trim(),
+    category: selectedCategory.value
+      ? { _type: 'reference', _ref: selectedCategory.value }
+      : null,
+    unit: units.value, // <-- già solo sigle grazie a emit-value
+    supplier: selectedSupplier.value
+      ? { _type: 'reference', _ref: selectedSupplier.value }
+      : null,
+    price: (price.value ?? null) !== null ? Number(price.value) : null,
+    notes: notes.value?.trim() || ''
   }
-  emit('reference-created', newRef)
+
+  emit('created', newRef)
   modelValue.value = false
+  saving.value = false
+}
+
+/* Handlers: creazione rapida categoria/fornitore */
+async function handleCategoryCreated (doc) {
+  // doc: {_type:'category', name}
+  const created = await categoryStore.createCategory(doc)
+  selectedCategory.value = created._id
+}
+
+async function handleSupplierCreated (doc) {
+  // doc: {_type:'supplier', name, email?, phone?}
+  const created = await supplierStore.createSupplier(doc)
+  selectedSupplier.value = created._id
 }
 </script>

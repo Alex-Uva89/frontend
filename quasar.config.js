@@ -12,7 +12,7 @@ export default defineConfig((ctx) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['i18n', 'axios'],
+    boot: ['i18n', 'axios', 'auth', 'sse'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#css
     css: ['app.scss'],
@@ -38,7 +38,7 @@ export default defineConfig((ctx) => {
         node: 'node20',
       },
 
-      vueRouterMode: 'hash', // available values: 'hash', 'history'
+      vueRouterMode: 'history', // available values: 'hash', 'history'
       // vueRouterBase,
       // vueDevtools,
       // vueOptionsAPI: false,
@@ -90,6 +90,16 @@ export default defineConfig((ctx) => {
           { server: false },
         ],
       ],
+
+
+      // -----------------------------------------------------------------
+      //                              ALIAS
+      // -----------------------------------------------------------------
+
+      alias: {
+        '@tool': fileURLToPath(new URL('./src/components/dashboard/common/tools', import.meta.url)),
+        '@common': fileURLToPath(new URL('./src/components/dashboard/common', import.meta.url)),
+      },
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
@@ -101,7 +111,11 @@ export default defineConfig((ctx) => {
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
     framework: {
       config: {
-        dark: 'auto'
+        dark: 'auto',
+        brand: {
+          primary: '#0f766e',
+          secondary: '#26A69A',
+        }
       },
 
       // iconSet: 'material-icons', // Quasar icon set

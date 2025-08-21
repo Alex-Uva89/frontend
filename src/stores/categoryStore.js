@@ -18,6 +18,15 @@ export const useCategoryStore = defineStore('categoryStore', {
         this.loading = false
       }
     },
+
+    async createCategory(payload) {
+      const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/categories`, payload)
+      this.categories = [...this.categories, data].sort((a, b) =>
+        a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
+      )
+      return data
+    },
+
     addCategory(newCategory) {
       this.categories.push(newCategory)
     }

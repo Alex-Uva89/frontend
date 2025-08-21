@@ -2,6 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useUsersStore = defineStore('users', () => {
+  // --- Storage helpers (per-tab) ---
+  const STORAGE = typeof window !== 'undefined' ? window.sessionStorage : null
+  const TOKEN_KEY = 'token'
+  const USER_KEY = 'user'
+
   // State
   const users = ref([])
   const loading = ref(false)
@@ -14,11 +19,11 @@ export const useUsersStore = defineStore('users', () => {
   const isAuthenticated = computed(() => !!token.value && !!currentUser.value)
   const userRole = computed(() => currentUser.value?.role?.toLowerCase() || null)
 
-  // Initialize store from localStorage
+  // Initialize store from sessionStorage (isolato per tab)
   function initialize() {
-    if (typeof window !== 'undefined') {
-      const savedToken = localStorage.getItem('token')
-      const savedUser = localStorage.getItem('user')
+    if (STORAGE) {
+      const savedToken = STORAGE.getItem(TOKEN_KEY)
+      const savedUser = STORAGE.getItem(USER_KEY)
 
       if (savedToken) token.value = savedToken
       if (savedUser) {
@@ -54,8 +59,10 @@ export const useUsersStore = defineStore('users', () => {
   function setUserAndToken(userData, jwtToken) {
     currentUser.value = userData
     token.value = jwtToken
-    localStorage.setItem('token', jwtToken)
-    localStorage.setItem('user', JSON.stringify(userData))
+    if (STORAGE) {
+      STORAGE.setItem(TOKEN_KEY, jwtToken)
+      STORAGE.setItem(USER_KEY, JSON.stringify(userData))
+    }
   }
 
   async function fetchCurrentUser() {
@@ -67,20 +74,19 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/me`, {
-        headers: {
-          Authorization: `Bearer ${token.value}`
-        }
+      // ✅ endpoint corretto con /auth
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token.value}` }
       })
       if (!res.ok) throw new Error('Errore fetching current user')
       const data = await res.json()
       currentUser.value = data
-      localStorage.setItem('user', JSON.stringify(data))
+      if (STORAGE) STORAGE.setItem(USER_KEY, JSON.stringify(data))
       return data
     } catch (err) {
       error.value = err.message
       currentUser.value = null
-      localStorage.removeItem('user')
+      if (STORAGE) STORAGE.removeItem(USER_KEY)
       throw err
     } finally {
       loading.value = false
@@ -90,8 +96,10 @@ export const useUsersStore = defineStore('users', () => {
   function logout(router) {
     currentUser.value = null
     token.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    if (STORAGE) {
+      STORAGE.removeItem(TOKEN_KEY)
+      STORAGE.removeItem(USER_KEY)
+    }
     if (router) router.push('/')
   }
 
@@ -116,27 +124,12 @@ export const useUsersStore = defineStore('users', () => {
 
   return {
     // State
-    users,
-    loading,
-    error,
-    currentUser,
-    token,
-    isInitialized,
-
+    users, loading, error, currentUser, token, isInitialized,
     // Getters
-    isAuthenticated,
-    userRole,
-
+    isAuthenticated, userRole,
     // Actions
-    fetchUsers,
-    getUserByEmail,
-    setUserAndToken,
-    fetchCurrentUser,
-    logout,
-
+    fetchUsers, getUserByEmail, setUserAndToken, fetchCurrentUser, logout,
     // Permission checks
-    hasRole,
-    hasAnyRole,
-    hasAllPermissions
+    hasRole, hasAnyRole, hasAllPermissions
   }
 })

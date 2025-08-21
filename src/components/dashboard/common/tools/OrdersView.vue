@@ -4,7 +4,7 @@
 
     <!-- TOTALE GENERALE -->
     <div class="text-h6 text-weight-bold q-pa-md bg-grey-2">
-      Totale generale: {{ calculateGlobalTotal(filteredItems).toFixed(2) }} €
+      Totale Ordine: {{ calculateGlobalTotal(filteredItems).toFixed(2) }} €
     </div>
 
     <!-- MESSAGGIO SE NON CI SONO ORDINI -->
@@ -20,12 +20,20 @@
       <template v-for="(orders, businessName) in groupByBusiness(filteredItems)" :key="businessName">
         <q-expansion-item
           group="orders"
-          :label="businessName"
-          :caption="`${orders.length} ordine/i - Totale: ${calculateBusinessTotal(orders).toFixed(2)} €`"
-          header-class="text-h6 bg-blue-1"
-          expand-icon-class="text-primary"
+          header-class="text-h6 bg-teal text-white"
+          expand-icon-class="text-white"
           class="q-mb-md"
         >
+          <!-- HEADER PERSONALIZZATO -->
+          <template #header>
+            <q-item-section>
+              <q-item-label>{{ businessName }}</q-item-label>
+              <q-item-label caption class="text-yellow-2">
+                {{ `${orders.length} ordine/i - Subtotale: ${calculateBusinessTotal(orders).toFixed(2)} €` }}
+              </q-item-label>
+            </q-item-section>
+          </template>
+
           <template v-for="(order) in orders" :key="order._id">
             <q-card flat bordered class="q-mb-md" v-if="order.items && order.items.length > 0">
               <!-- INTESTAZIONE ORDINE -->
@@ -38,52 +46,65 @@
                 </div>
               </q-card-section>
 
-              <!-- LISTA FORNITORI -->
+              <!-- LISTA FORNITORI (accordion) -->
               <template v-for="(categories, supplierName) in groupBySupplierAndCategory(order.items)" :key="supplierName">
-                <q-card-section>
-                  <q-toolbar class="bg-teal-1">
-                    <q-toolbar-title>
-                      <q-icon name="local_shipping" color="blue" class="q-mr-sm"/>
-                      {{ supplierName }}
-                    </q-toolbar-title>
-                    <div class="text-subtitle2">
-                      Totale: {{ calculateSupplierTotal(categories).toFixed(2) }} €
-                    </div>
-                  </q-toolbar>
+                <q-expansion-item
+                  :group="`suppliers-${order._id}`"
+                  expand-separator
+                  dense
+                  header-class="bg-teal-1"
+                >
+                  <template #header>
+                    <q-item-section avatar>
+                      <q-icon name="local_shipping" color="blue" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label class="text-subtitle1">{{ supplierName }}</q-item-label>
+                      <q-item-label caption>
+                        {{ supplierItemsCount(categories) }} prodotto/i ·
+                        Subtotale: {{ calculateSupplierTotal(categories).toFixed(2) }} €
+                      </q-item-label>
+                    </q-item-section>
+                  </template>
 
-                  <!-- LISTA CATEGORIE -->
-                  <template v-for="(products, categoryName) in categories" :key="categoryName">
-                    <div class="q-ml-sm q-mt-md">
-                      <div class="text-subtitle1 text-weight-medium q-mb-sm">
-                        <q-icon name="category" color="green" class="q-mr-sm"/>
-                        {{ categoryName }}
-                      </div>
+                  <!-- CATEGORIE DEL FORNITORE -->
+                  <q-card-section>
+                    <template v-for="(products, categoryName) in categories" :key="categoryName">
+                      <div class="q-ml-sm q-mt-md">
+                        <div class="text-subtitle1 text-weight-medium q-mb-sm">
+                          <q-icon name="category" color="green" class="q-mr-sm"/>
+                          {{ categoryName }}
+                        </div>
 
-                      <!-- LISTA PRODOTTI -->
-                      <div v-for="product in products" :key="product._key" class="q-pa-sm row items-center">
-                        <div class="col-6">
-                          {{ product.reference?.name || 'Referenza sconosciuta' }}
-                          <div v-if="product.notes" class="text-caption text-grey-7">
-                            {{ product.notes }}
+                        <!-- PRODOTTI DELLA CATEGORIA -->
+                        <div v-for="product in products" :key="product._key" class="q-pa-sm row items-center">
+                          <div class="col-6">
+                            {{ product.reference?.name || 'Referenza sconosciuta' }}
+                            <span class="text-grey-7">
+                             - aggiunto da {{ product.addedBy.firstName }} {{ product.addedBy.lastName }}
+                            </span>
+                            <div v-if="product.notes" class="text-caption text-grey-7">
+                              {{ product.notes }}
+                            </div>
+                          </div>
+                          <div class="col-3 text-right">
+                            {{ product.quantity }} x {{ product.reference?.unit || 'pz' }}
+                          </div>
+                          <div class="col-3 text-right text-weight-bold">
+                            {{ (product.quantity * (product.reference?.price || 0)).toFixed(2) }} €
                           </div>
                         </div>
-                        <div class="col-3 text-right">
-                          {{ product.quantity }} x {{ product.reference?.unit || 'pz' }}
-                        </div>
-                        <div class="col-3 text-right text-weight-bold">
-                          {{ (product.quantity * (product.reference?.price || 0)).toFixed(2) }} €
-                        </div>
                       </div>
-                    </div>
-                  </template>
-                </q-card-section>
-                <q-separator size="5px" color="teal-4"/>
+                    </template>
+                  </q-card-section>
+                  <q-separator size="5px" color="teal-4"/>
+                </q-expansion-item>
               </template>
 
               <!-- TOTALE ORDINE -->
               <q-card-section class="bg-grey-2 text-right">
                 <div class="text-subtitle1 text-weight-bold">
-                  Totale ordine: {{ calculateOrderTotal(order.items).toFixed(2) }} €
+                  Subtotale: {{ calculateOrderTotal(order.items).toFixed(2) }} €
                 </div>
               </q-card-section>
             </q-card>
@@ -91,6 +112,16 @@
         </q-expansion-item>
       </template>
     </template>
+
+    <div class="flex justify-end" v-if="filteredItems.length > 0">
+      <q-btn push class="bg-teal-1" @click="printOrder(filteredItems)">
+        <q-icon name="print" class="q-mr-sm"></q-icon>
+        <small>
+          Stampa Ordine
+        </small>
+      </q-btn>
+    </div>
+
   </div>
 </template>
 
@@ -122,6 +153,10 @@ const filteredItems = computed(() => {
     }
   })
 })
+
+function supplierItemsCount(categories) {
+  return Object.values(categories).reduce((acc, arr) => acc + arr.length, 0)
+}
 
 function groupByBusiness(orders) {
   const grouped = {}
@@ -185,6 +220,10 @@ function calculateBusinessTotal(orders) {
 // Calcola il totale globale
 function calculateGlobalTotal(orders) {
   return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
+}
+
+function printOrder(order){
+  console.log(order.value)
 }
 </script>
 
