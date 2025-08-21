@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 import NavbarPages from '@common/NavbarPages.vue'
 import OrderTool from '@tool/OrderTool.vue'
@@ -32,42 +32,69 @@ const orderStore = useOrderStore()
 const usersStore = useUsersStore()
 const businessStore = useBusinessStore()
 
-// true quando ho un business pronto
-const businessReady = computed(() => !!businessStore.currentBusiness && !!businessStore.currentBusiness._id)
+// pronto quando ho un id selezionato
+const businessReady = computed(() => !!businessStore.currentBusinessId)
 
-// props reattivi per OrderTool (evita warning props undefined)
-const ordersTabProps = computed(() => ({
-  businessId: businessStore.currentBusiness?._id || '',
-  businessName: businessStore.currentBusiness?.name || '',
-  orders: orderStore.orders,
-  loading: orderStore.loading,
-  errorMessage: orderStore.error
-}))
+// props reattive per OrderTool / TurnsInfo
+const ordersTabProps = computed(() => {
+  const cb = businessStore.currentBusiness
+  return {
+    businessId: cb?._id || '',
+    businessName: cb?.name || '',
+    orders: orderStore.orders,
+    loading: orderStore.loading,
+    errorMessage: orderStore.error,
+    // opzionale: se vuoi che OrderTool decida se mostrare la select in base al ruolo
+    userRole: usersStore.currentUser?.role
+  }
+})
 
-// un solo tab per ora
+// tabs reattive (props come funzione!)
 const tabs = computed(() => [
   {
     name: 'orders',
     label: 'Ordini',
     icon: 'list_alt',
     component: OrderTool,
-    props: ordersTabProps.value,
+    props: () => ordersTabProps.value
   },
   {
     name: 'turns',
     label: 'Turni',
     icon: 'calendar_month',
     component: TurnsInfo,
-    props: ordersTabProps.value,
+    props: () => ordersTabProps.value
   }
 ])
 
+// 🔁 quando cambia il business selezionato, rifaccio il fetch
+watch(
+  () => businessStore.currentBusinessId,
+  async (id, prev) => {
+    if (!id || id === prev) return
+    orderStore.currentBusinessId = id
+    await orderStore.fetchOrders()
+  }
+)
 
 onMounted(async () => {
-  const user = usersStore.currentUser
-  if (user?.business) {
-    businessStore.currentBusiness = user.business
-    orderStore.currentBusinessId = user.business._id
+  // Assicurati di avere i business (se non già caricati)
+  if (!businessStore.businesses?.length) {
+    await businessStore.fetchBusinesses()
+  }
+
+  // Manager: se l'utente ha un business associato, usalo
+  const userBizId = usersStore.currentUser?.business?._id || null
+  if (userBizId) {
+    businessStore.setCurrentBusinessId(userBizId)
+  } else if (!businessStore.currentBusinessId && businessStore.businesses?.length) {
+    // fallback al primo disponibile (se serve)
+    businessStore.setCurrentBusinessId(businessStore.businesses[0]._id)
+  }
+
+  // Primo fetch ordini per il business corrente
+  if (businessStore.currentBusinessId) {
+    orderStore.currentBusinessId = businessStore.currentBusinessId
     await orderStore.fetchOrders()
   }
 })
