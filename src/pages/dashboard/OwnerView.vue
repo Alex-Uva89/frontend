@@ -11,6 +11,7 @@ import StaffList from '@tool/StaffList.vue'
 import OrdersView from '@tool/OrdersView.vue'
 import StatisticsSection from '@tool/StatisticsSection.vue'
 import OrderTool from '@common/tools/OrderTool.vue'
+import ListReference from '@common/WarehouseTool.vue'
 
 const orderStore = useOrderStore()
 const usersStore = useUsersStore()
@@ -25,7 +26,7 @@ const tabs = [
   {
     name: 'orders',
     label: 'crea ordini',
-    icon: 'list_alt',
+    icon: 'add_shopping_cart',
     component: OrderTool,
     props: () => ({
       // default “di rotta”: se l’utente ha un business associato
@@ -37,7 +38,8 @@ const tabs = [
       userRole: usersStore.currentUser?.role
     })
   },
-  { name: 'orders_view', label: 'Lista della spesa', icon: 'list_alt', component: OrdersView, props: { orders: orderStore.orders } },
+  { name: 'orders_view', label: 'Lista della spesa', icon: 'local_grocery_store', component: OrdersView, props: { orders: orderStore.orders } },
+  { name: 'warehouse', label: 'Magazzino', icon: 'warehouse', component: ListReference },
   { name: 'stats', label: 'Statistiche', icon: 'analytics', component: StatisticsSection }
 ]
 

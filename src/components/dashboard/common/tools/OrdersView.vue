@@ -104,7 +104,7 @@
                             </div>
                           </div>
                           <div class="col-3 text-right">
-                            {{ product.quantity }} x {{ product.reference?.unit || 'pz' }}
+                            {{ product.quantity }}{{ product.unit || 'pz' }}
                           </div>
                           <div class="col-3 text-right text-weight-bold">
                             {{ (product.quantity * (product.reference?.price || 0)).toFixed(2) }} €
@@ -191,7 +191,8 @@ function groupByBusiness(orders) {
 function groupBySupplierAndCategory(products) {
   const grouped = {}
   products.forEach(product => {
-    const supplierName = product.reference?.suppliers?.[0]?.name || 'Senza fornitore'
+    // console.log(product)
+    const supplierName = product.reference?.supplier?.name || 'Senza fornitore'
     const categoryName = product.reference?.category?.name || 'Senza categoria'
 
     if (!grouped[supplierName]) {
