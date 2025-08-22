@@ -1,4 +1,3 @@
-// src/boot/sse.js
 import { boot } from 'quasar/wrappers'
 import { watch } from 'vue'
 import { useUsersStore } from 'src/stores/usersStore'
@@ -24,7 +23,7 @@ function isJwtExpired (jwt) {
 function connect(token, orderStore) {
   if (!token || isJwtExpired(token)) return
 
-  // Filtra lato server se hai un business selezionato
+  // Filtro lato server se c'è un business selezionato
   const params = new URLSearchParams({ token })
   if (orderStore.currentBusinessId) {
     params.set('businessId', orderStore.currentBusinessId)
@@ -58,7 +57,6 @@ function connect(token, orderStore) {
 
   es.onerror = (e) => {
     // EventSource ritenta automaticamente.
-    // Qui potresti loggare o notificare in caso di errori persistenti.
     console.warn('SSE error', e)
   }
 
@@ -74,13 +72,13 @@ export default boot(() => {
   // Connessione iniziale
   connect(usersStore.token, orderStore)
 
-  // Riconnetti quando cambia il token (login/logout)
+  // Riconnessione quando cambia il token (login/logout)
   watch(() => usersStore.token, (t) => {
     disconnect()
     connect(t, orderStore)
   })
 
-  // Riconnetti quando cambia il business selezionato (per aggiornare il filtro lato server)
+  // Riconnessione quando cambia il business selezionato
   watch(() => orderStore.currentBusinessId, () => {
     if (!usersStore.token) return
     disconnect()

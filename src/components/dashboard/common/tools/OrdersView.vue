@@ -2,21 +2,27 @@
   <div class="q-mt-lg">
     <WeekTabs v-model="selectedDate" />
 
-    <!-- TOTALE GENERALE -->
+    <!-----------------------------------------------------------------------------------------
+                                        TOTALE GENERALE
+    ----------------------------------------------------------------------------------------->
     <div class="text-h6 text-weight-bold q-pa-md bg-grey-2">
       Totale Ordine: {{ calculateGlobalTotal(filteredItems).toFixed(2) }} €
     </div>
 
-    <!-- MESSAGGIO SE NON CI SONO ORDINI -->
+    <!-----------------------------------------------------------------------------------------
+                                  MESSAGGIO SE NON CI SONO ORDINI
+     ----------------------------------------------------------------------------------------->
     <div v-if="filteredItems.length === 0" class="text-center q-pa-xl">
       <q-icon name="sentiment_dissatisfied" size="xl" color="grey" class="q-mb-md"/>
       <div class="text-h5 text-grey-8 q-mb-xs">Nessun ordine trovato</div>
       <div class="text-grey-6">Non ci sono ordini per la data selezionata</div>
     </div>
 
-    <!-- LISTA ORDINI FILTRATI -->
+    <!-----------------------------------------------------------------------------------------
+                                      LISTA ORDINI FILTRATI
+    ----------------------------------------------------------------------------------------->
     <template v-else>
-      <!-- Raggruppa gli ordini per locale -->
+      <!-- ordini per locale -->
       <template v-for="(orders, businessName) in groupByBusiness(filteredItems)" :key="businessName">
         <q-expansion-item
           group="orders"
@@ -24,7 +30,9 @@
           expand-icon-class="text-white"
           class="q-mb-md"
         >
-          <!-- HEADER PERSONALIZZATO -->
+          <!-----------------------
+             HEADER PERSONALIZZATO
+          ------------------------>
           <template #header>
             <q-item-section>
               <q-item-label>{{ businessName }}</q-item-label>
@@ -36,7 +44,9 @@
 
           <template v-for="(order) in orders" :key="order._id">
             <q-card flat bordered class="q-mb-md" v-if="order.items && order.items.length > 0">
-              <!-- INTESTAZIONE ORDINE -->
+              <!--------------------
+                INTESTAZIONE ORDINE
+              ---------------------->
               <q-card-section class="row justify-between items-center">
                 <div class="text-caption text-grey-7">
                   {{ formatOrderDate(order.orderDate) }}
@@ -46,7 +56,9 @@
                 </div>
               </q-card-section>
 
-              <!-- LISTA FORNITORI (accordion) -->
+              <!--------------------------
+                    LISTA FORNITORI
+              --------------------------->
               <template v-for="(categories, supplierName) in groupBySupplierAndCategory(order.items)" :key="supplierName">
                 <q-expansion-item
                   :group="`suppliers-${order._id}`"
@@ -67,7 +79,9 @@
                     </q-item-section>
                   </template>
 
-                  <!-- CATEGORIE DEL FORNITORE -->
+                  <!--------------------------
+                     CATEGORIE DEL FORNITORE
+                  ---------------------------->
                   <q-card-section>
                     <template v-for="(products, categoryName) in categories" :key="categoryName">
                       <div class="q-ml-sm q-mt-md">
@@ -76,7 +90,9 @@
                           {{ categoryName }}
                         </div>
 
-                        <!-- PRODOTTI DELLA CATEGORIA -->
+                        <!---------------------------
+                          PRODOTTI DELLA CATEGORIA
+                        ---------------------------->
                         <div v-for="product in products" :key="product._key" class="q-pa-sm row items-center">
                           <div class="col-6">
                             {{ product.reference?.name || 'Referenza sconosciuta' }}
@@ -101,7 +117,9 @@
                 </q-expansion-item>
               </template>
 
-              <!-- TOTALE ORDINE -->
+              <!---------------------------
+                      TOTALE ORDINE
+              ---------------------------->
               <q-card-section class="bg-grey-2 text-right">
                 <div class="text-subtitle1 text-weight-bold">
                   Subtotale: {{ calculateOrderTotal(order.items).toFixed(2) }} €
@@ -193,17 +211,21 @@ function formatOrderDate(dateString) {
   return new Date(dateString).toLocaleDateString('it-IT', options)
 }
 
-// Calcola il totale di un singolo prodotto
+////////////////////////////////////////////////////////////////////////////////////////
+//                                      TOTALI                                        //
+////////////////////////////////////////////////////////////////////////////////////////
+
+// totale di un singolo prodotto
 function calculateProductTotal(product) {
   return (product.quantity * (product.reference?.price || 0))
 }
 
-// Calcola il totale di un ordine
+// totale di un ordine
 function calculateOrderTotal(items) {
   return items.reduce((total, product) => total + calculateProductTotal(product), 0)
 }
 
-// Calcola il totale di un fornitore
+// totale di un fornitore
 function calculateSupplierTotal(categories) {
   let total = 0
   for (const category in categories) {
@@ -212,12 +234,12 @@ function calculateSupplierTotal(categories) {
   return total
 }
 
-// Calcola il totale per un locale (business)
+// totale per un locale (business)
 function calculateBusinessTotal(orders) {
   return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
 }
 
-// Calcola il totale globale
+// totale globale
 function calculateGlobalTotal(orders) {
   return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
 }

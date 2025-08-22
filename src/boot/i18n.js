@@ -9,6 +9,5 @@ export default defineBoot(({ app }) => {
     messages,
   })
 
-  // Set i18n instance on app
   app.use(i18n)
 })

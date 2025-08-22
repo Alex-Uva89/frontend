@@ -1,4 +1,3 @@
-// src/stores/warehouseStore.js
 import { defineStore } from 'pinia'
 import { api } from 'boot/axios'
 

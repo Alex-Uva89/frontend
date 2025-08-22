@@ -69,7 +69,7 @@ const usersStore = useUsersStore()
 const businessStore = useBusinessStore()
 
 const props = defineProps({
-  businessId: { type: String, required: true },   // default quando NON Owner
+  businessId: { type: String, required: true },
   businessName: { type: String, required: true },
   orders: { type: Array, required: true },
   loading: { type: Boolean, default: false },

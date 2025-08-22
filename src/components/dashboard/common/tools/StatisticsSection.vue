@@ -63,19 +63,19 @@ const quickStats = computed(() => [
   {
     title: 'Dipendenti',
     icon: 'groups',
-    value: usersStore.users.length - 1, // Esclude owner
+    value: usersStore.users.length - 1,
     color: 'blue'
   },
   {
     title: 'Ordini Oggi',
     icon: 'receipt',
-    value: '24', // Sostituire con dati reali
+    value: '24',
     color: 'green'
   },
   {
     title: 'Fatturato',
     icon: 'euro',
-    value: '1.245€', // Sostituire con dati reali
+    value: '1.245€',
     color: 'orange'
   }
 ])

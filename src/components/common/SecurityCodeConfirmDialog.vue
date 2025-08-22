@@ -57,7 +57,7 @@ import { useQuasar } from 'quasar'
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: 'Conferma' },
-  message: { type: String, default: '' }, // può contenere HTML (v-html)
+  message: { type: String, default: '' }, // può contenere HTML
   confirmLabel: { type: String, default: 'Conferma' },
   color: { type: String, default: 'red' },
   length: { type: Number, default: 6 }
@@ -80,7 +80,7 @@ function regenerate () {
   enteredCode.value = ''
 }
 function generateSecurityCode(length = 6) {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // niente O/0, I/1 per evitare ambiguità
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' //TODO: forse aggiungee anche lettere e caratteri speciali?
   let code = ''
   for (let i = 0; i < length; i++) code += chars.charAt(Math.floor(Math.random() * chars.length))
   return code

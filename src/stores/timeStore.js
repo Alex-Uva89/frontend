@@ -1,4 +1,3 @@
-// src/stores/timeStore.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 

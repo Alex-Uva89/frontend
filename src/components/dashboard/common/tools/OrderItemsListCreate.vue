@@ -1,21 +1,29 @@
 <template>
   <div>
 
-    <!-- Selettore giorno -->
+    <!---------------------------------------------------------------------------------------
+                                       Selettore giorno
+    ---------------------------------------------------------------------------------------->
     <WeekTabs v-model="selectedDate" />
 
-    <!-- Nessun ordine -->
+    <!-----------------------------------------------------------------------------------------
+                                         Nessun ordine
+     ---------------------------------------------------------------------------------------->
     <div v-if="filteredItems.length === 0" class="text-center q-pa-xl">
       <q-icon name="sentiment_dissatisfied" size="xl" color="grey" class="q-mb-md"/>
       <div class="text-h5 text-grey-8 q-mb-xs">Nessun ordine trovato</div>
       <div class="text-grey-6">Non ci sono ordini per la data selezionata</div>
     </div>
 
-    <!-- Lista ordini -->
+    <!-- ---------------------------------------------------------------------------------------
+                                           Lista ordini
+    ----------------------------------------------------------------------------------------->
     <template v-else>
       <template v-for="order in filteredItems" :key="order._id">
         <div class="q-mb-xl" v-if="order.items && order.items.length > 0">
-          <!-- Chips stato -->
+          <!---------------------------
+                  Chips stato
+          ----------------------------->
           <div class="q-mb-sm q-gutter-sm">
             <q-chip v-if="order.status === 'completed'" color="positive" text-color="white" icon="check">Completato</q-chip>
             <q-chip v-else-if="order.status === 'pending' && !order.locked" color="yellow-7" text-color="black" icon="lock_open">Ordine modificabile</q-chip>
@@ -25,7 +33,9 @@
           </div>
 
           <q-card flat bordered class="q-mb-md">
-            <!-- Fornitore → Categoria -->
+            <!---------------------------
+               Fornitore → Categoria
+               ------------------------->
             <template v-for="(categories, supplierName) in groupBySupplierAndCategory(order.items)" :key="supplierName">
               <q-card-section>
                 <q-toolbar class="bg-teal-1">
@@ -56,7 +66,9 @@
               <q-separator size="5px" color="teal-4"/>
             </template>
 
-            <!-- Azioni (mobile-first) -->
+            <!-------------------------
+                Azioni (mobile-first)
+              ------------------------->
             <div class="q-pa-md">
               <div class="row items-center q-col-gutter-sm">
                 <div class="col-12 col-sm-auto">
@@ -87,7 +99,9 @@
                       />
                     </div>
 
-                    <!-- 🔒 Toggle Chiudi / Riapri (attivo se pending) -->
+                    <!-----------------------------------
+                    Toggle Chiudi / Riapri (attivo se pending)
+                    -------------------------------------->
                     <!-- <div class="col-12 col-sm-auto">
                       <q-btn
                         flat
@@ -100,7 +114,9 @@
                       />
                     </div> -->
 
-                    <!-- 📧 Chiudi + invia email (finale, non riapribile) -->
+                    <!----------------------------------------------
+                      Chiudi + invia email (finale, non riapribile)
+                    ------------------------------------------------>
                     <!-- <div class="col-12 col-sm-auto">
                       <q-btn
                         flat color="grey-8" icon="mark_email_read" label="Chiudi + invia email"
@@ -118,7 +134,9 @@
       </template>
     </template>
 
-    <!-- Barra countdown -->
+    <!-----------------------
+        Barra countdown
+    ------------------------>
     <div class="q-pa-sm">
       <div class="text-h6 text-weight-bold flex items-center justify-between">
         <span class="text-grey-7 q-mr-sm">
@@ -129,7 +147,9 @@
       </div>
     </div>
 
-    <!-- Dialog: Aggiungi referenza -->
+    <!-----------------------------------------------------------------------------------------
+                                         Aggiungi referenza
+    ----------------------------------------------------------------------------------------->
     <q-dialog v-model="addReferenceDialog.visible">
       <q-card style="width: 90vw;">
         <q-card-section>
@@ -200,7 +220,9 @@
       </q-card>
     </q-dialog>
 
-    <!-- 🔐 Dialog riutilizzabile: blocco + invio email (finale) -->
+    <!-----------------------------------------------------------------------------------------
+                                    CODICE SICUREZZA
+    ----------------------------------------------------------------------------------------->
     <SecurityCodeConfirmDialog
       v-model="lockMailDialog.visible"
       title="Conferma chiusura ordine e invio email"
@@ -211,7 +233,6 @@
       @confirmed="confirmLockAndSend"
     />
 
-    <!-- 🔐 Dialog riutilizzabile: elimina ordine -->
     <SecurityCodeConfirmDialog
       v-model="deleteOrderDialog.visible"
       title="Conferma eliminazione ordine"
@@ -222,7 +243,9 @@
       @confirmed="confirmDeleteOrder"
     />
 
-    <!-- Dialog: nuova referenza -->
+    <!-----------------------------------------------------------------------------------------
+                                Dialog: nuova referenza
+    ----------------------------------------------------------------------------------------->
     <NewReferenceDialog v-model="newRefDialog.visible" @created="handleNewRefCreated" />
   </div>
 </template>
@@ -421,7 +444,7 @@ function patchLocalOrder (orderId, patch) {
 //   await orderStore.fetchOrders()
 // }
 
-/* ---------------- Chiudi + invia email (finale) ---------------- */
+/* ---------------- Chiudi + invia email ---------------- */
 const lockMailDialog = ref({ visible: false, orderId: null })
 const lockMailDialogMessage =
   'Attenzione: questa azione chiude definitivamente l’ordine e invia l’email di riepilogo. <br>' +
@@ -450,7 +473,7 @@ async function confirmLockAndSend() {
       }
     : {}
 
-  // Ottimistico: marca come finalizzato
+  // marca come finalizzato
   const now = new Date().toISOString()
   patchLocalOrder(orderId, { locked: true, lockedAt: now, status: 'completed', emailSent: true, emailSentAt: now })
 
@@ -463,7 +486,7 @@ async function confirmLockAndSend() {
   await orderStore.fetchOrders()
 }
 
-/* ---------------- Elimina ordine (con dialog centrale) ---------------- */
+/* ---------------- Elimina ordine  ---------------- */
 const deleteOrderDialog = ref({ visible: false, orderId: null })
 function openDeleteOrder(orderId) {
   deleteOrderDialog.value.orderId = orderId
