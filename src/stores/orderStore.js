@@ -77,6 +77,46 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
+  // Aggiungi una referenza all'ordine
+const addReferenceToOrder = async (orderId, payload) => {
+  // payload: { referenceId, quantity, unit, addedById, notes }
+  loading.value = true
+  error.value = null
+
+  try {
+    const { data } = await api.post(
+      `${import.meta.env.VITE_API_URL}/orders/${orderId}/items`,
+      payload
+    )
+
+    // Aggiorna stato locale in modo robusto:
+    // - se l'API restituisce l'ordine aggiornato -> sostituisci
+    // - se restituisce solo l'item creato -> appende
+    const idx = orders.value.findIndex(o => o._id === orderId)
+    if (idx !== -1) {
+      if (data && data.order && Array.isArray(data.order.items)) {
+        orders.value[idx] = { ...orders.value[idx], ...data.order }
+      } else {
+        const createdItem = data?.item ?? data
+        const prevItems = Array.isArray(orders.value[idx].items) ? orders.value[idx].items : []
+        orders.value[idx] = {
+          ...orders.value[idx],
+          items: [...prevItems, createdItem]
+        }
+      }
+    }
+
+    return true
+  } catch (err) {
+    error.value = 'Errore durante l\'aggiunta della referenza all\'ordine'
+    console.error(err)
+    return false
+  } finally {
+    loading.value = false
+  }
+}
+
+
   // Elimina una referenza da un ordine
   const deleteOrderItem = async (orderId, productKey) => {
     loading.value = true
@@ -251,6 +291,7 @@ const unlockOrder = async (orderId) => {
     fetchOrders,
     fetchAllOrder,
     createOrder,
+    addReferenceToOrder,
     deleteOrderItem,
     updateOrderItem,
     deleteOrder,
