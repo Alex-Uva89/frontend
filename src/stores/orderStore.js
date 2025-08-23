@@ -253,6 +253,10 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
+  const setBusinessId = (id) => {
+  currentBusinessId.value = id || null
+}
+
   return {
     orders,
     loading,
@@ -266,6 +270,7 @@ export const useOrderStore = defineStore('orderStore', () => {
     updateOrderItem,
     deleteOrder,
     lockOrder,
-    unlockOrder
+    unlockOrder,
+    setBusinessId
   }
 })
