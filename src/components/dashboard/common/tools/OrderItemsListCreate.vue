@@ -328,7 +328,7 @@ function openAddReferenceDialog(orderId) {
 
 async function confirmAddReference() {
   if (!addReferenceDialog.value.selectedReference) return
-  await referenceStore.addReferenceToOrder(
+  await orderStore.addReferenceToOrder(
     addReferenceDialog.value.orderId,
     {
       referenceId: addReferenceDialog.value.selectedReference,
