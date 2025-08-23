@@ -99,32 +99,7 @@
                       />
                     </div>
 
-                    <!-----------------------------------
-                    Toggle Chiudi / Riapri (attivo se pending)
-                    -------------------------------------->
-                    <!-- <div class="col-12 col-sm-auto">
-                      <q-btn
-                        flat
-                        :color="order.locked ? 'orange-8' : 'grey-8'"
-                        :icon="order.locked ? 'lock_open' : 'lock'"
-                        :label="order.locked ? 'Riapri ordine' : 'Chiudi ordine'"
-                        class="full-width"
-                        :disable="order.status !== 'pending'"
-                        @click="toggleLock(order)"
-                      />
-                    </div> -->
-
-                    <!----------------------------------------------
-                      Chiudi + invia email (finale, non riapribile)
-                    ------------------------------------------------>
-                    <!-- <div class="col-12 col-sm-auto">
-                      <q-btn
-                        flat color="grey-8" icon="mark_email_read" label="Chiudi + invia email"
-                        class="full-width"
-                        :disable="order.status !== 'pending' || order.locked"
-                        @click="openLockAndMail(order)"
-                      />
-                    </div> -->
+                    <!-- Azioni aggiuntive eventualmente qui -->
                   </div>
                 </div>
               </div>
@@ -252,7 +227,6 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-// import { Dialog } from 'quasar'
 import WeekTabs from 'src/components/WeekTabs.vue'
 import OrderItemsRow from 'src/components/dashboard/common/OrderItemRow.vue'
 import CountdownTimer from 'src/components/CountdownTimer.vue'
@@ -280,12 +254,51 @@ const isReadOnly = (o) => !!(o?.locked || o?.status !== 'pending')
 /* ---------------- Nuova referenza (dialog) ---------------- */
 const newRefDialog = ref({ visible: false })
 function openNewReferenceDialog () { newRefDialog.value.visible = true }
+
+/**
+ * Dopo la creazione di una nuova referenza:
+ * - refetch delle referenze,
+ * - rigenero le options filtrando quelle già usate nell'ordine,
+ * - provo a selezionare automaticamente la nuova referenza senza assumere che ci sia _id.
+ */
 async function handleNewRefCreated (createdRef) {
   await referenceStore.fetchReferences()
+
   const order = orderStore.orders.find(o => o._id === addReferenceDialog.value.orderId)
-  const usedIds = (order?.items || []).map(i => i.reference?._id)
-  referenceOptions.value = referenceStore.references.filter(r => !usedIds.includes(r._id))
-  addReferenceDialog.value.selectedReference = createdRef._id
+
+  // ID già usati nell'ordine corrente
+  const usedIds = (order?.items || [])
+    .map(i => (i.reference?._id || i.item?._id))
+    .filter(Boolean)
+
+  // opzioni disponibili nella select
+  referenceOptions.value = (referenceStore.references || []).filter(r => !usedIds.includes(r._id))
+
+  // tentativo di auto-selezione della referenza appena creata
+  const lc = s => (s || '').trim().toLowerCase()
+  const createdName = lc(createdRef?.name)
+  const createdSupplierId = createdRef?.supplier?._ref || createdRef?.supplier?._id || null
+  const createdCategoryId = createdRef?.category?._ref || createdRef?.category?._id || null
+
+  // 1) match diretto su _id (se esiste)
+  let pick = referenceStore.references.find(r => r._id === createdRef?._id)
+
+  // 2) name + supplier + category
+  if (!pick && createdName) {
+    pick = referenceStore.references.find(r =>
+      lc(r?.name) === createdName &&
+      ((r?.supplier?._id || r?.supplier?._ref || null) === createdSupplierId || !createdSupplierId) &&
+      ((r?.category?._id || r?.category?._ref || null) === createdCategoryId || !createdCategoryId)
+    )
+  }
+
+  // 3) solo name
+  if (!pick && createdName) {
+    pick = referenceStore.references.find(r => lc(r?.name) === createdName)
+  }
+
+  addReferenceDialog.value.selectedReference =
+    (pick && !usedIds.includes(pick._id)) ? pick._id : null
 }
 
 /* ---------------- Aggiungi referenza all'ordine ---------------- */
@@ -304,8 +317,10 @@ watch(
   () => addReferenceDialog.value.selectedReference,
   (refId) => {
     const refItem = referenceStore.references.find(r => r._id === refId)
-    suggestedUnit.value = refItem?.unit || null
-    addReferenceDialog.value.unit = refItem?.unit || null
+    // NB: se nel tuo modello 'unit' è una stringa singola, va bene così.
+    // Se è un array (ad es. più unità disponibili), potresti scegliere la prima disponibile.
+    suggestedUnit.value = Array.isArray(refItem?.unit) ? refItem.unit[0] : (refItem?.unit || null)
+    addReferenceDialog.value.unit = suggestedUnit.value
   }
 )
 
@@ -315,8 +330,11 @@ const unitOptions = [
 
 function openAddReferenceDialog(orderId) {
   const order = orderStore.orders.find(o => o._id === orderId)
-  const usedIds = (order?.items || []).map(item => item.reference?._id)
-  referenceOptions.value = referenceStore.references.filter(ref => !usedIds.includes(ref._id))
+  const usedIds = (order?.items || [])
+    .map(item => (item.reference?._id || item.item?._id))
+    .filter(Boolean)
+
+  referenceOptions.value = (referenceStore.references || []).filter(ref => !usedIds.includes(ref._id))
 
   addReferenceDialog.value.orderId = orderId
   addReferenceDialog.value.visible = true
@@ -363,8 +381,9 @@ const filteredItems = computed(() => {
 function groupBySupplierAndCategory(products) {
   const grouped = {}
   ;(products || []).forEach(product => {
-    const supplierName = product?.reference?.supplier?.name || 'Senza fornitore'
-    const categoryName = product?.reference?.category?.name || 'Senza categoria'
+    const ref = product?.reference || product?.item || null
+    const supplierName = ref?.supplier?.name || 'Senza fornitore'
+    const categoryName = ref?.category?.name || 'Senza categoria'
     if (!grouped[supplierName]) grouped[supplierName] = {}
     if (!grouped[supplierName][categoryName]) grouped[supplierName][categoryName] = []
     grouped[supplierName][categoryName].push(product)
@@ -391,77 +410,17 @@ function patchLocalOrder (orderId, patch) {
   }
 }
 
-/* ---------------- Toggle Chiudi / Riapri ---------------- */
-// async function toggleLock(order) {
-//   if (order.status !== 'pending') return
-
-//   const id = order._id
-//   const prev = { locked: order.locked, lockedAt: order.lockedAt }
-
-//   if (!order.locked) {
-//     // Chiudi ordine (soft lock)
-//     const ok = await new Promise(resolve => {
-//       Dialog.create({
-//         title: 'Chiudi ordine?',
-//         message: 'L’ordine sarà bloccato ma potrai riaprirlo finché non sarà stato inviato via email.',
-//         cancel: true,
-//         persistent: true
-//       }).onOk(() => resolve(true)).onCancel(() => resolve(false))
-//     })
-//     if (!ok) return
-
-//     // Ottimistico
-//     patchLocalOrder(id, { locked: true, lockedAt: new Date().toISOString() })
-
-//     const okApi = await orderStore.lockOrder(id, { sendEmail: false })
-//     if (!okApi) {
-//       // rollback
-//       patchLocalOrder(id, prev)
-//     }
-//   } else {
-//     // Riapri ordine
-//     const ok = await new Promise(resolve => {
-//       Dialog.create({
-//         title: 'Riaprire l’ordine?',
-//         message: 'L’ordine tornerà modificabile.',
-//         cancel: true,
-//         persistent: true
-//       }).onOk(() => resolve(true)).onCancel(() => resolve(false))
-//     })
-//     if (!ok) return
-
-//     // Ottimistico
-//     patchLocalOrder(id, { locked: false, lockedAt: null })
-
-//     const okApi = await orderStore.unlockOrder(id)
-//     if (!okApi) {
-//       // rollback
-//       patchLocalOrder(id, prev)
-//     }
-//   }
-
-//   // Riallineo dallo store/server (puoi rimuoverlo se vuoi evitare extra call)
-//   await orderStore.fetchOrders()
-// }
-
-/* ---------------- Chiudi + invia email ---------------- */
+/* ---------------- Lock + Email ---------------- */
 const lockMailDialog = ref({ visible: false, orderId: null })
 const lockMailDialogMessage =
   'Attenzione: questa azione chiude definitivamente l’ordine e invia l’email di riepilogo. <br>' +
   '<strong>Non sarà più possibile riaprire l’ordine</strong> e sarà possibile creare un nuovo ordine solo <strong>dopo le ore 20:00</strong>.<br>' +
   'Per confermare, copia il codice di sicurezza qui sotto.';
 
-// function openLockAndMail(order) {
-//   if (order.status !== 'pending' || order.locked) return
-//   lockMailDialog.value.orderId = order._id
-//   lockMailDialog.value.visible = true
-// }
-
 async function confirmLockAndSend() {
   const orderId = lockMailDialog.value.orderId
   lockMailDialog.value.visible = false
 
-  // Stato precedente per eventuale rollback
   const current = orderStore.orders.find(o => o._id === orderId)
   const prev = current
     ? {
@@ -473,20 +432,18 @@ async function confirmLockAndSend() {
       }
     : {}
 
-  // marca come finalizzato
   const now = new Date().toISOString()
   patchLocalOrder(orderId, { locked: true, lockedAt: now, status: 'completed', emailSent: true, emailSentAt: now })
 
   const okApi = await orderStore.lockOrder(orderId, { sendEmail: true, finalize: true })
   if (!okApi) {
-    // rollback
     patchLocalOrder(orderId, prev)
   }
 
   await orderStore.fetchOrders()
 }
 
-/* ---------------- Elimina ordine  ---------------- */
+/* ---------------- Elimina ordine ---------------- */
 const deleteOrderDialog = ref({ visible: false, orderId: null })
 function openDeleteOrder(orderId) {
   deleteOrderDialog.value.orderId = orderId

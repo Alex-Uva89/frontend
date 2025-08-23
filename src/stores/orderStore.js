@@ -1,4 +1,3 @@
-// orderStore.js
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from 'boot/axios'
@@ -10,6 +9,16 @@ export const useOrderStore = defineStore('orderStore', () => {
   const loading = ref(false)
   const error = ref(null)
   const currentBusinessId = ref(null)
+
+  // --- Normalizzazione centrale: garantisce sempre item.reference (fallback su item) ---
+  const normalizeOrders = (list) =>
+    (list || []).map(o => ({
+      ...o,
+      items: (o.items || []).map(it => ({
+        ...it,
+        reference: it.reference || it.item || null
+      }))
+    }))
 
   // Fetch ordini
   const fetchOrders = async () => {
@@ -25,7 +34,7 @@ export const useOrderStore = defineStore('orderStore', () => {
       const response = await api.get(`${import.meta.env.VITE_API_URL}/orders`, {
         params: { businessId: currentBusinessId.value }
       })
-      orders.value = response.data
+      orders.value = normalizeOrders(response.data)
       console.log('ORDERS', orders.value)
       return response.data
     } catch (err) {
@@ -41,7 +50,7 @@ export const useOrderStore = defineStore('orderStore', () => {
     loading.value = true
     try {
       const response = await api.get(`${import.meta.env.VITE_API_URL}/orders`)
-      orders.value = response.data
+      orders.value = normalizeOrders(response.data)
       console.log('ORDERS', orders.value)
       return response.data
     } catch (err) {
@@ -64,9 +73,7 @@ export const useOrderStore = defineStore('orderStore', () => {
         items
       })
 
-      // Aggiorna stato locale
       await fetchOrders()
-
       return response.data
     } catch (err) {
       error.value = 'Errore nella creazione dell\'ordine'
@@ -77,45 +84,32 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
-  // Aggiungi una referenza all'ordine
-const addReferenceToOrder = async (orderId, payload) => {
-  // payload: { referenceId, quantity, unit, addedById, notes }
-  loading.value = true
-  error.value = null
+  // 👉 Aggiungi una referenza all'ordine
+  const addReferenceToOrder = async (orderId, payload) => {
+    loading.value = true
+    error.value = null
 
-  try {
-    const { data } = await api.post(
-      `${import.meta.env.VITE_API_URL}/orders/${orderId}/items`,
-      payload
-    )
+    try {
+      const { data } = await api.post(
+        `${import.meta.env.VITE_API_URL}/orders/${orderId}/references`,
+        payload
+      )
 
-    // Aggiorna stato locale in modo robusto:
-    // - se l'API restituisce l'ordine aggiornato -> sostituisci
-    // - se restituisce solo l'item creato -> appende
-    const idx = orders.value.findIndex(o => o._id === orderId)
-    if (idx !== -1) {
-      if (data && data.order && Array.isArray(data.order.items)) {
-        orders.value[idx] = { ...orders.value[idx], ...data.order }
-      } else {
-        const createdItem = data?.item ?? data
-        const prevItems = Array.isArray(orders.value[idx].items) ? orders.value[idx].items : []
-        orders.value[idx] = {
-          ...orders.value[idx],
-          items: [...prevItems, createdItem]
-        }
+      const idx = orders.value.findIndex(o => o._id === orderId)
+      if (idx !== -1 && data?.order) {
+        const updated = normalizeOrders([data.order])[0]
+        orders.value[idx] = { ...orders.value[idx], ...updated }
       }
+
+      return true
+    } catch (err) {
+      error.value = 'Errore durante l\'aggiunta della referenza all\'ordine'
+      console.error(err)
+      return false
+    } finally {
+      loading.value = false
     }
-
-    return true
-  } catch (err) {
-    error.value = 'Errore durante l\'aggiunta della referenza all\'ordine'
-    console.error(err)
-    return false
-  } finally {
-    loading.value = false
   }
-}
-
 
   // Elimina una referenza da un ordine
   const deleteOrderItem = async (orderId, productKey) => {
@@ -123,22 +117,16 @@ const addReferenceToOrder = async (orderId, payload) => {
     error.value = null
 
     try {
-      // Prima chiamata API per eliminare l'item
       await api.delete(`${import.meta.env.VITE_API_URL}/orders/${orderId}/items/${productKey}`)
-
-      // Poi aggiorna lo stato locale
       const orderIndex = orders.value.findIndex(o => o._id === orderId)
       if (orderIndex !== -1) {
         orders.value[orderIndex].items = orders.value[orderIndex].items.filter(
           item => item._key !== productKey
         )
-
-        // Se l'ordine è vuoto, lo rimuoviamo completamente
         if (orders.value[orderIndex].items.length === 0) {
           orders.value.splice(orderIndex, 1)
         }
       }
-
       return true
     } catch (err) {
       error.value = 'Errore durante l\'eliminazione della referenza'
@@ -150,138 +138,120 @@ const addReferenceToOrder = async (orderId, payload) => {
   }
 
   // Modifica una referenza in un ordine
-  // orderStore.js - aggiungi questa funzione
   const updateOrderItem = async (orderId, productKey, updatedData) => {
-  loading.value = true
-  error.value = null
+    loading.value = true
+    error.value = null
 
-  try {
-    const response = await api.patch(
-      `${import.meta.env.VITE_API_URL}/orders/${orderId}/items/${productKey}`,
-      updatedData
-    )
-    console.log('response', response.data)
-    // Trova l'ordine
-    const orderIndex = orders.value.findIndex(o => o._id === orderId)
-    if (orderIndex !== -1) {
-      // Trova l'item
-      const itemIndex = orders.value[orderIndex].items.findIndex(i => i._key === productKey)
-      if (itemIndex !== -1) {
-        // Aggiorna solo quell'item
-        orders.value[orderIndex].items[itemIndex] = {
-          ...orders.value[orderIndex].items[itemIndex],
-          ...updatedData
+    try {
+      const response = await api.patch(
+        `${import.meta.env.VITE_API_URL}/orders/${orderId}/items/${productKey}`,
+        updatedData
+      )
+      console.log('response', response.data)
+      const orderIndex = orders.value.findIndex(o => o._id === orderId)
+      if (orderIndex !== -1) {
+        const itemIndex = orders.value[orderIndex].items.findIndex(i => i._key === productKey)
+        if (itemIndex !== -1) {
+          orders.value[orderIndex].items[itemIndex] = {
+            ...orders.value[orderIndex].items[itemIndex],
+            ...updatedData
+          }
         }
       }
+      return true
+    } catch (err) {
+      error.value = 'Errore durante l\'aggiornamento della referenza'
+      console.error(err)
+      return false
+    } finally {
+      loading.value = false
     }
-
-    return true
-  } catch (err) {
-    error.value = 'Errore durante l\'aggiornamento della referenza'
-    console.error(err)
-    return false
-  } finally {
-    loading.value = false
   }
-}
 
-// Elimina un intero ordine
-const deleteOrder = async (orderId) => {
-  loading.value = true
-  error.value = null
+  // Elimina un intero ordine
+  const deleteOrder = async (orderId) => {
+    loading.value = true
+    error.value = null
 
-  try {
-    // Chiamata API per eliminare l'ordine
-    await api.delete(`${import.meta.env.VITE_API_URL}/orders/${orderId}`)
-
-    // Rimuovi l'ordine dallo stato locale
-    orders.value = orders.value.filter(order => order._id !== orderId)
-
-    return true
-  } catch (err) {
-    error.value = 'Errore durante l\'eliminazione dell\'ordine'
-    console.error(err)
-    return false
-  } finally {
-    loading.value = false
+    try {
+      await api.delete(`${import.meta.env.VITE_API_URL}/orders/${orderId}`)
+      orders.value = orders.value.filter(order => order._id !== orderId)
+      return true
+    } catch (err) {
+      error.value = 'Errore durante l\'eliminazione dell\'ordine'
+      console.error(err)
+      return false
+    } finally {
+      loading.value = false
+    }
   }
-}
 
-const lockOrder = async (orderId, { sendEmail = false, to, finalize } = {}) => {
-  try {
-    const payload = { sendEmail, to }
-    if (typeof finalize !== 'undefined') payload.finalize = finalize
+  const lockOrder = async (orderId, { sendEmail = false, to, finalize } = {}) => {
+    try {
+      const payload = { sendEmail, to }
+      if (typeof finalize !== 'undefined') payload.finalize = finalize
 
-    const { data } = await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, payload)
+      const { data } = await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, payload)
 
-    // Aggiorna lo stato locale subito (SSE aggiornerà comunque)
-    const idx = orders.value.findIndex(o => o._id === orderId)
-    if (idx !== -1) {
-      orders.value[idx] = {
-        ...orders.value[idx],
-        locked: true,
-        lockedAt: new Date().toISOString(),
-        ...(sendEmail ? { emailSent: true, emailSentAt: new Date().toISOString(), status: 'completed' } : {})
+      const idx = orders.value.findIndex(o => o._id === orderId)
+      if (idx !== -1) {
+        orders.value[idx] = {
+          ...orders.value[idx],
+          locked: true,
+          lockedAt: new Date().toISOString(),
+          ...(sendEmail ? { emailSent: true, emailSentAt: new Date().toISOString(), status: 'completed' } : {})
+        }
       }
-    }
 
-    if (data?.alreadyLocked) {
-      Notify.create({ type: 'info', message: 'Ordine già chiuso' })
-    } else {
-      Notify.create({ type: 'positive', message: sendEmail ? 'Ordine chiuso e email inviata' : 'Ordine chiuso' })
-    }
-    return true
-  } catch (err) {
-    const msg = err?.response?.data?.error || err.message || 'Errore blocco ordine'
-    Notify.create({ type: 'negative', message: msg })
-    return false
-  }
-}
-
-
-const unlockOrder = async (orderId) => {
-  try {
-    // blocco lato client: non riaprire se già inviato
-    const idx = orders.value.findIndex(o => o._id === orderId)
-    const ord = idx !== -1 ? orders.value[idx] : null
-    if (ord?.emailSent) {
-      Notify.create({ type: 'warning', message: 'Ordine già inviato: non può essere riaperto' })
+      if (data?.alreadyLocked) {
+        Notify.create({ type: 'info', message: 'Ordine già chiuso' })
+      } else {
+        Notify.create({ type: 'positive', message: sendEmail ? 'Ordine chiuso e email inviata' : 'Ordine chiuso' })
+      }
+      return true
+    } catch (err) {
+      const msg = err?.response?.data?.error || err.message || 'Errore blocco ordine'
+      Notify.create({ type: 'negative', message: msg })
       return false
     }
-
-    // tenta endpoint dedicato
-    try {
-      await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/unlock`)
-    } catch (err) {
-      const status = err?.response?.status
-      // fallback su /lock con flag unlock
-      if (status === 404 || status === 405) {
-        await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, { unlock: true })
-      } else {
-        throw err
-      }
-    }
-
-    // aggiornamento ottimistico locale
-    if (idx !== -1) {
-      orders.value[idx] = {
-        ...orders.value[idx],
-        locked: false,
-        lockedAt: null
-      }
-    }
-
-    Notify.create({ type: 'positive', message: 'Ordine riaperto' })
-    return true
-  } catch (err) {
-    const msg = err?.response?.data?.error || err.message || 'Errore riapertura ordine'
-    Notify.create({ type: 'negative', message: msg })
-    return false
   }
-}
 
+  const unlockOrder = async (orderId) => {
+    try {
+      const idx = orders.value.findIndex(o => o._id === orderId)
+      const ord = idx !== -1 ? orders.value[idx] : null
+      if (ord?.emailSent) {
+        Notify.create({ type: 'warning', message: 'Ordine già inviato: non può essere riaperto' })
+        return false
+      }
 
+      try {
+        await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/unlock`)
+      } catch (err) {
+        const status = err?.response?.status
+        if (status === 404 || status === 405) {
+          await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, { unlock: true })
+        } else {
+          throw err
+        }
+      }
 
+      if (idx !== -1) {
+        orders.value[idx] = {
+          ...orders.value[idx],
+          locked: false,
+          lockedAt: null
+        }
+      }
+
+      Notify.create({ type: 'positive', message: 'Ordine riaperto' })
+      return true
+    } catch (err) {
+      const msg = err?.response?.data?.error || err.message || 'Errore riapertura ordine'
+      Notify.create({ type: 'negative', message: msg })
+      return false
+    }
+  }
 
   return {
     orders,

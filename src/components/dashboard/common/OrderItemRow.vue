@@ -1,14 +1,30 @@
 <template>
   <div class="order-item-row">
     <!-- Riga principale -->
-    <div class="row items-center q-pa-sm bg-grey-2 rounded-borders cursor-pointer" @click="expanded = !expanded">
+    <div
+      class="row items-center q-pa-sm bg-grey-2 rounded-borders"
+      :class="[{ 'cursor-pointer': !isCompleted }, { 'opacity-60': isCompleted }]"
+      @click="onRowClick"
+    >
       <div class="col-xs-12 col-sm-6">
         <div class="row items-center">
-          <q-icon name="expand_more" size="sm" :class="{ 'rotate-180': expanded }" class="q-mr-sm transition-rotate" />
-          <span class="text-weight-bold">{{ product.reference?.name }}</span>
-          <q-chip v-if="product.reference?.notes" dense size="sm" color="orange-1" text-color="orange" class="q-ml-sm">
+          <q-icon
+            name="expand_more"
+            size="sm"
+            :class="[{ 'rotate-180': expanded }, 'q-mr-sm', 'transition-rotate']"
+          />
+          <span class="text-weight-bold">{{ safeRef?.name || 'Senza nome' }}</span>
+
+          <!-- NOTE: le note stanno sull'item -->
+          <q-chip
+            v-if="product?.notes"
+            dense size="sm"
+            color="orange-1"
+            text-color="orange"
+            class="q-ml-sm"
+          >
             <q-icon name="info" size="xs" class="q-mr-xs"/>
-            {{ product.reference.notes }}
+            {{ product.notes }}
           </q-chip>
         </div>
       </div>
@@ -22,12 +38,12 @@
           </div>
           <div class="col-auto text-right">
             <span class="text-weight-medium">Prezzo:</span>
-            <span class="q-ml-sm">{{ formatPrice(product.reference?.price) }}</span>
+            <span class="q-ml-sm">{{ formatPrice(safeRef?.price) }}</span>
           </div>
           <div class="col-auto text-right">
             <span class="text-weight-medium">Totale:</span>
             <span class="q-ml-sm text-weight-bold">
-              {{ formatPrice((product.quantity || 0) * (product.reference?.price || 0)) }}
+              {{ formatPrice((product.quantity || 0) * (safeRef?.price || 0)) }}
             </span>
           </div>
         </div>
@@ -45,9 +61,9 @@
           </span>
         </div>
 
-        <div v-if="product.reference?.volume" class="row items-center q-mb-sm">
+        <div v-if="safeRef?.volume" class="row items-center q-mb-sm">
           <q-icon name="scale" size="sm" color="grey-6" class="q-mr-sm"/>
-          <span class="text-caption text-grey-7">Volume: {{ product.reference.volume }}</span>
+          <span class="text-caption text-grey-7">Volume: {{ safeRef.volume }}</span>
         </div>
 
         <div v-if="unitToShow" class="row items-center q-mb-sm">
@@ -56,13 +72,27 @@
         </div>
 
         <div class="row justify-end q-mt-sm">
-          <q-btn flat dense color="primary" icon="edit" label="Modifica" @click.stop="showEditDialog = true" class="q-mr-sm" />
-          <q-btn flat dense color="negative" icon="delete" label="Elimina" @click.stop="confirmDelete" />
+          <q-btn
+            flat dense color="primary" icon="edit" label="Modifica"
+            class="q-mr-sm"
+            :disable="isCompleted"
+            @click.stop="showEditDialog = true"
+          />
+          <q-btn
+            flat dense color="negative" icon="delete" label="Elimina"
+            :disable="isCompleted"
+            @click.stop="confirmDelete"
+          />
         </div>
       </div>
     </q-slide-transition>
 
-    <edit-product-dialog v-model:show-dialog="showEditDialog" :product="product" :order-id="orderId" />
+    <!-- Mantengo il tuo v-model personalizzato -->
+    <edit-product-dialog
+      v-model:show-dialog="showEditDialog"
+      :product="product"
+      :order-id="orderId"
+    />
   </div>
 </template>
 
@@ -79,11 +109,30 @@ const props = defineProps({
 
 const $q = useQuasar()
 const orderStore = useOrderStore()
+
+// Fallback sicuro: reference || item
+const safeRef = computed(() => props.product?.reference || props.product?.item || null)
+
+// Stato riga espansa
 const expanded = ref(false)
 const showEditDialog = ref(false)
 
-// unità da mostrare: prima quella salvata sull'item, poi (se presente) quella della referenza, altrimenti niente
-const unitToShow = computed(() => props.product?.unit || props.product?.reference?.unit || '')
+// Disabled se l'ordine è completed
+const isCompleted = computed(() => {
+  const ord = orderStore.orders.find(o => o._id === props.orderId)
+  return ord?.status === 'completed'
+})
+
+// Click riga: solo se non completed
+function onRowClick () {
+  if (isCompleted.value) return
+  expanded.value = !expanded.value
+}
+
+// unità da mostrare: item -> reference/item -> ''
+const unitToShow = computed(() =>
+  props.product?.unit || safeRef.value?.unit || ''
+)
 
 function formatPrice(n) {
   const num = Number(n || 0)
@@ -102,7 +151,7 @@ function formatDate(dateString) {
 async function confirmDelete() {
   $q.dialog({
     title: 'Conferma eliminazione',
-    message: `Sei sicuro di voler eliminare ${props.product?.reference?.name} dall'ordine?`,
+    message: `Sei sicuro di voler eliminare ${safeRef.value?.name || 'questa referenza'} dall'ordine?`,
     cancel: true,
     persistent: true,
     ok: { label: 'Elimina', color: 'negative' }
@@ -118,4 +167,6 @@ async function confirmDelete() {
 .order-item-row:hover{ background-color:rgba(0,0,0,.02) }
 .transition-rotate{ transition: transform .3s ease }
 .rotate-180{ transform: rotate(180deg) }
+.opacity-60 { opacity: .6 }
+.cursor-pointer { cursor: pointer }
 </style>

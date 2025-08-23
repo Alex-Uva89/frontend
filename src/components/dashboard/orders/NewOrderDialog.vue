@@ -67,7 +67,7 @@
             </div>
 
             <!-- Unità -->
-            <div class="cell cell--unit flex justify-center" >
+            <div class="cell cell--unit flex justify-center">
               <q-select
                 v-if="unitsFor(idx).length > 1"
                 v-model="row.unit"
@@ -81,9 +81,7 @@
                 {{ unitsFor(idx)[0] }}
               </q-chip>
               <q-badge v-else dense outline class="q-pa-md text-teal">
-                <div>
-                  unità della referenza
-                </div>
+                <div>unità della referenza</div>
               </q-badge>
             </div>
 
@@ -203,7 +201,7 @@ function setProdRef (idx, el) {
   if (el) prodRefs.value[idx] = el
 }
 
-/* Aggiungi riga: la nuova è l'unica attiva; focus sul suo select */
+/* Aggiungi riga */
 function addRow () {
   if (!canAddRow.value) return
 
@@ -223,13 +221,10 @@ function addRow () {
   })
 }
 
-/* Rimuovi riga: dopo la rimozione, è attiva la nuova ultima; focus su di essa */
+/* Rimuovi riga */
 function removeRow (idx) {
   items.value.splice(idx, 1)
-
-  // opzionale: pulizia ref semplice (gli indici si riallineano alla prossima render)
   delete prodRefs.value[idx]
-
   nextTick(() => {
     const idx2 = enabledIdx.value
     const comp = prodRefs.value[idx2]
@@ -239,7 +234,7 @@ function removeRow (idx) {
 
 /* Helpers referenze/unità */
 function refObjById (id) {
-  return referenceStore.references.find(r => r._id === id) || null
+  return (referenceStore.references || []).find(r => r._id === id) || null
 }
 
 function unitsFor (idx) {
@@ -258,20 +253,20 @@ const selectedRefIds = computed(() =>
 )
 const selectedCount = computed(() => selectedRefIds.value.size)
 const canAddRow = computed(() => {
-  const total = referenceStore.references.length || 0
+  const total = (referenceStore.references || []).length || 0
   return selectedCount.value < total
 })
 function filteredReferences (idx) {
   const currentId = items.value[idx]?.referenceId
   const taken = selectedRefIds.value
-  return referenceStore.references.filter(r => r._id === currentId || !taken.has(r._id))
+  return (referenceStore.references || []).filter(r => r._id === currentId || !taken.has(r._id))
 }
 
 /* Cambio prodotto su riga */
 function onReferenceChanged (idx) {
   const row = items.value[idx]
 
-  // guard-rail: blocca duplicati
+  // blocca duplicati
   const dup = items.value.some((r, i) => i !== idx && r.referenceId && r.referenceId === row.referenceId)
   if (dup) {
     $q.notify({ type: 'warning', message: 'Prodotto già presente nell’ordine' })
@@ -300,20 +295,65 @@ function openNewReference (idx) {
   showNewReferenceDialog.value = true
 }
 
+/**
+ * Crea la referenza e selezionala nella riga:
+ * - accetta ritorni {reference}, {data} o oggetto diretto
+ * - poi refetch, poi ricerca per _id o per name/supplier/category
+ */
 async function handleReferenceCreated (draft) {
   try {
-    const { reference } = await referenceStore.createReference(draft, {
+    const raw = await referenceStore.createReference(draft, {
       initWarehouse: true,
       businessId: props.businessId
     })
 
-    // assegna alla riga richiesta
+    // normalizza il ritorno
+    const created = raw?.reference || raw?.data || raw || null
+
+    // ricarico la lista per avere l'_id certo
+    await referenceStore.fetchReferences()
+
+    // trova la nuova referenza
+    let pick = null
+    const lc = s => (s || '').trim().toLowerCase()
+    const createdId = created?._id || created?.id || null
+    const createdName = lc(created?.name || draft?.name)
+    const createdSupplierId =
+      created?.supplier?._id || created?.supplier?._ref || draft?.supplier?._ref || null
+    const createdCategoryId =
+      created?.category?._id || created?.category?._ref || draft?.category?._ref || null
+
+    // 1) per id
+    if (createdId) {
+      pick = (referenceStore.references || []).find(r => r._id === createdId) || null
+    }
+
+    // 2) name + supplier + category
+    if (!pick && createdName) {
+      pick = (referenceStore.references || []).find(r =>
+        lc(r?.name) === createdName &&
+        ((r?.supplier?._id || r?.supplier?._ref || null) === createdSupplierId || !createdSupplierId) &&
+        ((r?.category?._id || r?.category?._ref || null) === createdCategoryId || !createdCategoryId)
+      ) || null
+    }
+
+    // 3) solo name
+    if (!pick && createdName) {
+      pick = (referenceStore.references || []).find(r => lc(r?.name) === createdName) || null
+    }
+
+    // assegna alla riga di partenza se trovata
     const idx = creatingForRowIdx.value ?? 0
     const row = items.value[idx]
-    row.referenceId = reference._id
+    row.referenceId = pick?._id || null
     onReferenceChanged(idx)
 
-    $q.notify({ type: 'positive', message: `Referenza "${reference.name}" creata` })
+    $q.notify({
+      type: pick?._id ? 'positive' : 'warning',
+      message: pick?._id
+        ? `Referenza "${pick.name}" creata`
+        : 'Referenza creata ma non identificata con certezza nella lista'
+    })
   } catch (err) {
     if (err?.response?.status === 409) {
       $q.notify({ type: 'warning', message: 'Questa referenza esiste già' })
@@ -456,14 +496,8 @@ function formatMoney (val) {
   filter: grayscale(0.7);
   cursor: not-allowed;
 }
-/* blocca interazioni sui figli, lasciando il cursore not-allowed sul container */
-.row-dimmed .cell :deep(*) {
-  pointer-events: none;
-}
-/* evita che i tooltip interferiscano */
-.row-dimmed :deep(.q-tooltip) {
-  display: none !important;
-}
+.row-dimmed .cell :deep(*) { pointer-events: none; }
+.row-dimmed :deep(.q-tooltip) { display: none !important; }
 
 /* Rimuovi spinner dai number input */
 :deep(input[type="number"].no-spin) {
