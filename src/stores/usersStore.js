@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useUsersStore = defineStore('users', () => {
-  // --- Storage helpers (per-tab) ---
+  // --- Storage helpers (per tab) ---
   const STORAGE = typeof window !== 'undefined' ? window.sessionStorage : null
   const TOKEN_KEY = 'token'
   const USER_KEY = 'user'
@@ -74,8 +74,8 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      // ✅ endpoint corretto con /auth
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+      // endpoint corretto
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
       if (!res.ok) throw new Error('Errore fetching current user')
@@ -119,6 +119,91 @@ export const useUsersStore = defineStore('users', () => {
     return permissions.every(p => currentUser.value.permissions.includes(p))
   }
 
+  async function createUser(payload) {
+  // payload atteso:
+  // { firstName, lastName, email, role, business, isActive, photoUrl? }
+  const headers = { 'Content-Type': 'application/json' }
+  if (token.value) headers.Authorization = `Bearer ${token.value}`
+
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload || {})
+  })
+
+  if (!res.ok) {
+    let msg = 'Errore creazione utente'
+    try {
+      const body = await res.json()
+      if (body?.error) msg = body.error
+    } catch (e) {
+      console.warn('Errore parse JSON createUser', e)
+    }
+    throw new Error(msg)
+  }
+
+  const created = await res.json()
+
+  // aggiorna lista localmente
+  users.value = [created, ...(users.value || [])]
+
+  return created
+}
+
+  // ---------------------- NUOVI METODI DI UPDATE ----------------------
+  async function updateUser(id, patch) {
+    if (!id) throw new Error('ID utente mancante')
+
+    const headers = { 'Content-Type': 'application/json' }
+    if (token.value) headers.Authorization = `Bearer ${token.value}`
+
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(patch || {})
+    })
+
+    if (!res.ok) {
+      let msg = 'Errore aggiornamento utente'
+      try {
+        const body = await res.json()
+        if (body?.error) msg = body.error
+      } catch (e) {
+        // ignora errori nel parsing JSON della risposta d'errore (ESLint compliant)
+        console.warn('Errore parsing JSON risposta PATCH /users/:id', e)
+      }
+      throw new Error(msg)
+    }
+
+    const updated = await res.json()
+
+    // aggiorna lista localmente
+    const idx = users.value.findIndex(u => (u._id || u.id) === id)
+    if (idx !== -1) {
+      users.value[idx] = updated
+    } else {
+      // se l'utente non è in lista, ricarico
+      await fetchUsers()
+    }
+
+    // se ho aggiornato me stesso, sincronizzo
+    if (currentUser.value && (currentUser.value._id === id || currentUser.value.id === id)) {
+      currentUser.value = { ...currentUser.value, ...updated }
+      if (STORAGE) STORAGE.setItem(USER_KEY, JSON.stringify(currentUser.value))
+    }
+
+    return updated
+  }
+
+  async function updateRole(id, role) {
+    return updateUser(id, { role })
+  }
+
+  async function setActive(id, isActive) {
+    return updateUser(id, { isActive: !!isActive })
+  }
+  // -------------------------------------------------------------------
+
   // Initialize on store creation
   initialize()
 
@@ -128,8 +213,10 @@ export const useUsersStore = defineStore('users', () => {
     // Getters
     isAuthenticated, userRole,
     // Actions
-    fetchUsers, getUserByEmail, setUserAndToken, fetchCurrentUser, logout,
+    fetchUsers, getUserByEmail, setUserAndToken, fetchCurrentUser, logout, createUser,
     // Permission checks
-    hasRole, hasAnyRole, hasAllPermissions
+    hasRole, hasAnyRole, hasAllPermissions,
+    // Updates
+    updateUser, updateRole, setActive
   }
 })
