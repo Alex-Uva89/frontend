@@ -3,8 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@common/*": ["src/components/dashboard/common/*"],
-      "@tool/*": ["src/components/dashboard/common/tools/*"]
+      "@common/*": ["src/components/common/dashboard/common/*"],
+      "@tool/*": ["src/components/common/dashboard/common/tools/*"]
     }
   },
   "exclude": ["node_modules", "dist", ".quasar"]

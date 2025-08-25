@@ -1,82 +1,66 @@
+import { crmRoutes } from 'src/apps/crm/routes'
+import { cmsRoutes } from 'src/apps/cms/routes'
+
 const routes = [
-  // Layout pubblico: solo login
+  // Pubblico: Login
   {
     path: '/',
     component: () => import('src/layouts/MainLayout.vue'),
     children: [
-      { path: '', name: 'login', component: () => import('pages/IndexPage.vue') },
+      { path: '', name: 'login', component: () => import('pages/auth/LoginPage.vue') },
     ],
   },
 
-  // Layout protetto: Hub + Dashboard
+  // Hub (protetto, ma layout generico, NON quello del CRM)
   {
     path: '/',
-    component: () => import('layouts/LogLayout.vue'),
+    component: () => import('src/layouts/LogLayout.vue'),
     meta: { requiresAuth: true },
     children: [
-      // 👉 HubPage con LogLayout
       { path: 'hub', name: 'hub', component: () => import('pages/HubPage.vue') },
-
-      // 👉 Entry unico per il CRM: /crm
-      {
-        path: 'crm',
-        name: 'crm-entry',
-        beforeEnter: (to, from, next) => {
-          // rimbalza al router intermedio che smista in base al ruolo
-          next({ name: 'crm-router' })
-        }
-      },
-
-      // Router intermedio per smistare il CRM
-      { path: 'dashboard/crm-router', name: 'crm-router', component: () => import('pages/dashboard/CrmRouter.vue') },
-
-      // Dashboard views
-      {
-        path: 'dashboard/main',
-        name: 'dashboard-main',
-        component: () => import('pages/dashboard/SharedView.vue'),
-        meta: { roles: ['staff', 'manager', 'owner', 'dev', 'hr'] }
-      },
-      {
-        path: 'dashboard/dev',
-        name: 'dashboard-dev',
-        component: () => import('pages/dashboard/DevView.vue'),
-        meta: { roles: ['dev'] }
-      },
-      {
-        path: 'dashboard/manager',
-        name: 'dashboard-manager',
-        component: () => import('pages/dashboard/ManagerView.vue'),
-        meta: { roles: ['manager', 'owner', 'dev'] }
-      },
-      {
-        path: 'dashboard/staff',
-        name: 'dashboard-staff',
-        component: () => import('pages/dashboard/StaffView.vue'),
-        meta: {
-          roles: ['staff'],
-          requiredPermissions: ['view_orders', 'edit_own_orders']
-        }
-      },
-      {
-        path: 'dashboard/owner',
-        name: 'dashboard-owner',
-        component: () => import('pages/dashboard/OwnerView.vue'),
-        meta: { roles: ['owner', 'dev'] }
-      },
-      {
-        path: 'dashboard/hr',
-        name: 'dashboard-hr',
-        component: () => import('pages/dashboard/HrView.vue'),
-        meta: { roles: ['hr', 'dev'] }
-      },
-      {
-        path: 'dashboard/supervisor',
-        name: 'dashboard-supervisor',
-        component: () => import('pages/dashboard/SupervisorView.vue'),
-        meta: { roles: ['supervisor', 'manager', 'owner', 'dev'] }
-      },
     ]
+  },
+
+  // CRM (layout dedicato CRM)
+  {
+    path: '/crm',
+    component: () => import('src/apps/crm/layout/CRMLayout.vue'),
+    meta: { requiresAuth: true, app: 'crm' },
+    children: crmRoutes,
+    beforeEnter: (to, from, next) => {
+      if (to.path.replace(/\/+$/, '') === '/crm') {
+        try {
+          const { useUsersStore } = require('src/stores/usersStore')
+          const store = useUsersStore()
+          const role = store?.currentUser?.role
+            ? String(store.currentUser.role).toLowerCase()
+            : null
+
+          const redirectMap = {
+            staff: 'crm.staff',
+            manager: 'crm.manager',
+            owner: 'crm.owner',
+            dev: 'crm.dev',
+            hr: 'crm.hr',
+            supervisor: 'crm.supervisor'
+          }
+
+          return next({ name: redirectMap[role] || 'crm.main' })
+        } catch (e) {
+          console.warn(e)
+          return next({ name: 'crm.main' })
+        }
+      }
+      next()
+    }
+  },
+
+  // CMS (layout dedicato CMS)
+  {
+    path: '/cms',
+    component: () => import('src/apps/cms/layout/CMSLayout.vue'),
+    meta: { requiresAuth: true, app: 'cms' },
+    children: cmsRoutes
   },
 
   // 404

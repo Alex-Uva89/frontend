@@ -206,10 +206,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import WeekTabs from 'src/components/WeekTabs.vue'
-import OrderItemsRow from 'src/components/dashboard/common/OrderItemRow.vue'
-import CountdownTimer from 'src/components/CountdownTimer.vue'
-import NewReferenceDialog from 'src/components/dashboard/references/NewReferenceDialog.vue'
+import WeekTabs from 'src/components/common/WeekTabs.vue'
+import OrderItemsRow from 'src/components/common/dashboard/common/OrderItemRow.vue'
+import CountdownTimer from 'src/components/common/CountdownTimer.vue'
+import NewReferenceDialog from 'src/components/common/dashboard/references/NewReferenceDialog.vue'
 import SecurityCodeConfirmDialog from 'src/components/common/SecurityCodeConfirmDialog.vue'
 
 import { useOrderStore } from 'stores/orderStore'

@@ -145,7 +145,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import WeekTabs from 'src/components/WeekTabs.vue'
+import WeekTabs from 'src/components/common/WeekTabs.vue'
 import { useOrderStore } from 'stores/orderStore'
 
 const orderStore = useOrderStore()

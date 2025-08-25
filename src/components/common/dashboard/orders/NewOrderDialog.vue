@@ -165,7 +165,7 @@ import { useUsersStore } from 'src/stores/usersStore'
 import { useOrderStore } from 'src/stores/orderStore'
 import { useSupplierStore } from 'src/stores/supplierStore'
 
-import NewReferenceDialog from 'src/components/dashboard/references/NewReferenceDialog.vue'
+import NewReferenceDialog from 'src/components/common/dashboard/references/NewReferenceDialog.vue'
 
 /* Props & emits */
 const props = defineProps({

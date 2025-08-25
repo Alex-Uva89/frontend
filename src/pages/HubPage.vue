@@ -191,38 +191,44 @@ function badgeColor(badge) {
 function handleOpen(app) {
   if (app.disabled) return
 
-  // Pagina "in aggiornamento"
   if (app.status === 'in_aggiornamento') {
     return router.push({ name: 'app-updating', params: { slug: app.slug } })
   }
 
-  // Se è il CRM: vai dritto alla vista del ruolo
-  const isCrm = app.slug === 'crm' || app.pathOrUrl === '/crm'
-  if (isCrm) {
+  const pathOrUrl = (app.pathOrUrl || '').trim()
+  const slug = (app.slug || '').trim().toLowerCase()
+
+  // 👉 CRM: vai direttamente alla route del ruolo
+  if (slug === 'crm' || pathOrUrl.replace(/\/+$/, '') === '/crm') {
     const role = String(usersStore.currentUser?.role || '').toLowerCase()
-    const map = {
-      staff: '/dashboard/staff',
-      manager: '/dashboard/manager',
-      owner: '/dashboard/owner',
-      dev: '/dashboard/dev',
-      hr: '/dashboard/hr',
-      supervisor: '/dashboard/supervisor'
+    const nameByRole = {
+      staff: 'crm.staff',
+      manager: 'crm.manager',
+      owner: 'crm.owner',
+      dev: 'crm.dev',
+      hr: 'crm.hr',
+      supervisor: 'crm.supervisor'
     }
-    return router.push(map[role] || '/dashboard/main')
+    return router.push({ name: nameByRole[role] || 'crm.main' })
   }
 
-  // Altre app: se URL assoluto apri in nuova scheda
-  const isAbsoluteUrl = /^https?:\/\//i.test(app.pathOrUrl || '')
-  if ((app.isExternal || isAbsoluteUrl) && app.pathOrUrl) {
-    window.open(app.pathOrUrl, '_blank', 'noopener')
+  // (Opzionale) CMS identico
+  if (slug === 'cms' || pathOrUrl.replace(/\/+$/, '') === '/cms') {
+    return router.push('/cms')
+  }
+
+  const isAbsoluteUrl = /^https?:\/\//i.test(pathOrUrl)
+  if ((app.isExternal || isAbsoluteUrl) && pathOrUrl) {
+    window.open(pathOrUrl, '_blank', 'noopener')
     return
   }
 
-  // Altre app interne
-  if (app.pathOrUrl) {
-    router.push(app.pathOrUrl)
+  if (pathOrUrl) {
+    router.push(pathOrUrl)
   }
 }
+
+
 
 
 function reload() {

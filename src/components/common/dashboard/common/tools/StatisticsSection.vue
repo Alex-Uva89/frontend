@@ -45,7 +45,7 @@
 </template>
 
 <script setup>
-import MyChart from 'src/components/MyChart.vue'
+import MyChart from 'src/components/common/MyChart.vue'
 import { useBusinessStore } from 'src/stores/businessStore'
 import { useUsersStore } from 'src/stores/usersStore'
 import { computed } from 'vue'

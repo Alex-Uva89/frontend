@@ -61,7 +61,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import OrderItemsList from '@tool/OrderItemsListCreate.vue'
-import NewOrderDialog from 'src/components/dashboard/orders/NewOrderDialog.vue'
+import NewOrderDialog from 'src/components/common/dashboard/orders/NewOrderDialog.vue'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
 

@@ -97,8 +97,8 @@ export default defineConfig((ctx) => {
       // -----------------------------------------------------------------
 
       alias: {
-        '@tool': fileURLToPath(new URL('./src/components/dashboard/common/tools', import.meta.url)),
-        '@common': fileURLToPath(new URL('./src/components/dashboard/common', import.meta.url)),
+        '@tool': fileURLToPath(new URL('src/components/common/dashboard/common/tools', import.meta.url)),
+        '@common': fileURLToPath(new URL('src/components/common/dashboard/common', import.meta.url)),
       },
     },
 

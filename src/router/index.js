@@ -24,14 +24,13 @@ export default defineRouter(function () {
   Router.beforeEach(async (to, from, next) => {
     const usersStore = useUsersStore()
     const token = sessionStorage.getItem('token')
-    const requiresAuth = to.matched.some(record => record.meta?.requiresAuth)
+    const requiresAuth = to.matched.some(r => r.meta?.requiresAuth)
 
-    // Se autenticato ma manca currentUser, prova a caricarlo
     if (token && !usersStore.currentUser) {
       try {
         await usersStore.fetchCurrentUser()
-      } catch (error) {
-        console.error('Failed to fetch user:', error)
+      } catch (err) {
+        console.error('Failed to fetch user:', err)
         sessionStorage.removeItem('token')
       }
     }
@@ -41,34 +40,32 @@ export default defineRouter(function () {
       ? String(usersStore.currentUser.role).toLowerCase()
       : null
 
-    // Blocca rotte protette se non autenticato
     if (requiresAuth && !isAuth) {
       return next({ name: 'login' })
     }
 
-    // Se un utente autenticato va al login, instradalo al posto giusto
+    // Login → se già autenticato rimanda dove ha senso
     if (to.name === 'login' && isAuth) {
-      if (userRole === 'staff') return next({ name: 'dashboard-staff' })
+      if (userRole === 'staff') return next({ name: 'crm.staff' })
       return next({ name: 'hub' })
     }
 
-    // Se un "staff" prova ad andare sull’hub, mandalo al CRM (sua vista)
+    // Se uno "staff" va all'hub, mandalo alla sua dashboard CRM
     if (to.name === 'hub' && userRole === 'staff') {
-      return next({ name: 'dashboard-staff' })
+      return next({ name: 'crm.staff' })
     }
 
-    // Controllo ruoli se specificati nella meta della rotta
+    // Controllo ruoli granulari (meta.roles)
     if (to.meta?.roles && isAuth) {
-      const allowedRoles = Array.isArray(to.meta.roles)
-        ? to.meta.roles.map(r => String(r).toLowerCase())
-        : [String(to.meta.roles).toLowerCase()]
-
-      if (!userRole || !allowedRoles.includes(userRole)) {
-        return next('/dashboard/main')
+      const allowed = (Array.isArray(to.meta.roles) ? to.meta.roles : [to.meta.roles])
+        .map(r => String(r).toLowerCase())
+      if (!userRole || !allowed.includes(userRole)) {
+        // se non ha permesso, porta a una pagina safe del CRM
+        return next({ name: 'crm.main' })
       }
     }
 
-    return next()
+    next()
   })
 
   return Router

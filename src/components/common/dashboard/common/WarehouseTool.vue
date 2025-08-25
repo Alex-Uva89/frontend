@@ -257,9 +257,9 @@ import { useReferenceStore } from 'src/stores/referenceStore'
 import { useCategoryStore } from 'src/stores/categoryStore'
 import { useSupplierStore } from 'src/stores/supplierStore'
 
-import NewReferenceDialog from 'src/components/dashboard/references/NewReferenceDialog.vue'
-import NewCategoryDialog  from 'src/components/dashboard/categories/NewCategoryDialog.vue'
-import NewSupplierDialog  from 'src/components/dashboard/suppliers/NewSupplierDialog.vue'
+import NewReferenceDialog from 'src/components/common/dashboard/references/NewReferenceDialog.vue'
+import NewCategoryDialog  from 'src/components/common/dashboard/categories/NewCategoryDialog.vue'
+import NewSupplierDialog  from 'src/components/common/dashboard/suppliers/NewSupplierDialog.vue'
 
 const $q = useQuasar()
 const referenceStore = useReferenceStore()
