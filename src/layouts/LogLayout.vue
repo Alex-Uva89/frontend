@@ -14,7 +14,7 @@
     </q-header>
 
     <q-page-container>
-      <UserProfileCard :user="user"/>
+      <UserProfileCard :user="user" :businesses="businessStore.businesses"/>
       <router-view />
     </q-page-container>
   </q-layout>
@@ -24,14 +24,18 @@
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
+
 import { useUsersStore } from 'src/stores/usersStore'
 import { useCompanyStore } from 'src/stores/companyStore'
+import { useBusinessStore } from 'src/stores/businessStore'
+
 import UserProfileCard from 'src/components/userProfileCard.vue'
 
 const router = useRouter()
 const $q = useQuasar()
 const usersStore = useUsersStore()
 const companyStore = useCompanyStore()
+const businessStore = useBusinessStore()
 
 // Assumendo che currentUser sia il dato corretto
 const user = computed(() => usersStore.currentUser)
