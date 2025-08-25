@@ -75,7 +75,7 @@
 
     <!-- FAB (mobile) -->
     <q-page-sticky position="bottom-right" :offset="[16,16]" class="lt-md">
-      <q-fab color="primary" icon="add" direction="up" glossy>
+      <q-fab color="primary" icon="add" direction="left" glossy>
         <q-fab-action color="primary" icon="add_circle" label="Nuova root" @click="openCreateRoot" />
         <q-fab-action
           color="primary" icon="subdirectory_arrow_right" label="Nuova sottocategoria"
@@ -92,7 +92,7 @@
       transition-hide="slide-down"
       persistent
     >
-      <q-card style="min-width: 680px; max-width: 95vw">
+      <q-card style="width: 90vw; height: 90vh;">
         <q-toolbar>
           <q-btn flat round dense icon="arrow_back" v-close-popup />
           <q-toolbar-title>{{ editor.mode === 'create' ? 'Nuova categoria' : 'Modifica categoria' }}</q-toolbar-title>
