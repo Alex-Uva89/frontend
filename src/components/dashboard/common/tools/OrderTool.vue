@@ -43,9 +43,9 @@
       </div>
     </div>
 
-    <q-inner-loading :showing="loading" />
+    <q-inner-loading :showing="loading || !ready" />
 
-    <template v-if="!loading">
+    <template v-if="ready && !loading">
       <OrderItemsList />
     </template>
 
@@ -80,12 +80,14 @@ const emit = defineEmits(['order-created', 'business-changed'])
 
 const showDialog = ref(false)
 
-/** ===== Ruolo e business corrente ===== */
+/* ===== Ruolo e business corrente ===== */
 const isOwner = computed(() =>
   (usersStore.currentUser?.role || '').toLowerCase() === 'owner'
 )
 
-// opzioni { label, value }
+const userBusinessId = computed(() => usersStore.currentUser?.business?._id || null)
+
+/* Opzioni select {label, value} */
 const businessOptions = computed(() =>
   (businessStore.businesses || []).map(b => ({
     label: b.name,
@@ -93,50 +95,77 @@ const businessOptions = computed(() =>
   }))
 )
 
-// id selezionato nella select (se Owner)
+/* ID selezionato nella select (se Owner) */
 const selectedBusinessId = ref(
-  businessStore.currentBusinessId || props.businessId
+  businessStore.currentBusinessId || props.businessId || userBusinessId.value
 )
 
-// se il parent cambia businessId (es. cambio rotta), per i non Owner seguiamo il parent
+/* ID effettivo usato dal tool */
+const currentBusinessId = computed(() =>
+  isOwner.value ? selectedBusinessId.value : (userBusinessId.value || props.businessId)
+)
+
+/* Nome corrente per il titolo */
+const currentBusinessName = computed(() => {
+  const id = currentBusinessId.value
+  if (!id) return props.businessName
+  return businessStore.getNameById(id) || props.businessName
+})
+
+/* Pronto a renderizzare i figli solo quando ho un business deciso */
+const ready = computed(() => !!currentBusinessId.value)
+
+/* Reazioni:
+   - se il parent cambia businessId e NON sei Owner, segui il parent
+   - quando usersStore carica l’utente, forza lo store al suo business (non Owner)
+   - mantieni allineato businessStore.currentBusinessId
+*/
 watch(
   () => props.businessId,
   (val) => {
-    if (!isOwner.value) selectedBusinessId.value = val
+    if (!isOwner.value && val) {
+      // non Owner segue il parent
+      businessStore.setCurrentBusinessId(val)
+    }
   },
   { immediate: true }
 )
 
-watch(() => businessStore.currentBusinessId, (id) => {
-  emit('business-changed', id)
-})
-
-// id effettivo usato dal tool
-const currentBusinessId = computed(() =>
-  isOwner.value ? selectedBusinessId.value : props.businessId
+watch(
+  () => userBusinessId.value,
+  (uid) => {
+    if (!isOwner.value && uid) {
+      // forza lo store al business dell’utente
+      businessStore.setCurrentBusinessId(uid)
+    }
+  },
+  { immediate: true }
 )
 
-// nome corrente per il titolo
-const currentBusinessName = computed(() => {
-  if (!isOwner.value) return props.businessName
-  const byStore = businessStore.getNameById(currentBusinessId.value)
-  return byStore || props.businessName
-})
+watch(
+  () => currentBusinessId.value,
+  (id) => {
+    if (id && businessStore.currentBusinessId !== id) {
+      businessStore.setCurrentBusinessId(id)
+      emit('business-changed', id)
+    }
+  },
+  { immediate: true }
+)
 
 function onSelectBusiness (val) {
   selectedBusinessId.value = val
   businessStore.setCurrentBusinessId(val)
-  console.log('[OrderTool] emit business-changed', val)
   emit('business-changed', val)
 }
 
-/** ===== Logica "ordini di oggi" ===== */
+/** ===== Logica "ordini di oggi" (solo per tooltip/bottoni) ===== */
 const todayStr = computed(() => new Date().toISOString().slice(0, 10))
 
 const ordersToday = computed(() =>
   (props.orders || []).filter(o => {
-    // se i record hanno businessId, filtra per quello corrente
-    if (o?.businessId && o.businessId !== currentBusinessId.value) return false
+    const ob = o?.businessId || o?.business?._id || null
+    if (ob && currentBusinessId.value && ob !== currentBusinessId.value) return false
     const d = o?.orderDate || o?._createdAt
     if (!d) return false
     try { return new Date(d).toISOString().startsWith(todayStr.value) } catch { return false }
@@ -170,10 +199,28 @@ onMounted(async () => {
   if (!businessStore.businesses?.length) {
     await businessStore.fetchBusinesses()
   }
-  // se Owner e non ho un id selezionato, prendo quello dallo store (o il primo)
-  if (isOwner.value && !selectedBusinessId.value) {
-    selectedBusinessId.value =
-      businessStore.currentBusinessId || businessStore.businesses?.[0]?._id || props.businessId
+  // Inizializzazione coerente:
+  if (isOwner.value) {
+    // Owner → se non selezionato, prova store → primo → prop → user
+    if (!selectedBusinessId.value) {
+      selectedBusinessId.value =
+        businessStore.currentBusinessId ||
+        businessStore.businesses?.[0]?._id ||
+        props.businessId ||
+        userBusinessId.value ||
+        null
+    }
+    if (selectedBusinessId.value) {
+      businessStore.setCurrentBusinessId(selectedBusinessId.value)
+      emit('business-changed', selectedBusinessId.value)
+    }
+  } else {
+    // Non Owner → imposta sempre al business dell’utente (fallback: prop)
+    const id = userBusinessId.value || props.businessId || null
+    if (id) {
+      businessStore.setCurrentBusinessId(id)
+      emit('business-changed', id)
+    }
   }
 })
 </script>

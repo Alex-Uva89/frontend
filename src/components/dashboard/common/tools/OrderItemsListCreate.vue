@@ -1,29 +1,21 @@
 <template>
   <div>
 
-    <!---------------------------------------------------------------------------------------
-                                       Selettore giorno
-    ---------------------------------------------------------------------------------------->
+    <!-- Selettore giorno -->
     <WeekTabs v-model="selectedDate" />
 
-    <!-----------------------------------------------------------------------------------------
-                                         Nessun ordine
-     ---------------------------------------------------------------------------------------->
+    <!-- Nessun ordine -->
     <div v-if="filteredItems.length === 0" class="text-center q-pa-xl">
       <q-icon name="sentiment_dissatisfied" size="xl" color="grey" class="q-mb-md"/>
       <div class="text-h5 text-grey-8 q-mb-xs">Nessun ordine trovato</div>
       <div class="text-grey-6">Non ci sono ordini per la data selezionata</div>
     </div>
 
-    <!-- ---------------------------------------------------------------------------------------
-                                           Lista ordini
-    ----------------------------------------------------------------------------------------->
+    <!-- Lista ordini -->
     <template v-else>
       <template v-for="order in filteredItems" :key="order._id">
         <div class="q-mb-xl" v-if="order.items && order.items.length > 0">
-          <!---------------------------
-                  Chips stato
-          ----------------------------->
+          <!-- Chips stato -->
           <div class="q-mb-sm q-gutter-sm">
             <q-chip v-if="order.status === 'completed'" color="positive" text-color="white" icon="check">Completato</q-chip>
             <q-chip v-else-if="order.status === 'pending' && !order.locked" color="yellow-7" text-color="black" icon="lock_open">Ordine modificabile</q-chip>
@@ -33,9 +25,7 @@
           </div>
 
           <q-card flat bordered class="q-mb-md">
-            <!---------------------------
-               Fornitore → Categoria
-               ------------------------->
+            <!-- Fornitore → Categoria -->
             <template v-for="(categories, supplierName) in groupBySupplierAndCategory(order.items)" :key="supplierName">
               <q-card-section>
                 <q-toolbar class="bg-teal-1">
@@ -66,9 +56,7 @@
               <q-separator size="5px" color="teal-4"/>
             </template>
 
-            <!-------------------------
-                Azioni (mobile-first)
-              ------------------------->
+            <!-- Azioni -->
             <div class="q-pa-md">
               <div class="row items-center q-col-gutter-sm">
                 <div class="col-12 col-sm-auto">
@@ -99,7 +87,7 @@
                       />
                     </div>
 
-                    <!-- Azioni aggiuntive eventualmente qui -->
+                    <!-- altre azioni qui -->
                   </div>
                 </div>
               </div>
@@ -109,9 +97,7 @@
       </template>
     </template>
 
-    <!-----------------------
-        Barra countdown
-    ------------------------>
+    <!-- Countdown -->
     <div class="q-pa-sm">
       <div class="text-h6 text-weight-bold flex items-center justify-between">
         <span class="text-grey-7 q-mr-sm">
@@ -122,9 +108,7 @@
       </div>
     </div>
 
-    <!-----------------------------------------------------------------------------------------
-                                         Aggiungi referenza
-    ----------------------------------------------------------------------------------------->
+    <!-- Dialog: Aggiungi referenza -->
     <q-dialog v-model="addReferenceDialog.visible">
       <q-card style="width: 90vw;">
         <q-card-section>
@@ -162,7 +146,6 @@
               />
             </div>
             <div class="col">
-              <!-- Unità libera -->
               <q-select
                 v-model="addReferenceDialog.unit"
                 :options="unitOptions"
@@ -195,9 +178,7 @@
       </q-card>
     </q-dialog>
 
-    <!-----------------------------------------------------------------------------------------
-                                    CODICE SICUREZZA
-    ----------------------------------------------------------------------------------------->
+    <!-- Dialog sicurezza -->
     <SecurityCodeConfirmDialog
       v-model="lockMailDialog.visible"
       title="Conferma chiusura ordine e invio email"
@@ -218,9 +199,7 @@
       @confirmed="confirmDeleteOrder"
     />
 
-    <!-----------------------------------------------------------------------------------------
-                                Dialog: nuova referenza
-    ----------------------------------------------------------------------------------------->
+    <!-- Dialog: nuova referenza -->
     <NewReferenceDialog v-model="newRefDialog.visible" @created="handleNewRefCreated" />
   </div>
 </template>
@@ -243,47 +222,35 @@ const referenceStore = useReferenceStore()
 const usersStore = useUsersStore()
 const businessStore = useBusinessStore()
 
-const currentBusinessId = computed(() => businessStore.currentBusinessId)
+/* ✅ Business dell'utente e selezione */
+const userBusinessId = computed(() => usersStore.currentUser?.business?._id || null)
+const selectedBusinessId = computed(() => businessStore.currentBusinessId || userBusinessId.value)
 
+/* Data selezionata */
 const selectedDate = ref(new Date().toISOString().split('T')[0])
 const today = computed(() => new Date().toISOString().split('T')[0])
 
-// read-only se non è pending o è locked
+/* read-only se non è pending o è locked */
 const isReadOnly = (o) => !!(o?.locked || o?.status !== 'pending')
 
-/* ---------------- Nuova referenza (dialog) ---------------- */
+/* Nuova referenza (dialog) */
 const newRefDialog = ref({ visible: false })
 function openNewReferenceDialog () { newRefDialog.value.visible = true }
 
-/**
- * Dopo la creazione di una nuova referenza:
- * - refetch delle referenze,
- * - rigenero le options filtrando quelle già usate nell'ordine,
- * - provo a selezionare automaticamente la nuova referenza senza assumere che ci sia _id.
- */
 async function handleNewRefCreated (createdRef) {
   await referenceStore.fetchReferences()
-
   const order = orderStore.orders.find(o => o._id === addReferenceDialog.value.orderId)
-
-  // ID già usati nell'ordine corrente
   const usedIds = (order?.items || [])
     .map(i => (i.reference?._id || i.item?._id))
     .filter(Boolean)
-
-  // opzioni disponibili nella select
   referenceOptions.value = (referenceStore.references || []).filter(r => !usedIds.includes(r._id))
 
-  // tentativo di auto-selezione della referenza appena creata
   const lc = s => (s || '').trim().toLowerCase()
   const createdName = lc(createdRef?.name)
   const createdSupplierId = createdRef?.supplier?._ref || createdRef?.supplier?._id || null
   const createdCategoryId = createdRef?.category?._ref || createdRef?.category?._id || null
 
-  // 1) match diretto su _id (se esiste)
   let pick = referenceStore.references.find(r => r._id === createdRef?._id)
-
-  // 2) name + supplier + category
   if (!pick && createdName) {
     pick = referenceStore.references.find(r =>
       lc(r?.name) === createdName &&
@@ -291,17 +258,12 @@ async function handleNewRefCreated (createdRef) {
       ((r?.category?._id || r?.category?._ref || null) === createdCategoryId || !createdCategoryId)
     )
   }
+  if (!pick && createdName) pick = referenceStore.references.find(r => lc(r?.name) === createdName)
 
-  // 3) solo name
-  if (!pick && createdName) {
-    pick = referenceStore.references.find(r => lc(r?.name) === createdName)
-  }
-
-  addReferenceDialog.value.selectedReference =
-    (pick && !usedIds.includes(pick._id)) ? pick._id : null
+  addReferenceDialog.value.selectedReference = (pick && !usedIds.includes(pick._id)) ? pick._id : null
 }
 
-/* ---------------- Aggiungi referenza all'ordine ---------------- */
+/* Aggiungi referenza all'ordine */
 const addReferenceDialog = ref({
   visible: false,
   orderId: null,
@@ -317,16 +279,12 @@ watch(
   () => addReferenceDialog.value.selectedReference,
   (refId) => {
     const refItem = referenceStore.references.find(r => r._id === refId)
-    // NB: se nel tuo modello 'unit' è una stringa singola, va bene così.
-    // Se è un array (ad es. più unità disponibili), potresti scegliere la prima disponibile.
     suggestedUnit.value = Array.isArray(refItem?.unit) ? refItem.unit[0] : (refItem?.unit || null)
     addReferenceDialog.value.unit = suggestedUnit.value
   }
 )
 
-const unitOptions = [
-  'kg','g','hg','L','ml','confezione','cassa','cartone','busta','vaschetta'
-]
+const unitOptions = ['kg','g','hg','L','ml','confezione','cassa','cartone','busta','vaschetta']
 
 function openAddReferenceDialog(orderId) {
   const order = orderStore.orders.find(o => o._id === orderId)
@@ -360,18 +318,29 @@ async function confirmAddReference() {
   await orderStore.fetchOrders()
 }
 
-/* ---------------- Filtri e grouping ---------------- */
+/* Filtro ordini */
 const filteredItems = computed(() => {
+  const selected = selectedDate.value
+  const uBizId = userBusinessId.value
+  const selBizId = selectedBusinessId.value
+
   return (orderStore.orders || []).filter(order => {
     try {
-      if (currentBusinessId.value && order?.businessId && order.businessId !== currentBusinessId.value) {
-        return false
+      const orderBizId = order?.businessId || order?.business?._id || null
+
+      if (order?.kind === 'lastminute') {
+        // ✅ SEMPRE locale dell'utente
+        if (uBizId && orderBizId && orderBizId !== uBizId) return false
+      } else {
+        // standard: locale selezionato (se assente, fallback utente)
+        if (selBizId && orderBizId && orderBizId !== selBizId) return false
       }
+
       if (!order?.orderDate) return false
-      const dateObj = new Date(order.orderDate)
-      if (isNaN(dateObj.getTime())) return false
-      const orderDate = dateObj.toISOString().split('T')[0]
-      return orderDate === selectedDate.value
+      const d = new Date(order.orderDate)
+      if (isNaN(d.getTime())) return false
+      const orderDate = d.toISOString().split('T')[0]
+      return orderDate === selected
     } catch {
       return false
     }
@@ -402,7 +371,7 @@ function formatDay(dt) {
 
 async function reloadOrders() { await orderStore.fetchOrders() }
 
-/* ---------------- Patch ottimistico locale ---------------- */
+/* Patch ottimistico */
 function patchLocalOrder (orderId, patch) {
   const i = orderStore.orders.findIndex(o => o._id === orderId)
   if (i !== -1) {
@@ -410,7 +379,7 @@ function patchLocalOrder (orderId, patch) {
   }
 }
 
-/* ---------------- Lock + Email ---------------- */
+/* Lock + Email */
 const lockMailDialog = ref({ visible: false, orderId: null })
 const lockMailDialogMessage =
   'Attenzione: questa azione chiude definitivamente l’ordine e invia l’email di riepilogo. <br>' +
@@ -443,7 +412,7 @@ async function confirmLockAndSend() {
   await orderStore.fetchOrders()
 }
 
-/* ---------------- Elimina ordine ---------------- */
+/* Elimina ordine */
 const deleteOrderDialog = ref({ visible: false, orderId: null })
 function openDeleteOrder(orderId) {
   deleteOrderDialog.value.orderId = orderId
