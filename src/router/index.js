@@ -8,16 +8,7 @@ import {
 import routes from './routes'
 import { useUsersStore } from 'src/stores/usersStore'
 
-/*
- * If not building with SSR mode, you can
- * directly export the Router instantiation;
- *
- * The function below can be async too; either use
- * async/await or return a Promise which resolves
- * with the Router instance.
- */
-
-export default defineRouter(function (/* { store, ssrContext } */) {
+export default defineRouter(function () {
   const createHistory = process.env.SERVER
     ? createMemoryHistory
     : process.env.VUE_ROUTER_MODE === 'history'
@@ -27,54 +18,58 @@ export default defineRouter(function (/* { store, ssrContext } */) {
   const Router = createRouter({
     scrollBehavior: () => ({ left: 0, top: 0 }),
     routes,
-
-    // Leave this as is and make changes in quasar.conf.js instead!
-    // quasar.conf.js -> build -> vueRouterMode
-    // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
   })
 
-  // Aggiungi la navigation guard
   Router.beforeEach(async (to, from, next) => {
-  const usersStore = useUsersStore()
-
-  // Se la route richiede autenticazione
-  if (to.matched.some(record => record.meta.requiresAuth)) {
+    const usersStore = useUsersStore()
     const token = sessionStorage.getItem('token')
+    const requiresAuth = to.matched.some(record => record.meta?.requiresAuth)
 
-
-    if (!token) {
-      next('/')
-      return
-    }
-
-    // Se lo store non ha ancora l'utente, caricalo
-    if (!usersStore.currentUser) {
+    // Se autenticato ma manca currentUser, prova a caricarlo
+    if (token && !usersStore.currentUser) {
       try {
         await usersStore.fetchCurrentUser()
       } catch (error) {
         console.error('Failed to fetch user:', error)
-        next('/')
-        return
+        sessionStorage.removeItem('token')
       }
     }
 
-    // Controllo ruoli (solo se presenti nella meta)
-    if (to.meta.roles) {
-      const userRole = usersStore.currentUser?.role?.toLowerCase()
+    const isAuth = Boolean(sessionStorage.getItem('token'))
+    const userRole = usersStore.currentUser?.role
+      ? String(usersStore.currentUser.role).toLowerCase()
+      : null
+
+    // Blocca rotte protette se non autenticato
+    if (requiresAuth && !isAuth) {
+      return next({ name: 'login' })
+    }
+
+    // Se un utente autenticato va al login, instradalo al posto giusto
+    if (to.name === 'login' && isAuth) {
+      if (userRole === 'staff') return next({ name: 'dashboard-staff' })
+      return next({ name: 'hub' })
+    }
+
+    // Se un "staff" prova ad andare sull’hub, mandalo al CRM (sua vista)
+    if (to.name === 'hub' && userRole === 'staff') {
+      return next({ name: 'dashboard-staff' })
+    }
+
+    // Controllo ruoli se specificati nella meta della rotta
+    if (to.meta?.roles && isAuth) {
       const allowedRoles = Array.isArray(to.meta.roles)
-        ? to.meta.roles.map(r => r.toLowerCase())
-        : [to.meta.roles.toLowerCase()]
+        ? to.meta.roles.map(r => String(r).toLowerCase())
+        : [String(to.meta.roles).toLowerCase()]
 
       if (!userRole || !allowedRoles.includes(userRole)) {
-        next('/dashboard/main')
-        return
+        return next('/dashboard/main')
       }
     }
-  }
 
-  next()
-})
+    return next()
+  })
 
   return Router
 })

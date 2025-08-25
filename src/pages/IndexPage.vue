@@ -33,7 +33,7 @@
             color="teal"
             :rules="[val => !!val || 'Password richiesta']"
           >
-            <template v-slot:append>
+            <template #append>
               <q-icon
                 :name="isPwd ? 'visibility_off' : 'visibility'"
                 class="cursor-pointer"
@@ -42,8 +42,8 @@
             </template>
           </q-input>
 
-
           <q-btn
+            :loading="loading"
             label="Accedi"
             type="submit"
             color="teal"
@@ -57,24 +57,6 @@
           </q-banner>
         </q-form>
 
-        <div class="q-mt-xl q-mb-lg text-center">
-          <q-tooltip v-if="!isLogged" anchor="top middle" self="bottom middle" class="bg-yellow text-black">
-            Ti sei dimenticato di loggarti
-          </q-tooltip>
-
-          <q-btn
-            color="yellow"
-            text-color="black"
-            unelevated
-            rounded
-            glossy
-            @click="handleRegisterClick"
-            :disable="!isLogged"
-          >
-        Vuoi registrare un nuovo utente ->
-        </q-btn>
-        </div>
-
         <q-banner v-if="noPermission" type="warning" class="q-mt-md q-pa-sm text-center">
           Non hai i permessi per registrare un nuovo utente
         </q-banner>
@@ -84,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUsersStore } from 'src/stores/usersStore'
 
@@ -96,15 +78,16 @@ const password = ref('')
 const isPwd = ref(true)
 const error = ref(null)
 const noPermission = ref(false)
-
-const isLogged = computed(() => email.value.trim() !== '' && password.value.trim() !== '' && !error.value)
-
-const currentUser = computed(() => usersStore.getUserByEmail(email.value))
+const loading = ref(false)
 
 // Carica gli utenti appena montato
 usersStore.fetchUsers()
 
 async function handleLogin() {
+  if (loading.value) return
+  loading.value = true
+  error.value = null
+
   try {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
       method: 'POST',
@@ -113,58 +96,43 @@ async function handleLogin() {
     })
 
     const data = await res.json()
-
     if (!res.ok) throw new Error(data.error || 'Credenziali non valide')
 
-    // Salva user e token
+    // Salva user e token nello store
     await usersStore.setUserAndToken(data.user, data.token)
 
-    // Aspetta che lo store sia aggiornato
+    // Allinea anche la guard del router che legge da sessionStorage
+    try {
+      sessionStorage.setItem('token', data.token)
+    } catch(e) {
+      console.log(e)
+    }
+
     await nextTick()
 
-    // Redirect
-    const role = data.user.role.toLowerCase()
-    const redirectPath = {
-      staff: '/dashboard/staff',
-      manager: '/dashboard/manager',
-      owner: '/dashboard/owner',
-      dev: '/dashboard/dev',
-      hr: '/dashboard/hr',
-      supervisor: '/dashboard/supervisor'
-    }[role] || '/dashboard/main'
-
-    router.push(redirectPath)
+    // Redirect: staff -> CRM, altri -> Hub
+    const role = String(data.user.role || '').toLowerCase()
+    if (role === 'staff') {
+      router.push('/dashboard/staff')
+    } else {
+      router.push('/hub')
+    }
   } catch (err) {
     error.value = err.message
+  } finally {
+    loading.value = false
   }
 }
-
-function handleRegisterClick() {
-  noPermission.value = false
-
-  if (!isLogged.value) {
-    return
-  }
-
-  if (currentUser.value?.role === 'Dev') {
-    router.push('/auth/register')
-  } else {
-    noPermission.value = true
-  }
-}
-
 </script>
 
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css';
 
-/* Glossy effect button giallo */
 .q-btn--glossy {
   background: linear-gradient(135deg, #ffec64, #ffab00);
   box-shadow: inset 0 0 20px 5px rgba(255, 255, 255, 0.6);
   transition: box-shadow 0.3s ease;
 }
-
 .q-btn--glossy:hover {
   box-shadow: inset 0 0 30px 10px rgba(255, 255, 255, 0.8);
 }

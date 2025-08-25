@@ -20,7 +20,7 @@ export const useUsersStore = defineStore('users', () => {
   const userRole = computed(() => currentUser.value?.role?.toLowerCase() || null)
 
   // Initialize store from sessionStorage (isolato per tab)
-  function initialize() {
+  function initialize () {
     if (STORAGE) {
       const savedToken = STORAGE.getItem(TOKEN_KEY)
       const savedUser = STORAGE.getItem(USER_KEY)
@@ -38,7 +38,7 @@ export const useUsersStore = defineStore('users', () => {
   }
 
   // Actions
-  async function fetchUsers() {
+  async function fetchUsers () {
     loading.value = true
     error.value = null
     try {
@@ -52,11 +52,11 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  function getUserByEmail(email) {
+  function getUserByEmail (email) {
     return users.value.find(u => u.email === email) || null
   }
 
-  function setUserAndToken(userData, jwtToken) {
+  function setUserAndToken (userData, jwtToken) {
     currentUser.value = userData
     token.value = jwtToken
     if (STORAGE) {
@@ -65,7 +65,7 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function fetchCurrentUser() {
+  async function fetchCurrentUser () {
     if (!token.value) {
       currentUser.value = null
       return null
@@ -74,7 +74,6 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      // endpoint corretto
       const res = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
@@ -93,7 +92,7 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  function logout(router) {
+  function logout (router) {
     currentUser.value = null
     token.value = null
     if (STORAGE) {
@@ -104,54 +103,52 @@ export const useUsersStore = defineStore('users', () => {
   }
 
   // Check permissions
-  function hasRole(role) {
+  function hasRole (role) {
     if (!userRole.value) return false
     return userRole.value === role.toLowerCase()
   }
 
-  function hasAnyRole(roles) {
+  function hasAnyRole (roles) {
     if (!userRole.value) return false
     return roles.map(r => r.toLowerCase()).includes(userRole.value)
   }
 
-  function hasAllPermissions(permissions) {
+  function hasAllPermissions (permissions) {
     if (!currentUser.value?.permissions) return false
     return permissions.every(p => currentUser.value.permissions.includes(p))
   }
 
-  async function createUser(payload) {
-  // payload atteso:
-  // { firstName, lastName, email, role, business, isActive, photoUrl? }
-  const headers = { 'Content-Type': 'application/json' }
-  if (token.value) headers.Authorization = `Bearer ${token.value}`
+  // ---------------------- CREATE (usa /auth/register) ----------------------
+  async function createUser (payload) {
+    // payload: { firstName, lastName, email, role, business, isActive, password }
+    const headers = { 'Content-Type': 'application/json' }
+    // opzionale: passa il token se la tua /auth/register lo richiede dopo il bootstrap
+    if (token.value) headers.Authorization = `Bearer ${token.value}`
 
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload || {})
-  })
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload || {})
+    })
 
-  if (!res.ok) {
-    let msg = 'Errore creazione utente'
-    try {
-      const body = await res.json()
-      if (body?.error) msg = body.error
-    } catch (e) {
-      console.warn('Errore parse JSON createUser', e)
+    if (!res.ok) {
+      let msg = 'Errore creazione utente'
+      try {
+        const body = await res.json()
+        if (body?.error) msg = body.error
+      } catch (e) {
+        console.warn('Errore parse JSON createUser', e)
+      }
+      throw new Error(msg)
     }
-    throw new Error(msg)
+
+    // La tua API attuale ritorna { message, userId }.
+    // Non inseriamo un item “incompleto” in lista: il caller richiama fetchUsers() dopo @saved.
+    return await res.json()
   }
 
-  const created = await res.json()
-
-  // aggiorna lista localmente
-  users.value = [created, ...(users.value || [])]
-
-  return created
-}
-
-  // ---------------------- NUOVI METODI DI UPDATE ----------------------
-  async function updateUser(id, patch) {
+  // ---------------------- UPDATE ----------------------
+  async function updateUser (id, patch) {
     if (!id) throw new Error('ID utente mancante')
 
     const headers = { 'Content-Type': 'application/json' }
@@ -169,7 +166,6 @@ export const useUsersStore = defineStore('users', () => {
         const body = await res.json()
         if (body?.error) msg = body.error
       } catch (e) {
-        // ignora errori nel parsing JSON della risposta d'errore (ESLint compliant)
         console.warn('Errore parsing JSON risposta PATCH /users/:id', e)
       }
       throw new Error(msg)
@@ -177,16 +173,13 @@ export const useUsersStore = defineStore('users', () => {
 
     const updated = await res.json()
 
-    // aggiorna lista localmente
     const idx = users.value.findIndex(u => (u._id || u.id) === id)
     if (idx !== -1) {
       users.value[idx] = updated
     } else {
-      // se l'utente non è in lista, ricarico
       await fetchUsers()
     }
 
-    // se ho aggiornato me stesso, sincronizzo
     if (currentUser.value && (currentUser.value._id === id || currentUser.value.id === id)) {
       currentUser.value = { ...currentUser.value, ...updated }
       if (STORAGE) STORAGE.setItem(USER_KEY, JSON.stringify(currentUser.value))
@@ -195,11 +188,11 @@ export const useUsersStore = defineStore('users', () => {
     return updated
   }
 
-  async function updateRole(id, role) {
+  async function updateRole (id, role) {
     return updateUser(id, { role })
   }
 
-  async function setActive(id, isActive) {
+  async function setActive (id, isActive) {
     return updateUser(id, { isActive: !!isActive })
   }
   // -------------------------------------------------------------------
