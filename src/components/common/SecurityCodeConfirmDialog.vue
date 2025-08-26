@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="internalVisible" persistent transition-show="scale" transition-hide="scale">
-    <q-card style="min-width: 600px; max-width: 90vw">
+    <q-card style="width: 90vw">
       <q-card-section class="row items-center q-col-gutter-sm">
         <div class="col">
           <div class="text-h6">{{ title }}</div>
