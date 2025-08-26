@@ -19,5 +19,10 @@ export const cmsRoutes = [
     path: 'profile',
     name: 'cms.profile',
     component: () => import('./pages/AccountCms.vue')
+  },
+  {
+    path: 'attributes',
+    name: 'cms.attributes',
+    component: () => import('./pages/AttributeCms.vue')
   }
 ]

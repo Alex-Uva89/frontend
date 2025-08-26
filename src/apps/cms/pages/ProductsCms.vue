@@ -43,16 +43,17 @@
             </template>
           </q-input>
 
-          <!-- Aggiungi prodotto -->
-          <q-btn
-            color="white"
-            text-color="primary"
-            icon="add_circle"
-            class="q-ma-sm"
-            label="Aggiungi prodotto"
-            @click="openCreate"
-            style="width: 100%;"
-          />
+          <!-- Nuovo prodotto -->
+          <div class="col-12 col-md-auto">
+            <q-btn
+              color="white"
+              text-color="primary"
+              icon="add_circle"
+              label="Nuovo prodotto"
+              class="full-width"
+              @click="openCreateProduct"
+            />
+          </div>
         </div>
 
         <!-- Toggle “solo diretti” (solo se c’è una categoria selezionata) -->
@@ -119,12 +120,10 @@
                     </div>
                   </div>
                   <div class="row items-center q-gutter-xs">
-                    <q-chip v-if="node.path" dense outline color="primary" class="q-ml-sm">
-                      {{ node.path }}
-                    </q-chip>
-                    <q-chip v-if="!node.active" dense color="grey-4" text-color="grey-9" class="q-ml-sm">non attivo</q-chip>
-                    <q-btn dense flat round icon="edit" @click="openEdit(node.id)" />
-                    <q-btn dense flat round icon="delete" color="negative" @click="askDelete(node.id)" />
+                    <q-chip v-if="node.path" dense outline color="primary">{{ node.path }}</q-chip>
+                    <q-chip v-if="!node.active" dense color="grey-4" text-color="grey-9">non attivo</q-chip>
+                    <q-btn dense flat round icon="edit" @click="openEditFromItem(node.id)" />
+                    <q-btn dense flat round icon="delete" color="negative" @click="askDeleteProduct(node.id)" />
                   </div>
                 </div>
               </template>
@@ -172,12 +171,10 @@
                   </div>
                 </div>
                 <div class="row items-center q-gutter-xs">
-                  <q-chip v-if="node.path" dense outline color="primary" class="q-ml-sm">
-                    {{ node.path }}
-                  </q-chip>
-                  <q-chip v-if="!node.active" dense color="grey-4" text-color="grey-9" class="q-ml-sm">non attivo</q-chip>
-                  <q-btn dense flat round icon="edit" @click="openEdit(node.id)" />
-                  <q-btn dense flat round icon="delete" color="negative" @click="askDelete(node.id)" />
+                  <q-chip v-if="node.path" dense outline color="primary">{{ node.path }}</q-chip>
+                  <q-chip v-if="!node.active" dense color="grey-4" text-color="grey-9">non attivo</q-chip>
+                  <q-btn dense flat round icon="edit" @click="openEditFromItem(node.id)" />
+                  <q-btn dense flat round icon="delete" color="negative" @click="askDeleteProduct(node.id)" />
                 </div>
               </div>
             </template>
@@ -205,9 +202,9 @@
                   </div>
                 </div>
                 <div class="row items-center q-gutter-xs">
-                  <q-chip v-if="!node.active" dense color="grey-4" text-color="grey-9" class="q-ml-sm">non attivo</q-chip>
-                  <q-btn dense flat round icon="edit" @click="openEdit(node.id)" />
-                  <q-btn dense flat round icon="delete" color="negative" @click="askDelete(node.id)" />
+                  <q-chip v-if="!node.active" dense color="grey-4" text-color="grey-9">non attivo</q-chip>
+                  <q-btn dense flat round icon="edit" @click="openEditFromItem(node.id)" />
+                  <q-btn dense flat round icon="delete" color="negative" @click="askDeleteProduct(node.id)" />
                 </div>
               </div>
             </template>
@@ -216,7 +213,6 @@
           <div v-if="onlyDirect && !directList.length" class="q-pa-md text-grey-7">
             Nessun prodotto direttamente in questa categoria.
           </div>
-
           <div v-if="!onlyDirect && !filteredFlattenList.length" class="q-pa-md text-grey-7">
             Nessun prodotto nel subalbero di questa categoria.
           </div>
@@ -224,7 +220,7 @@
       </q-card>
     </div>
 
-    <!-- EDITOR (Create/Edit) -->
+    <!-- DIALOG EDITOR (create/edit) -->
     <q-dialog
       v-model="editor.show"
       :maximized="$q.screen.lt.md"
@@ -232,16 +228,15 @@
       transition-hide="slide-down"
       persistent
     >
-      <q-card style="width: 95vw">
+      <q-card style="width: 90vw; height: fit-content;" class="q-pa-md">
         <q-toolbar>
           <q-btn flat round dense icon="arrow_back" v-close-popup />
           <q-toolbar-title>{{ editor.mode === 'create' ? 'Nuovo prodotto' : 'Modifica prodotto' }}</q-toolbar-title>
           <q-btn flat dense icon="save" color="primary" :loading="saving" @click="submitEditor" />
         </q-toolbar>
-
         <q-separator />
 
-        <q-card-section class="row q-col-gutter-md">
+        <q-card-section class="q-gutter-md">
           <div class="row q-col-gutter-md">
             <div class="col-12 col-md-6">
               <q-input v-model="form.name" label="Nome *" dense outlined :rules="[rRequired]" @update:model-value="autoSlug()" />
@@ -251,24 +246,21 @@
             </div>
           </div>
 
-          <div class="row q-gutter-md justify-between">
-            <div class="col-12">
+          <div class="row q-col-gutter-md">
+            <div class="col-12 col-md-4">
               <q-input v-model="form.sku" label="SKU" dense outlined />
             </div>
-            <div class="col-12 col-md-8">
+            <div class="col-12 col-md-4">
               <q-input v-model.number="form.price" type="number" step="0.01" label="Prezzo" dense outlined />
             </div>
-            <div class="col-12 col-md-3 flex items-center">
+            <div class="col-12 col-md-4 flex items-center">
               <q-toggle v-model="form.active" label="Attivo" />
             </div>
           </div>
 
-          <div class="row q-gutter-md justify-between" style="width: 100%;">
-            <q-input v-model="form.description" class="col-12" type="textarea" autogrow label="Descrizione" dense outlined />
-            <q-input v-model="form.notes" class="col-12" type="textarea" autogrow label="Note interne" dense outlined />
-          </div>
+          <q-input v-model="form.description" type="textarea" autogrow label="Descrizione" dense outlined />
+          <q-input v-model="form.notes" type="textarea" autogrow label="Note interne" dense outlined />
 
-          <!-- Categorie -->
           <q-select
             v-model="form.categories"
             :options="categoryOptions"
@@ -282,11 +274,61 @@
             map-options
             label="Categorie *"
             :rules="[v => (v && v.length) || 'Seleziona almeno una categoria']"
-            hint="Un prodotto può appartenere a più categorie."
-            style="width: 100%;"
           />
 
-          <!-- Info read-only -->
+          <!-- ⬇️ Attributi del prodotto raggruppati per 'kind' -->
+          <div class="column q-gutter-sm q-mt-sm">
+            <div class="text-subtitle2">Attributi</div>
+
+            <q-banner v-if="!attributeGroupsUi.length" dense class="bg-grey-2 text-grey-8 rounded-borders">
+              Nessun attributo disponibile.
+            </q-banner>
+
+            <q-select
+              v-for="g in attributeGroupsUi"
+              :key="g.kind"
+              :label="g.label"
+              v-model="groupModelValue[g.kind]"
+              :options="g.options"
+              option-label="label"
+              option-value="id"
+              multiple
+              use-chips
+              dense
+              outlined
+              emit-value
+              map-options
+              :hint="g.hint"
+              @update:model-value="(val) => setGroupSelection(g.kind, val)"
+            >
+              <!-- opzioni nel menu -->
+              <template #option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section avatar>
+                    <q-icon :name="scope.opt.icon || 'label'" :style="chipStyle(scope.opt, true)" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ scope.opt.label }}</q-item-label>
+                    <q-item-label caption>{{ kindPretty(scope.opt.kind) }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+
+              <!-- chips selezionate -->
+              <template #selected-item="scope">
+                <q-chip
+                  removable
+                  @remove="scope.removeAtIndex(scope.index)"
+                  :style="chipStyle(scope.opt)"
+                  class="q-mr-xs q-mb-xs"
+                >
+                  <q-icon :name="scope.opt.icon || 'label'" class="q-mr-xs" />
+                  {{ scope.opt.label }}
+                </q-chip>
+              </template>
+            </q-select>
+          </div>
+
           <q-banner dense class="bg-grey-2 text-grey-8 rounded-borders" v-if="form.isAvailableForSale !== undefined">
             Disponibile alla vendita: <b>{{ form.isAvailableForSale ? 'Sì' : 'No' }}</b> (sola lettura)
           </q-banner>
@@ -304,12 +346,12 @@
     <!-- Dialog: conferma eliminazione con codice -->
     <SecurityCodeConfirmDialog
       v-model="showDeleteConfirm"
-      :title="`Elimina prodotto`"
+      :title="`Elimina “${deleteTarget?.label || ''}”`"
       :message="deleteWarningHtml"
       confirm-label="Elimina definitivamente"
       color="red"
       :length="6"
-      @confirmed="doDelete(deleteTargetId)"
+      @confirmed="doDelete(deleteTarget.id)"
     />
   </q-page>
 </template>
@@ -326,7 +368,6 @@ const API = import.meta.env.VITE_API_URL
 
 /* ---------- state ---------- */
 const loading = ref(false)
-const saving = ref(false)
 const error = ref(null)
 const search = ref('')
 
@@ -338,24 +379,25 @@ const currentCategory = ref(null)
 const onlyDirect = ref(false)       // toggle: subalbero vs diretti (DnD)
 const directList = ref([])          // lista ordinabile dei diretti
 
+// attributi (productAttribute)
+const attributes = ref([])
+
 /* ---------- editor ---------- */
+const saving = ref(false)
 const editor = ref({ show: false, mode: 'create', id: null })
 const form = ref({
-  name: '',
-  slug: '',
-  sku: '',
+  name: '', slug: '', sku: '',
   price: null,
   active: true,
-  description: '',
-  notes: '',
+  description: '', notes: '',
   categories: [],
+  attributes: [],
   isAvailableForSale: undefined
 })
 
 /* ---------- load ---------- */
 onMounted(async () => {
-  await loadCategories()
-  await loadAllProducts()
+  await Promise.all([loadCategories(), loadAllProducts(), loadAttributes()])
 })
 
 async function loadCategories () {
@@ -390,11 +432,23 @@ async function loadAllProducts () {
   }
 }
 
+async function loadAttributes () {
+  try {
+    const res = await fetch(`${API}/cms/attributes`)
+    const json = await res.json()
+    if (!json.ok) throw new Error(json.error || 'Errore attributi')
+    attributes.value = json.data || []
+  } catch (e) {
+    // non blocco la pagina, solo banner/notify
+    $q.notify({ type: 'warning', message: e.message })
+  }
+}
+
 /* ---------- util categorie ---------- */
 function buildParentMap (tree) {
   const parent = new Map()
   const walk = (n) => {
-    (n.children || []).forEach(c => { parent.set(c._id, n._id); walk(c) })
+    ;(n.children || []).forEach(c => { parent.set(c._id, n._id); walk(c) })
   }
   ;(tree || []).forEach(walk)
   return parent
@@ -420,6 +474,7 @@ function categoryPathLabel (id) {
   }
   return parts.reverse().join(' / ')
 }
+
 function descendantsOf (rootId) {
   const out = new Set([rootId])
   const n = catById.value.get(rootId)
@@ -464,6 +519,7 @@ const filteredFlatByRoot = computed(() => {
       .filter(p => (p.categories || []).some(c => ids.has(c._id)))
       .filter(p => !term || matchProduct(p, term))
       .map(p => {
+        // categoria più profonda del sottoalbero per il chip path
         const matched = (p.categories || []).filter(c => ids.has(c._id))
         const primary = matched.sort((a, b) =>
           categoryPathLabel(a._id).length - categoryPathLabel(b._id).length
@@ -492,6 +548,7 @@ async function onCategoryChange () {
 }
 
 async function loadDirectList (categoryId) {
+  // prova endpoint “by-category”; se manca, fallback locale (no ordine persistito)
   try {
     const res = await fetch(`${API}/cms/products/by-category?categoryId=${encodeURIComponent(categoryId)}`)
     if (!res.ok) throw new Error('by-category not available')
@@ -499,6 +556,7 @@ async function loadDirectList (categoryId) {
     if (!json.ok) throw new Error(json.error || 'Errore caricamento diretti')
     directList.value = (json.data || []).map(p => toRowNode(p, null))
   } catch {
+    // fallback: prendi prodotti con categories che includono categoryId (ordine alfabetico)
     directList.value = (allProducts.value || [])
       .filter(p => (p.categories || []).some(c => c._id === categoryId))
       .map(p => toRowNode(p, null))
@@ -567,107 +625,173 @@ async function onOrderChange () {
   }
 }
 
-/* ---------- CRUD: open dialogs ---------- */
-function openCreate () {
+/* ====================== ATTRIBUTI (UI) ====================== */
+const KIND_LABELS = {
+  allergen: 'Allergeni',
+  season: 'Stagioni',
+  promo: 'Promozioni',
+  tag: 'Tag'
+}
+function kindPretty (k) { return KIND_LABELS[k] || (String(k || '').charAt(0).toUpperCase() + String(k || '').slice(1)) }
+
+const attributeGroupsUi = computed(() => {
+  const byKind = new Map()
+  for (const a of (attributes.value || [])) {
+    if (!byKind.has(a.kind)) byKind.set(a.kind, [])
+    byKind.get(a.kind).push({
+      id: a._id,
+      label: a.name,
+      icon: a.icon || 'label',
+      kind: a.kind,
+      color: a.color || null
+    })
+  }
+  const out = []
+  for (const [kind, options] of byKind.entries()) {
+    out.push({
+      kind,
+      label: kindPretty(kind),
+      hint: kind === 'allergen' ? 'Seleziona gli allergeni presenti' : undefined,
+      options: options.sort((a, b) => (a.label || '').localeCompare(b.label || ''))
+    })
+  }
+  // ordinamento gruppi per leggibilità
+  const order = ['allergen', 'season', 'promo', 'tag']
+  out.sort((a, b) => (order.indexOf(a.kind) - order.indexOf(b.kind)))
+  return out
+})
+
+// modello “per gruppo” (kind -> array di id selezionati)
+const groupModelValue = ref({})
+
+// sync da form.attributes -> groupModelValue quando cambia prodotto o set attributi
+watch([attributes, () => form.value.attributes], () => {
+  const map = {}
+  for (const g of attributeGroupsUi.value) {
+    const ids = new Set((form.value.attributes || []))
+    map[g.kind] = g.options.map(o => o.id).filter(id => ids.has(id))
+  }
+  groupModelValue.value = map
+}, { immediate: true })
+
+// applica selezione di un gruppo al form.attributes globale (unione di tutti i gruppi)
+function setGroupSelection (kind, selectedIds) {
+  const clone = { ...(groupModelValue.value || {}) }
+  clone[kind] = selectedIds || []
+  groupModelValue.value = clone
+
+  const union = new Set()
+  for (const ids of Object.values(clone)) (ids || []).forEach(id => union.add(id))
+  form.value.attributes = Array.from(union)
+}
+
+function chipStyle (opt, muted = false) {
+  const c = opt?.color
+  if (!c) return muted ? 'opacity:.9' : ''
+  return muted
+    ? `background:${c}20;border:1px solid ${c}40;border-radius:12px;padding:2px`
+    : `background:${c}33;border:1px solid ${c}66;border-radius:12px`
+}
+
+/* ====================== EDITOR: CREATE / EDIT ====================== */
+function openCreateProduct () {
   editor.value = { show: true, mode: 'create', id: null }
   form.value = {
-    name: '',
-    slug: '',
-    sku: '',
-    price: null,
-    active: true,
-    description: '',
-    notes: '',
-    categories: selectedCategoryId.value ? [selectedCategoryId.value] : [],
+    name: '', slug: '', sku: '',
+    price: null, active: true,
+    description: '', notes: '',
+    categories: [],
+    attributes: [],
     isAvailableForSale: undefined
   }
+  // reset gruppi attributi
+  groupModelValue.value = {}
 }
-function openEdit (productId) {
-  const p = allProducts.value.find(x => x._id === productId)
+
+async function openEditFromItem (id) {
+  // prova a leggere dal dataset locale
+  let p = (allProducts.value || []).find(x => x._id === id)
+  // se manca qualche campo (es. attributes), prova endpoint dettaglio (se esiste)
+  try {
+    const res = await fetch(`${API}/cms/products/${encodeURIComponent(id)}`)
+    if (res.ok) {
+      const json = await res.json()
+      if (json?.ok && json?.data) p = json.data
+    }
+  } catch { /* opzionale: ignora se endpoint non esiste */ }
+
   if (!p) return
-  editor.value = { show: true, mode: 'edit', id: p._id }
+
+  editor.value = { show: true, mode: 'edit', id }
   form.value = {
     name: p.name || '',
-    slug: p.slug?.current || slugify(p.name || ''),
+    slug: p.slug?.current || p.slug || slugify(p.name || ''),
     sku: p.sku || '',
     price: p.price ?? null,
     active: p.active !== false,
     description: p.description || '',
     notes: p.notes || '',
-    categories: (p.categories || []).map(c => c._id),
+    categories: (p.categories || []).map(c => c._id || c),       // accetta id o oggetto
+    attributes: (p.attributes || []).map(a => a._id || a),       // se presenti
     isAvailableForSale: p.isAvailableForSale
   }
 }
 
-/* ---------- DELETE ---------- */
-const showDeleteConfirm = ref(false)
-const deleteTargetId = ref(null)
-const deleteWarningHtml = computed(() => `
-  <p>Questa azione <b>non può essere annullata</b>.<br/>
-  Verrà eliminato definitivamente il prodotto selezionato.</p>
-  <p class="q-mt-sm">Digita il codice di sicurezza per confermare.</p>
-`)
-function askDelete (id) {
-  deleteTargetId.value = id
-  showDeleteConfirm.value = true
+/* ---------- validazioni + slug ---------- */
+const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
+function slugify (s='') {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)+/g,'')
 }
-async function doDelete (id) {
-  if (!id) return
-  saving.value = true
-  try {
-    const res = await fetch(`${API}/cms/products/${id}`, { method: 'DELETE' })
-    const json = await res.json()
-    if (!json.ok) throw new Error(json.error || 'Eliminazione fallita')
-    $q.notify({ type: 'positive', message: 'Prodotto eliminato' })
-    await loadAllProducts()
-    if (selectedCategoryId.value && onlyDirect.value) await loadDirectList(selectedCategoryId.value)
-  } catch (e) {
-    $q.notify({ type: 'negative', message: e.message })
-  } finally {
-    saving.value = false
-  }
+function autoSlug () {
+  if (!form.value.slug || form.value.slug.length < 2) form.value.slug = slugify(form.value.name)
 }
 
-/* ---------- SAVE (create/update) ---------- */
+/* ---------- submit ---------- */
 async function submitEditor () {
-  if (!form.value.name || !form.value.slug || !form.value.categories?.length) {
+  if (!form.value.name || !form.value.slug || !(form.value.categories || []).length) {
     $q.notify({ type: 'warning', message: 'Nome, slug e almeno una categoria sono obbligatori' })
     return
   }
-  const payload = {
-    name: form.value.name,
-    slug: { _type: 'slug', current: form.value.slug },
-    sku: form.value.sku || '',
-    price: typeof form.value.price === 'number' ? form.value.price : null,
-    active: !!form.value.active,
-    description: form.value.description || '',
-    notes: form.value.notes || '',
-    categories: form.value.categories || []
-    // ingredients/images: gestibili in un secondo momento
-  }
   saving.value = true
   try {
+    const payload = {
+      name: form.value.name,
+      slug: form.value.slug,
+      sku: form.value.sku || '',
+      price: form.value.price ?? null,
+      active: !!form.value.active,
+      description: form.value.description || '',
+      notes: form.value.notes || '',
+      categories: form.value.categories || [],
+      attributes: form.value.attributes || [] // richiede supporto nel backend
+    }
+
     if (editor.value.mode === 'create') {
       const res = await fetch(`${API}/cms/products`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
       const json = await res.json()
       if (!json.ok) throw new Error(json.error || 'Creazione fallita')
       $q.notify({ type: 'positive', message: 'Prodotto creato' })
     } else {
-      const id = editor.value.id
-      const res = await fetch(`${API}/cms/products/${id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API}/cms/products/${encodeURIComponent(editor.value.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
       const json = await res.json()
       if (!json.ok) throw new Error(json.error || 'Salvataggio fallito')
-      $q.notify({ type: 'positive', message: 'Salvato' })
+      $q.notify({ type: 'positive', message: 'Prodotto aggiornato' })
     }
+
     editor.value.show = false
     await loadAllProducts()
-    if (selectedCategoryId.value && onlyDirect.value) await loadDirectList(selectedCategoryId.value)
+    if (selectedCategoryId.value && onlyDirect.value) {
+      await loadDirectList(selectedCategoryId.value)
+    }
   } catch (e) {
     $q.notify({ type: 'negative', message: e.message })
   } finally {
@@ -675,14 +799,41 @@ async function submitEditor () {
   }
 }
 
-/* ---------- utils ---------- */
-const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
-function slugify (s = '') {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)+/g,'')
+/* ---------- DELETE ---------- */
+const showDeleteConfirm = ref(false)
+const deleteTarget = ref({ id: null, label: '' })
+const deleteWarningHtml = computed(() => {
+  const name = deleteTarget.value?.label || 'prodotto'
+  return `
+    <p>Questa azione <b>non può essere annullata</b>.<br/>
+    Verrà eliminato definitivamente <b>${name}</b>.</p>
+    <p class="q-mt-sm">Digita il codice di sicurezza per confermare.</p>
+  `
+})
+
+function askDeleteProduct (id) {
+  const p = (allProducts.value || []).find(x => x._id === id)
+  deleteTarget.value = { id, label: p?.name || '' }
+  showDeleteConfirm.value = true
 }
-function autoSlug () {
-  if (!form.value.slug || form.value.slug.length < 2) form.value.slug = slugify(form.value.name)
+
+async function doDelete (id) {
+  if (!id) return
+  saving.value = true
+  try {
+    const res = await fetch(`${API}/cms/products/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const json = await res.json()
+    if (!json.ok) throw new Error(json.error || 'Eliminazione fallita')
+    $q.notify({ type: 'positive', message: 'Prodotto eliminato' })
+    await loadAllProducts()
+    if (selectedCategoryId.value && onlyDirect.value) {
+      await loadDirectList(selectedCategoryId.value)
+    }
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.message })
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
