@@ -110,7 +110,7 @@ const links = [
   { name: 'cms.index',      label: 'Home',            icon: 'home',        to: { name: 'cms.index' } },
   { name: 'cms.categories', label: 'Categorie',       icon: 'category',    to: { name: 'cms.categories' } },
   { name: 'cms.products',   label: 'Prodotti',        icon: 'inventory_2', to: { name: 'cms.products' } },
-  { name: 'cms.attributes',   label: 'Attributi',        icon: 'inventory_3', to: { name: 'cms.attributes' } },
+  { name: 'cms.attributes',   label: 'Attributi',        icon: 'label', to: { name: 'cms.attributes' } },
   { name: 'cms.profile',    label: 'Profilo utente',  icon: 'face',        to: { name: 'cms.profile' } },
 ]
 

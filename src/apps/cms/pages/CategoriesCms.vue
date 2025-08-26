@@ -25,14 +25,19 @@
         </template>
       </q-input>
 
+      <div
+        class="relative-position inline-block"
+        :class="{ 'col-12': $q.screen.lt.md }"
+      >
       <q-btn
         color="white"
         text-color="primary"
         icon="add_circle"
         label="Aggiungi categoria radice"
-        class="full-width"
+        class="full-width q-mx-auto"
         @click="openCreateRoot"
       />
+    </div>
 
       <div
         class="relative-position inline-block"
