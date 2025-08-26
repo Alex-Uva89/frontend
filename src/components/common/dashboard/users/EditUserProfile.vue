@@ -1,6 +1,6 @@
 <template>
-  <q-dialog v-model="isOpen" persistent>
-    <q-card style="width: 90vw; max-width: 760px">
+  <q-dialog v-model="isOpen" persistent class="z-top">
+    <q-card style="width: 90vw; height: fit-content;">
 
       <!-- HERO FOTO con pulsante rotondo per upload -->
       <div class="relative-position">
@@ -227,3 +227,11 @@ async function submit () {
   isOpen.value = false
 }
 </script>
+
+<style lang="css" scoped>
+
+.my-profile{
+  z-index: 999999999;
+}
+
+</style>
