@@ -1,16 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { api } from 'boot/axios'
 import { Notify } from 'quasar'
+import { authFetchJson } from 'src/utils/api'
 
 export const useOrderStore = defineStore('orderStore', () => {
-  // State
   const orders = ref([])
   const loading = ref(false)
   const error = ref(null)
   const currentBusinessId = ref(null)
 
-  // --- Normalizzazione centrale: garantisce sempre item.reference (fallback su item) ---
+  const API = import.meta.env.VITE_API_URL
+
   const normalizeOrders = (list) =>
     (list || []).map(o => ({
       ...o,
@@ -20,23 +20,18 @@ export const useOrderStore = defineStore('orderStore', () => {
       }))
     }))
 
-  // Fetch ordini
   const fetchOrders = async () => {
     if (!currentBusinessId.value) {
       error.value = 'businessId non impostato'
       return []
     }
-
     loading.value = true
     error.value = null
-
     try {
-      const response = await api.get(`${import.meta.env.VITE_API_URL}/orders`, {
-        params: { businessId: currentBusinessId.value }
-      })
-      orders.value = normalizeOrders(response.data)
-      console.log('ORDERS', orders.value)
-      return response.data
+      const url = `${API}/orders?businessId=${encodeURIComponent(currentBusinessId.value)}`
+      const data = await authFetchJson(url)
+      orders.value = normalizeOrders(data)
+      return data
     } catch (err) {
       error.value = 'Errore nel caricamento degli ordini'
       console.error(err)
@@ -49,10 +44,9 @@ export const useOrderStore = defineStore('orderStore', () => {
   const fetchAllOrder = async () => {
     loading.value = true
     try {
-      const response = await api.get(`${import.meta.env.VITE_API_URL}/orders`)
-      orders.value = normalizeOrders(response.data)
-      console.log('ORDERS', orders.value)
-      return response.data
+      const data = await authFetchJson(`${API}/orders`)
+      orders.value = normalizeOrders(data)
+      return data
     } catch (err) {
       error.value = 'Errore nel caricamento degli ordini'
       console.error(err)
@@ -65,16 +59,14 @@ export const useOrderStore = defineStore('orderStore', () => {
   const createOrder = async (businessId, items, notes = '') => {
     loading.value = true
     error.value = null
-
     try {
-      const response = await api.post(`${import.meta.env.VITE_API_URL}/orders`, {
-        businessId,
-        notes,
-        items
+      const data = await authFetchJson(`${API}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId, notes, items })
       })
-
       await fetchOrders()
-      return response.data
+      return data
     } catch (err) {
       error.value = 'Errore nella creazione dell\'ordine'
       console.error(err)
@@ -84,23 +76,20 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
-  // 👉 Aggiungi una referenza all'ordine
   const addReferenceToOrder = async (orderId, payload) => {
     loading.value = true
     error.value = null
-
     try {
-      const { data } = await api.post(
-        `${import.meta.env.VITE_API_URL}/orders/${orderId}/references`,
-        payload
-      )
-
+      const data = await authFetchJson(`${API}/orders/${orderId}/references`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
       const idx = orders.value.findIndex(o => o._id === orderId)
       if (idx !== -1 && data?.order) {
         const updated = normalizeOrders([data.order])[0]
         orders.value[idx] = { ...orders.value[idx], ...updated }
       }
-
       return true
     } catch (err) {
       error.value = 'Errore durante l\'aggiunta della referenza all\'ordine'
@@ -111,13 +100,11 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
-  // Elimina una referenza da un ordine
   const deleteOrderItem = async (orderId, productKey) => {
     loading.value = true
     error.value = null
-
     try {
-      await api.delete(`${import.meta.env.VITE_API_URL}/orders/${orderId}/items/${productKey}`)
+      await authFetchJson(`${API}/orders/${orderId}/items/${productKey}`, { method: 'DELETE' })
       const orderIndex = orders.value.findIndex(o => o._id === orderId)
       if (orderIndex !== -1) {
         orders.value[orderIndex].items = orders.value[orderIndex].items.filter(
@@ -137,17 +124,15 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
-  // Modifica una referenza in un ordine
   const updateOrderItem = async (orderId, productKey, updatedData) => {
     loading.value = true
     error.value = null
-
     try {
-      const response = await api.patch(
-        `${import.meta.env.VITE_API_URL}/orders/${orderId}/items/${productKey}`,
-        updatedData
-      )
-      console.log('response', response.data)
+      await authFetchJson(`${API}/orders/${orderId}/items/${productKey}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      })
       const orderIndex = orders.value.findIndex(o => o._id === orderId)
       if (orderIndex !== -1) {
         const itemIndex = orders.value[orderIndex].items.findIndex(i => i._key === productKey)
@@ -168,13 +153,11 @@ export const useOrderStore = defineStore('orderStore', () => {
     }
   }
 
-  // Elimina un intero ordine
   const deleteOrder = async (orderId) => {
     loading.value = true
     error.value = null
-
     try {
-      await api.delete(`${import.meta.env.VITE_API_URL}/orders/${orderId}`)
+      await authFetchJson(`${API}/orders/${orderId}`, { method: 'DELETE' })
       orders.value = orders.value.filter(order => order._id !== orderId)
       return true
     } catch (err) {
@@ -191,7 +174,11 @@ export const useOrderStore = defineStore('orderStore', () => {
       const payload = { sendEmail, to }
       if (typeof finalize !== 'undefined') payload.finalize = finalize
 
-      const { data } = await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, payload)
+      const data = await authFetchJson(`${API}/orders/${orderId}/lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
 
       const idx = orders.value.findIndex(o => o._id === orderId)
       if (idx !== -1) {
@@ -210,7 +197,7 @@ export const useOrderStore = defineStore('orderStore', () => {
       }
       return true
     } catch (err) {
-      const msg = err?.response?.data?.error || err.message || 'Errore blocco ordine'
+      const msg = err?.message || 'Errore blocco ordine'
       Notify.create({ type: 'negative', message: msg })
       return false
     }
@@ -226,11 +213,14 @@ export const useOrderStore = defineStore('orderStore', () => {
       }
 
       try {
-        await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/unlock`)
+        await authFetchJson(`${API}/orders/${orderId}/unlock`, { method: 'POST' })
       } catch (err) {
-        const status = err?.response?.status
-        if (status === 404 || status === 405) {
-          await api.post(`${import.meta.env.VITE_API_URL}/orders/${orderId}/lock`, { unlock: true })
+        if (String(err.message || '').includes('HTTP 404') || String(err.message || '').includes('HTTP 405')) {
+          await authFetchJson(`${API}/orders/${orderId}/lock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ unlock: true })
+          })
         } else {
           throw err
         }
@@ -247,15 +237,15 @@ export const useOrderStore = defineStore('orderStore', () => {
       Notify.create({ type: 'positive', message: 'Ordine riaperto' })
       return true
     } catch (err) {
-      const msg = err?.response?.data?.error || err.message || 'Errore riapertura ordine'
+      const msg = err?.message || 'Errore riapertura ordine'
       Notify.create({ type: 'negative', message: msg })
       return false
     }
   }
 
   const setBusinessId = (id) => {
-  currentBusinessId.value = id || null
-}
+    currentBusinessId.value = id || null
+  }
 
   return {
     orders,

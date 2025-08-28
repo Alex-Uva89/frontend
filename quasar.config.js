@@ -3,6 +3,7 @@
 
 import { defineConfig } from '#q-app/wrappers'
 import { fileURLToPath } from 'node:url'
+import path from 'path'
 
 export default defineConfig((ctx) => {
   return {
@@ -12,10 +13,10 @@ export default defineConfig((ctx) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['i18n', 'axios', 'auth', 'sse'],
+    boot: ['i18n', 'axios', 'auth', 'sse', 'auth-fetch'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#css
-    css: ['app.scss'],
+    css: ['app.scss','fonts.css'],
 
     // https://github.com/quasarframework/quasar/tree/dev/extras
     extras: [
@@ -102,6 +103,7 @@ export default defineConfig((ctx) => {
       alias: {
         '@tool': fileURLToPath(new URL('src/components/common/dashboard/common/tools', import.meta.url)),
         '@common': fileURLToPath(new URL('src/components/common/dashboard/common', import.meta.url)),
+        '@acme/auth': path.resolve(__dirname, '../shared/auth')
       },
     },
 

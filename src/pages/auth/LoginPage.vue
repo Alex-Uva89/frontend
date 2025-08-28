@@ -69,9 +69,11 @@
 import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUsersStore } from 'src/stores/usersStore'
+import { useCompanyStore } from 'src/stores/companyStore'
 
 const router = useRouter()
 const usersStore = useUsersStore()
+const companyStore = useCompanyStore()
 
 const email = ref('')
 const password = ref('')
@@ -80,10 +82,7 @@ const error = ref(null)
 const noPermission = ref(false)
 const loading = ref(false)
 
-// Carica gli utenti appena montato
-usersStore.fetchUsers()
-
-async function handleLogin() {
+async function handleLogin () {
   if (loading.value) return
   loading.value = true
   error.value = null
@@ -98,25 +97,19 @@ async function handleLogin() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Credenziali non valide')
 
-    // Salva user e token nello store
     await usersStore.setUserAndToken(data.user, data.token)
-
-    // Allinea anche la guard del router che legge da sessionStorage
-    try {
-      sessionStorage.setItem('token', data.token)
-    } catch(e) {
-      console.log(e)
+    try { sessionStorage.setItem('token', data.token)
+    } catch (e) {
+      console.warn(e)
     }
+
+    try { await companyStore.fetchCompany() } catch (e) { console.warn(e) }
 
     await nextTick()
 
-    // Redirect: staff -> CRM, altri -> Hub
     const role = String(data.user.role || '').toLowerCase()
-    if (role === 'staff') {
-      router.push('/dashboard/staff')
-    } else {
-      router.push('/hub')
-    }
+    if (role === 'staff') router.push('/dashboard/staff')
+    else router.push('/hub')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -124,6 +117,7 @@ async function handleLogin() {
   }
 }
 </script>
+
 
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css';

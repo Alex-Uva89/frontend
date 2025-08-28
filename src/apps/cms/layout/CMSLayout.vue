@@ -3,7 +3,6 @@
     <!-- HEADER -->
     <q-header elevated class="header-gradient text-white">
       <q-toolbar>
-
         <!-- Toggle drawer: solo mobile -->
         <q-btn
           v-if="$q.screen.lt.md"
@@ -36,47 +35,62 @@
       bordered
       class="drawer-surface"
     >
-      <!-- User compact -->
-      <div class="q-pa-md flex items-center user-chip">
-        <q-avatar size="36px" class="q-mr-sm">
-          <img :src="avatarUrl" alt="user" v-if="avatarUrl">
-          <q-icon name="person" v-else />
-        </q-avatar>
-        <div class="ellipsis">
-          <div class="text-body2 text-weight-medium">
-            {{ userName || 'Utente' }}
+      <!-- 🔹 Contenitore colonna per avere footer in basso -->
+      <div class="drawer-col">
+        <!-- MAIN (scrollabile se serve) -->
+        <div class="drawer-main">
+          <!-- User compact -->
+          <div class="q-pa-md flex items-center user-chip">
+            <q-avatar size="36px" class="q-mr-sm">
+              <img :src="avatarUrl" alt="user" v-if="avatarUrl">
+              <q-icon name="person" v-else />
+            </q-avatar>
+            <div class="ellipsis">
+              <div class="text-body2 text-weight-medium">
+                {{ userName || 'Utente' }}
+              </div>
+              <div class="text-caption text-grey-6 ellipsis">
+                {{ userRole || '—' }}
+              </div>
+            </div>
           </div>
-          <div class="text-caption text-grey-6 ellipsis">
-            {{ userRole || '—' }}
-          </div>
+
+          <q-separator />
+
+          <!-- Nav -->
+          <q-list padding>
+            <q-item-label header class="text-grey-7">Navigazione</q-item-label>
+
+            <q-item
+              v-for="link in links"
+              :key="link.name"
+              clickable
+              v-ripple
+              :to="link.to"
+              exact
+              :active="isActive(link.to)"
+              active-class="active-link"
+              class="nav-item"
+            >
+              <div class="active-indicator" />
+              <q-item-section avatar><q-icon :name="link.icon" /></q-item-section>
+              <q-item-section>{{ link.label }}</q-item-section>
+            </q-item>
+          </q-list>
         </div>
-      </div>
 
-      <q-separator />
-
-      <!-- Nav -->
-      <q-list padding>
-        <q-item-label header class="text-grey-7">Navigazione</q-item-label>
-
-        <q-item
-          v-for="link in links"
-          :key="link.name"
-          clickable
-          v-ripple
-          :to="link.to"
-          exact
-          :active="isActive(link.to)"
-          active-class="active-link"
-          class="nav-item"
-        >
-          <div class="active-indicator" />
-          <q-item-section avatar><q-icon :name="link.icon" /></q-item-section>
-          <q-item-section>{{ link.label }}</q-item-section>
-        </q-item>
-      </q-list>
-
-      <div class="q-mt-auto q-pa-md text-caption text-grey-6">
-        v{{ appVersion }}
+        <!-- FOOTER fisso -->
+        <div class="drawer-footer q-pa-md">
+          <q-btn
+            class="full-width"
+            color="primary"
+            icon="exit_to_app"
+            label="Torna all’Hub"
+            @click="goHub"
+            unelevated
+          />
+          <div class="text-caption text-grey-6 q-mt-sm">v{{ appVersion }}</div>
+        </div>
       </div>
     </q-drawer>
 
@@ -100,6 +114,8 @@ const route = useRoute()
 const usersStore = useUsersStore()
 const companyStore = useCompanyStore()
 
+console.log('USERS', usersStore.currentUser)
+
 // drawer: chiuso su mobile, aperto su desktop
 const leftDrawerOpen = ref(!$q.screen.lt.md)
 watch(() => $q.screen.lt.md, (isMobile) => {
@@ -110,8 +126,8 @@ const links = [
   { name: 'cms.index',      label: 'Home',            icon: 'home',        to: { name: 'cms.index' } },
   { name: 'cms.categories', label: 'Categorie',       icon: 'category',    to: { name: 'cms.categories' } },
   { name: 'cms.products',   label: 'Prodotti',        icon: 'inventory_2', to: { name: 'cms.products' } },
-  { name: 'cms.attributes',   label: 'Attributi',        icon: 'label', to: { name: 'cms.attributes' } },
-  { name: 'cms.profile',    label: 'Profilo utente',  icon: 'face',        to: { name: 'cms.profile' } },
+  { name: 'cms.attributes', label: 'Attributi',       icon: 'label',       to: { name: 'cms.attributes' } },
+  // { name: 'cms.profile',    label: 'Profilo utente',  icon: 'face',        to: { name: 'cms.profile' } },
 ]
 
 function isActive(to) {
@@ -120,6 +136,12 @@ function isActive(to) {
 
 function toggleDarkMode() { $q.dark.toggle() }
 function handleLogout() { usersStore.logout(router) }
+
+// 🔹 Vai all’Hub (non logout)
+function goHub () {
+  if ($q.screen.lt.md) leftDrawerOpen.value = false
+  router.push({ name: 'hub' })
+}
 
 const userName = computed(() => {
   const u = usersStore.currentUser
@@ -152,6 +174,23 @@ onMounted(async () => {
 }
 .drawer-surface {
   backdrop-filter: saturate(115%) blur(2px);
+}
+
+/* Layout colonna nel drawer */
+.drawer-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+.drawer-main {
+  overflow: auto;       /* fa scrollare il contenuto se lungo */
+}
+.drawer-footer {
+  border-top: 1px solid rgba(0,0,0,.08);
+}
+.body--dark .drawer-footer {
+  border-top-color: rgba(255,255,255,.10);
 }
 
 /* Chip utente */

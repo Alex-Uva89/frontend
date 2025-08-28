@@ -115,7 +115,6 @@
           <q-card-section class="q-pt-none">
             <div class="text-subtitle1 ellipsis">{{ app.title }}</div>
             <div class="text-caption text-grey-7">
-              <!-- Due righe “soft” senza CSS custom: tronchiamo manualmente -->
               {{ truncated(app.shortDescription, 90) }}
             </div>
           </q-card-section>
@@ -140,14 +139,20 @@ import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppsStore } from 'src/stores/appsStore'
 import { useUsersStore } from 'src/stores/usersStore'
+import { useBusinessStore } from 'src/stores/businessStore' // 🔹 Aggiunta
 
 const router = useRouter()
 const appsStore = useAppsStore()
 const usersStore = useUsersStore()
+const businessStore = useBusinessStore() // 🔹 Aggiunta
 
 const search = ref('')
 
-onMounted(() => {
+// 🔹 Aggiunta: inizializza il business corrente dal currentUser e sessionStorage
+onMounted(async () => {
+  const fallbackBizId = usersStore.currentUser?.business?._id || null
+  businessStore.initFromStorage(fallbackBizId)
+  await businessStore.fetchBusinesses()
   appsStore.fetchApps()
 })
 
@@ -228,17 +233,12 @@ function handleOpen(app) {
   }
 }
 
-
-
-
 function reload() {
   appsStore.invalidateCache()
   appsStore.fetchApps({ force: true })
 }
 
-/**
- * Troncamento semplice senza CSS custom (per evitare ellissi multiple righe)
- */
+/** Troncamento semplice */
 function truncated(text, max = 90) {
   if (!text) return ''
   return text.length > max ? text.slice(0, max - 1) + '…' : text

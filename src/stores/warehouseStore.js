@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { api } from 'boot/axios'
+import { authFetchJson } from 'src/utils/api'
 
 export const useWarehouseStore = defineStore('warehouse', {
   state: () => ({
@@ -8,9 +8,13 @@ export const useWarehouseStore = defineStore('warehouse', {
   }),
   actions: {
     async createWarehouseItem(payload) {
-      const { data } = await api.post('warehouse/', payload)
+      const API = import.meta.env.VITE_API_URL
+      const data = await authFetchJson(`${API}/warehouse/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      })
       this.items.push(data)
-      // aggiorna cache
       if (payload?.businessId && payload?.referenceId) {
         const key = `${payload.businessId}__${payload.referenceId}`
         this.cache[key] = data
@@ -19,16 +23,21 @@ export const useWarehouseStore = defineStore('warehouse', {
     },
 
     async findItem(businessId, referenceId) {
+      const API = import.meta.env.VITE_API_URL
       const key = `${businessId}__${referenceId}`
       if (this.cache[key] !== undefined) return this.cache[key]
-      const { data } = await api.get('warehouse/find', { params: { businessId, referenceId } })
+      const data = await authFetchJson(`${API}/warehouse/find?businessId=${encodeURIComponent(businessId)}&referenceId=${encodeURIComponent(referenceId)}`)
       this.cache[key] = data // può essere null
       return data
     },
 
     async upsertUnitPrice(warehouseId, unit, price) {
-      const { data } = await api.patch(`warehouse/${warehouseId}/prices`, { unit, price })
-      // aggiorna items se lo hai in memoria
+      const API = import.meta.env.VITE_API_URL
+      const data = await authFetchJson(`${API}/warehouse/${warehouseId}/prices`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit, price })
+      })
       const idx = this.items.findIndex(i => i._id === warehouseId)
       if (idx !== -1) {
         this.items[idx] = { ...this.items[idx], prices: data.prices }

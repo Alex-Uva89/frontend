@@ -5,9 +5,9 @@
     <div class="bg-decor" aria-hidden="true"></div>
 
     <!-- Header -->
-    <header class="hero-head bg-secondary q-py-md">
-      <div class="title text-white">Pannello CMS</div>
-      <div class="subtitle text-white">Scegli cosa gestire</div>
+    <header class="hero-head">
+      <div class="title">Pannello CMS</div>
+      <div class="subtitle">Scegli cosa gestire</div>
     </header>
 
     <!-- Cards: mobile-first (colonna), poi griglia fluida -->
@@ -18,6 +18,7 @@
         tabindex="0"
         role="button"
         aria-label="Gestisci categorie"
+        v-ripple
         @click="goCategories"
         @keyup.enter="goCategories"
         @keyup.space.prevent="goCategories"
@@ -29,7 +30,7 @@
         <p class="cta-desc">Crea, modifica e organizza la struttura del catalogo.</p>
         <div class="cta-actions">
           <q-chip dense outline color="teal-6" text-color="teal-10" icon="account_tree">
-            Gerarchie & ordinamento
+            Gerarchie &nbsp;•&nbsp; Ordine
           </q-chip>
           <q-btn
             color="primary"
@@ -47,6 +48,7 @@
         tabindex="0"
         role="button"
         aria-label="Gestisci prodotti"
+        v-ripple
         @click="goProducts"
         @keyup.enter="goProducts"
         @keyup.space.prevent="goProducts"
@@ -58,7 +60,7 @@
         <p class="cta-desc">Aggiungi articoli, imposta prezzi, immagini e categorie.</p>
         <div class="cta-actions">
           <q-chip dense outline color="purple-6" text-color="purple-10" icon="touch_app">
-            Drag & drop ordinamento
+            Drag & Drop
           </q-chip>
           <q-btn
             color="primary"
@@ -76,6 +78,7 @@
         tabindex="0"
         role="button"
         aria-label="Gestisci attributi"
+        v-ripple
         @click="goAttributes"
         @keyup.enter="goAttributes"
         @keyup.space.prevent="goAttributes"
@@ -87,7 +90,7 @@
         <p class="cta-desc">Allergeni, stagionalità, promo e tag con emoji/icona.</p>
         <div class="cta-actions">
           <q-chip dense outline color="amber-7" text-color="brown-10" icon="auto_awesome">
-            Emoji & filtri smart
+            Emoji & Filtri
           </q-chip>
           <q-btn
             color="primary"
@@ -99,6 +102,13 @@
         </div>
       </article>
     </section>
+
+    <!-- Quick actions: sticky su mobile -->
+    <nav class="quick-links lt-md">
+      <q-btn color="primary" icon="category"  no-caps @click="goCategories"  label="Categorie"  />
+      <q-btn color="primary" icon="inventory_2" no-caps @click="goProducts"   label="Prodotti"   />
+      <q-btn color="primary" icon="sell"      no-caps @click="goAttributes" label="Attributi"  />
+    </nav>
 
   </q-page>
 </template>
@@ -116,12 +126,11 @@ function goAttributes() { router.push({ name: 'cms.attributes' }) }
 /* ---------- Layout base (mobile-first) ---------- */
 .cms-hero {
   position: relative;
-  height: fit-content;
+  min-height: 100%;
   padding: 16px;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
   gap: 16px;
-  margin-top: 90px;
 }
 
 /* ---------- Background “wow” ma leggero ---------- */
@@ -140,19 +149,14 @@ function goAttributes() { router.push({ name: 'cms.attributes' }) }
   filter: saturate(120%) brightness(90%);
 }
 
-/* ---------- Header ---------- */
+/* ---------- Header: non fixed, mobile-first ---------- */
 .hero-head {
-  position: fixed;
-  width: 100%;
-  top: 42px;
-  left: 0;
-  right: 0;
-  z-index: 80000;
+  z-index: 1;
   text-align: center;
-  margin-top: 8px;
+  padding-top: 4px;
 }
 .title {
-  font-size: 24px;
+  font-size: clamp(20px, 4.5vw, 28px);
   font-weight: 800;
   letter-spacing: 0.2px;
 }
@@ -166,33 +170,31 @@ function goAttributes() { router.push({ name: 'cms.attributes' }) }
 .cards-grid {
   z-index: 1;
   display: grid;
-  grid-template-columns: 1fr;            /* mobile: una colonna */
-  gap: 14px;
-  margin-top: 8px;
+  grid-template-columns: 1fr; /* mobile: una colonna */
+  gap: 12px;
 }
 
 /* Tablet */
 @media (min-width: 768px) {
   .cms-hero { padding: 24px; gap: 20px; }
-  .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-  .title { font-size: 28px; }
+  .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 }
 
 /* Desktop */
 @media (min-width: 1200px) {
   .cards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-  .title { font-size: 32px; }
 }
 
 /* ---------- Card ---------- */
 .cta-card {
   position: relative;
-  border-radius: 18px;
+  border-radius: 16px;
+  height: fit-content;
   border: 1px solid rgba(0,0,0,0.08);
-  background: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.7);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  padding: 18px;
+  padding: 16px;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
   outline: none;
   cursor: pointer;
@@ -202,11 +204,14 @@ function goAttributes() { router.push({ name: 'cms.attributes' }) }
   border-color: rgba(255,255,255,0.10);
 }
 
-.cta-card:hover,
-.cta-card:focus {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(0,0,0,0.12);
-  border-color: rgba(0,0,0,0.12);
+/* Hover solo su device con hover */
+@media (hover: hover) and (pointer: fine) {
+  .cta-card:hover,
+  .cta-card:focus {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.12);
+    border-color: rgba(0,0,0,0.12);
+  }
 }
 .cta-card:active { transform: translateY(-1px) scale(.99); }
 
@@ -252,12 +257,13 @@ function goAttributes() { router.push({ name: 'cms.attributes' }) }
 /* ---------- Quick links (sticky su mobile) ---------- */
 .quick-links {
   position: sticky;
-  bottom: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 2;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   background: transparent;
+  padding-top: 4px;
 }
 .quick-links .q-btn {
   border-radius: 12px;
@@ -265,9 +271,9 @@ function goAttributes() { router.push({ name: 'cms.attributes' }) }
   -webkit-backdrop-filter: blur(6px);
 }
 
-/* Spazio dal fondo su desktop (niente sticky) */
+/* Desktop: quick links non sticky */
 @media (min-width: 1024px) {
-  .quick-links { position: static; margin-top: 8px; }
+  .quick-links { position: static; margin-top: 4px; }
 }
 
 /* ---------- Motion preferenze ---------- */

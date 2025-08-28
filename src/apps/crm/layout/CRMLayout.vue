@@ -2,13 +2,22 @@
   <q-layout view="lHh Lpr lFf">
     <q-header elevated :class="$q.dark.isActive ? 'bg-dark text-white' : 'bg-teal text-white'">
       <q-toolbar>
-          <q-toolbar-title>
-            {{ user ? user.role + ' Dashboard' : 'Dashboard' }}
-          </q-toolbar-title>
+        <q-btn
+          dense
+          flat
+          round
+          icon="arrow_back"
+          @click="goToHub"
+          v-if="user"
+        />
+        <q-toolbar-title>
+          {{ user ? user.role + ' Dashboard' : 'Dashboard' }}
+        </q-toolbar-title>
+
+        <q-space />
 
         <q-btn dense flat :icon="$q.dark.isActive ? 'light_mode' : 'dark_mode'" @click="toggleDarkMode" />
         <q-btn dense flat icon="logout" @click="handleLogout" />
-
       </q-toolbar>
     </q-header>
 
@@ -36,17 +45,18 @@ const usersStore = useUsersStore()
 const companyStore = useCompanyStore()
 const businessStore = useBusinessStore()
 
-// Assumendo che currentUser sia il dato corretto
 const user = computed(() => usersStore.currentUser)
 
-// Toggle dark mode
 function toggleDarkMode() {
   $q.dark.toggle()
 }
 
-// Logout
 function handleLogout() {
   usersStore.logout(router)
+}
+
+function goToHub() {
+  router.push('/hub')
 }
 
 onMounted(async () => {

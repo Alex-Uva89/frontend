@@ -1,6 +1,5 @@
-// stores/supplierStore.js
-import { defineStore } from 'pinia';
-import { api } from 'boot/axios';
+import { defineStore } from 'pinia'
+import { authFetchJson } from 'src/utils/api'
 
 export const useSupplierStore = defineStore('supplier', {
   state: () => ({
@@ -8,12 +7,18 @@ export const useSupplierStore = defineStore('supplier', {
   }),
   actions: {
     async fetchSuppliers() {
-      const response = await api.get('suppliers/');
-      this.suppliers = response.data;
+      const API = import.meta.env.VITE_API_URL
+      const data = await authFetchJson(`${API}/suppliers/`)
+      this.suppliers = data
     },
 
     async createSupplier(payload) {
-      const { data } = await api.post('suppliers/', payload);
+      const API = import.meta.env.VITE_API_URL
+      const data = await authFetchJson(`${API}/suppliers/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      })
 
       this.suppliers = [...this.suppliers, data].sort((a, b) =>
         a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
@@ -21,4 +26,4 @@ export const useSupplierStore = defineStore('supplier', {
       return data
     }
   }
-});
+})

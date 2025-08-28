@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { authFetchJson } from 'src/utils/api'
 
 export const useUsersStore = defineStore('users', () => {
   // --- Storage helpers (per tab) ---
@@ -42,9 +43,8 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users`)
-      if (!res.ok) throw new Error('Errore fetching users')
-      users.value = await res.json()
+      const API = import.meta.env.VITE_API_URL
+      users.value = await authFetchJson(`${API}/users`)
     } catch (err) {
       error.value = err.message
     } finally {
@@ -66,6 +66,10 @@ export const useUsersStore = defineStore('users', () => {
   }
 
   async function fetchCurrentUser () {
+    if (!token.value && STORAGE) {
+      const saved = STORAGE.getItem(TOKEN_KEY)
+      if (saved) token.value = saved
+    }
     if (!token.value) {
       currentUser.value = null
       return null
@@ -74,11 +78,8 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${token.value}` }
-      })
-      if (!res.ok) throw new Error('Errore fetching current user')
-      const data = await res.json()
+      const API = import.meta.env.VITE_API_URL
+      const data = await authFetchJson(`${API}/users/me`)
       currentUser.value = data
       if (STORAGE) STORAGE.setItem(USER_KEY, JSON.stringify(data))
       return data
@@ -102,17 +103,15 @@ export const useUsersStore = defineStore('users', () => {
     if (router) router.push('/')
   }
 
-  // Check permissions
+  // Check permissions (ruolo lato FE se ti serve)
   function hasRole (role) {
     if (!userRole.value) return false
     return userRole.value === role.toLowerCase()
   }
-
   function hasAnyRole (roles) {
     if (!userRole.value) return false
     return roles.map(r => r.toLowerCase()).includes(userRole.value)
   }
-
   function hasAllPermissions (permissions) {
     if (!currentUser.value?.permissions) return false
     return permissions.every(p => currentUser.value.permissions.includes(p))
@@ -120,58 +119,26 @@ export const useUsersStore = defineStore('users', () => {
 
   // ---------------------- CREATE (usa /auth/register) ----------------------
   async function createUser (payload) {
-    // payload: { firstName, lastName, email, role, business, isActive, password }
+    const API = import.meta.env.VITE_API_URL
     const headers = { 'Content-Type': 'application/json' }
-    // opzionale: passa il token se la tua /auth/register lo richiede dopo il bootstrap
-    if (token.value) headers.Authorization = `Bearer ${token.value}`
-
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+    // opzionale: la tua /auth/register oggi è pubblica; se la rendi protetta, authFetchJson metterà l’Authorization
+    return authFetchJson(`${API}/auth/register`, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload || {})
     })
-
-    if (!res.ok) {
-      let msg = 'Errore creazione utente'
-      try {
-        const body = await res.json()
-        if (body?.error) msg = body.error
-      } catch (e) {
-        console.warn('Errore parse JSON createUser', e)
-      }
-      throw new Error(msg)
-    }
-
-    // La tua API attuale ritorna { message, userId }.
-    // Non inseriamo un item “incompleto” in lista: il caller richiama fetchUsers() dopo @saved.
-    return await res.json()
   }
 
   // ---------------------- UPDATE ----------------------
   async function updateUser (id, patch) {
     if (!id) throw new Error('ID utente mancante')
-
+    const API = import.meta.env.VITE_API_URL
     const headers = { 'Content-Type': 'application/json' }
-    if (token.value) headers.Authorization = `Bearer ${token.value}`
-
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+    const updated = await authFetchJson(`${API}/users/${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(patch || {})
     })
-
-    if (!res.ok) {
-      let msg = 'Errore aggiornamento utente'
-      try {
-        const body = await res.json()
-        if (body?.error) msg = body.error
-      } catch (e) {
-        console.warn('Errore parsing JSON risposta PATCH /users/:id', e)
-      }
-      throw new Error(msg)
-    }
-
-    const updated = await res.json()
 
     const idx = users.value.findIndex(u => (u._id || u.id) === id)
     if (idx !== -1) {
@@ -195,7 +162,6 @@ export const useUsersStore = defineStore('users', () => {
   async function setActive (id, isActive) {
     return updateUser(id, { isActive: !!isActive })
   }
-  // -------------------------------------------------------------------
 
   // Initialize on store creation
   initialize()

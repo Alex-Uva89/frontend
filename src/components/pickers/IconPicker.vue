@@ -13,9 +13,9 @@
         class="col"
         placeholder="Scegli un'emoji…"
       >
-        <template #prepend>
+        <!-- <template #prepend>
           <span class="emoji-preview">{{ modelValue || '🏷️' }}</span>
-        </template>
+        </template> -->
         <template #append>
           <q-btn dense flat round icon="apps" @click="open = true">
             <q-tooltip>Apri selettore emoji</q-tooltip>
@@ -23,14 +23,14 @@
         </template>
       </q-input>
 
-      <q-btn
+      <!-- <q-btn
         v-if="modelValue"
         outline
         dense
         icon="visibility"
         :label="$q.screen.gt.sm ? 'Anteprima' : ''"
         @click="preview = true"
-      />
+      /> -->
     </div>
 
     <!-- Dialog: Emoji Picker -->

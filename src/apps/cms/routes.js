@@ -24,5 +24,5 @@ export const cmsRoutes = [
     path: 'attributes',
     name: 'cms.attributes',
     component: () => import('./pages/AttributeCms.vue')
-  }
+  },
 ]
