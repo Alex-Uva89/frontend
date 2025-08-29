@@ -107,9 +107,8 @@ async function handleLogin () {
 
     await nextTick()
 
-    const role = String(data.user.role || '').toLowerCase()
-    if (role === 'staff') router.push('/dashboard/staff')
-    else router.push('/hub')
+
+    router.push('/hub')
   } catch (err) {
     error.value = err.message
   } finally {

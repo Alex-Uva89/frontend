@@ -145,6 +145,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { authFetch, authFetchJson } from 'src/utils/api' // ⬅️ AGGIUNTO
 
 /* Props */
 const props = defineProps({
@@ -219,19 +220,63 @@ const businessOptions = computed(() =>
   (props.businesses || []).map(b => ({ label: b.name, value: b._id }))
 )
 
+/* ============ AGGIUNTO: helpers chiamate API ============ */
+const API = import.meta.env.VITE_API_URL
+
+async function uploadPhotoIfNeeded () {
+  if (!photoFile.value) return null
+  const fd = new FormData()
+  fd.append('file', photoFile.value)
+  const res = await authFetch(`${API}/cms/uploads`, {
+    method: 'POST',
+    body: fd
+  })
+  let json
+  try { json = await res.json() } catch { json = null }
+  if (!res.ok) throw new Error(json?.error || `Upload fallito (HTTP ${res.status})`)
+  // adatta ai campi della tua /cms/uploads
+  return json?.assetId || json?.id || json?.asset?._id || null
+}
+/* ======================================================== */
+
 /* Submit */
 async function submit () {
   const ok = await formRef.value?.validate?.()
   if (!ok) return
-  emit('save', { ...form.value, photoFile: photoFile.value })
-  isOpen.value = false
+
+  try {
+    // 1) upload immagine se presente
+    const photoAssetId = await uploadPhotoIfNeeded()
+
+    // 2) PATCH profilo (⚠️ non invio "role" per evitare 403 in self-edit)
+    const payload = {
+      firstName: form.value.firstName,
+      lastName:  form.value.lastName,
+      email:     form.value.email,
+      business:  form.value.business || null,
+      isActive:  form.value.isActive,
+      ...(photoAssetId ? { photoAssetId } : {})
+    }
+
+    const id = props.user?._id || props.user?.id
+    const updated = await authFetchJson(`${API}/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+
+    // 3) ritorna al parent il dato aggiornato (comportamento invariato)
+    emit('save', updated)
+    isOpen.value = false
+  } catch (e) {
+    console.error(e)
+    // lascia la gestione notifiche al parent; qui loggo solo
+  }
 }
 </script>
 
 <style lang="css" scoped>
-
 .my-profile{
   z-index: 999999999;
 }
-
 </style>

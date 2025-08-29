@@ -51,9 +51,9 @@ export default defineRouter(function () {
     }
 
     // Se uno "staff" va all'hub, mandalo alla sua dashboard CRM
-    if (to.name === 'hub' && userRole === 'staff') {
-      return next({ name: 'crm.staff' })
-    }
+    // if (to.name === 'hub' && userRole === 'staff') {
+    //   return next({ name: 'crm.staff' })
+    // }
 
     // Controllo ruoli granulari (meta.roles)
     if (to.meta?.roles && isAuth) {

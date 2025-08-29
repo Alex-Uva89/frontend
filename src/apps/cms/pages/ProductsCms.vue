@@ -80,6 +80,16 @@
           >
             <template #prepend><q-icon name="search" class="text-white" /></template>
           </q-input>
+
+          <q-btn
+  color="white"
+  text-color="primary"
+  icon="print"
+  class="q-ml-sm"
+  label="Anteprima menù"
+  :disable="!businessId"
+  @click="menuPrintOpen = true"
+/>
         </div>
 
         <div v-if="search" class="row items-center q-gutter-sm q-mt-xs">
@@ -131,6 +141,7 @@
                   >
                     {{ (listsByCat[cat._id] || []).length }}
                   </q-chip>
+
                 </div>
               </q-item-section>
             </q-item>
@@ -228,6 +239,17 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <MenuPrintDialog
+  v-model="menuPrintOpen"
+  :businessName="businessName"
+  :categoriesTree="categoriesTree"
+  :products="allProducts"
+  :attributes="printAttributes"
+  :language="menuLang"
+  :usePathInHeaders="false"
+  :coverCharge="null"
+/>
   </q-page>
 </template>
 
@@ -235,6 +257,7 @@
 // Vue & Quasar
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import MenuPrintDialog from 'src/components/print/MenuPrintDialog.vue'
 
 // DnD
 import Draggable from 'vuedraggable' // npm i vuedraggable@next
@@ -247,6 +270,10 @@ import { PERM } from 'src/auth/perm'
 
 const $q = useQuasar()
 const API = import.meta.env.VITE_API_URL
+
+const menuPrintOpen = ref(false)
+const menuLang = ref('it')
+const printAttributes = ref([])
 
 /* ================== STORE & PERMESSI ================== */
 const usersStore = useUsersStore()
