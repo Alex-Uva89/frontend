@@ -124,7 +124,6 @@
         :label="g.label"
         expand-icon="expand_more"
         switch-toggle-side
-        :default-opened="$q.screen.lt.md"
         class="rounded-borders q-mb-md bg-white"
       >
         <template #header>
