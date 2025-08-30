@@ -594,6 +594,7 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
   border-radius: 12px;
 }
 
+
 .item-row { background: var(--q-surface, #fff); border: 1px solid rgba(0,0,0,0.06); }
 .body--dark .item-row { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
 
