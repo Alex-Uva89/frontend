@@ -165,7 +165,7 @@
                   <q-item-label class="text-body1">{{ row.name }}</q-item-label>
                   <q-item-label caption>{{ row.slug }}</q-item-label>
                   <div class="row items-center q-gutter-sm q-mt-xs">
-                    <q-chip dense outline :color="kindColor(row.kind)">{{ kindPretty(row.kind) }}</q-chip>
+                    <q-chip dense outline :color="kindColor(row.kind)">{{ row.kindLabel || kindPretty(row.kind) }}</q-chip>
                     <div class="row items-center">
                       <div
                         v-if="row.color"
@@ -215,7 +215,9 @@
 
           <template #body-cell-kind="props">
             <q-td :props="props">
-              <q-chip dense outline :color="kindColor(props.row.kind)">{{ kindPretty(props.row.kind) }}</q-chip>
+              <q-chip dense outline :color="kindColor(props.row.kind)">
+                {{ props.row.kindLabel || kindPretty(props.row.kind) }}
+              </q-chip>
             </q-td>
           </template>
 
@@ -428,39 +430,22 @@ const columns = [
   { name: 'actions',label: '',          field: 'actions',align: 'right' }
 ]
 
-/* ---------- kind utils ---------- */
-const kindOptions = [
-  { label: '— Tutti i tipi —', value: null },
-  { label: 'Allergene',        value: 'allergen' },
-  { label: 'Stagionale',       value: 'season' },
-  { label: 'Promo / In saldo', value: 'promo' },
-  { label: 'Ultimo minuto',    value: 'lastminute' },
-  { label: 'Generico',         value: 'generic' }
-]
-const kindOrder = ['allergen','season','promo','lastminute','generic']
+/* ---------- tipi dinamici ---------- */
+const kindOptions = ref([{ label: '— Tutti i tipi —', value: null }])
+const optionMap   = computed(() => new Map(kindOptions.value.map(o => [o.value, o.label])))
+const kindOrder   = computed(() => kindOptions.value.filter(o => o.value).map(o => o.value))
 
-function kindPretty (k) {
-  const m = new Map(kindOptions.map(o => [o.value, o.label]))
-  return m.get(k) || '—'
+// Icone/Colori noti
+const KIND_META = {
+  allergeni:  { icon: 'warning_amber',  color: 'deep-orange', label: 'Allergeni' },
+  stagionali: { icon: 'calendar_month', color: 'teal',        label: 'Stagionali' },
+  promo:      { icon: 'local_offer',    color: 'red',         label: 'Promo' },
+  vitigno:    { icon: 'park',           color: 'green',       label: 'Vitigno' },
+  produttore: { icon: 'factory',        color: 'indigo',      label: 'Produttore' },
 }
-function kindColor (k) {
-  switch (k) {
-    case 'allergen':  return 'deep-orange'
-    case 'season':    return 'teal'
-    case 'promo':     return 'red'
-    case 'lastminute':return 'amber'
-    default:          return 'grey'
-  }
-}
-function groupIcon (k) {
-  switch (k) {
-    case 'allergen':  return 'warning_amber'
-    case 'season':    return 'calendar_month'
-    case 'promo':     return 'local_offer'
-    case 'lastminute':return 'bolt'
-    default:          return 'label'
-  }
-}
+function kindPretty (k) { return optionMap.value.get(k) || KIND_META[k]?.label || 'Altro' }
+function kindColor  (k) { return KIND_META[k]?.color || 'grey' }
+function groupIcon  (k) { return KIND_META[k]?.icon  || 'label' }
 
 /* ---------- color utils ---------- */
 function expand3to6 (hex) { return hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex }
@@ -493,14 +478,45 @@ async function loadAll () {
     const json = await res.json()
     if (!json.ok) throw new Error(json.error || 'Errore caricamento attributi')
     rows.value = json.data || []
-  } catch (e) {
-    error.value = e.message
-    $q.notify({ type: 'negative', message: e.message })
+  } catch (err) {
+    error.value = err.message
+    $q.notify({ type: 'negative', message: err.message })
   } finally {
     loading.value = false
   }
 }
-onMounted(loadAll)
+
+// se l'endpoint kinds non dà nulla, derivo dai dati già caricati
+function deriveKindsFromRows () {
+  const set = new Set((rows.value || []).map(r => r.kind).filter(Boolean))
+  const arr = Array.from(set).sort((a,b) => (a||'').localeCompare(b||''))
+  return arr.map(v => ({ value: v, label: KIND_META[v]?.label || (v.charAt(0).toUpperCase()+v.slice(1)) }))
+}
+
+async function loadKinds () {
+  try {
+    const res  = await fetch(`${API}/cms/attributes/kinds`)
+    const json = await res.json()
+    if (!json.ok) throw new Error(json.error || 'Errore caricamento tipi')
+
+    let data = json.data || []
+    if (!data.length) data = deriveKindsFromRows()
+
+    kindOptions.value = [{ label: '— Tutti i tipi —', value: null }, ...data]
+  } catch (_err) {
+    console.log(_err)
+    // fallback: derivati dai dati
+    const data = deriveKindsFromRows()
+    kindOptions.value = [{ label: '— Tutti i tipi —', value: null }, ...data]
+    $q.notify({ type: 'warning', message: 'Tipi non disponibili: uso elenco derivato' })
+  }
+}
+
+// prima gli attributi, poi i tipi (così il fallback funziona)
+onMounted(async () => {
+  await loadAll()
+  await loadKinds()
+})
 
 /* ---------- filters & grouping ---------- */
 const baseFiltered = computed(() => {
@@ -519,11 +535,10 @@ function countByKind (k) {
 }
 
 const groupsToRender = computed(() => {
-  const kinds = kindFilter.value ? [kindFilter.value] : kindOrder
+  const kinds = kindFilter.value ? [kindFilter.value] : (kindOrder.value.length ? kindOrder.value : deriveKindsFromRows().map(o => o.value))
   return kinds.map(kind => {
     const items = baseFiltered.value
       .filter(r => r.kind === kind)
-      // attivi prima, poi per nome
       .sort((a, b) => {
         const aa = a.active === false ? 1 : 0
         const bb = b.active === false ? 1 : 0
@@ -537,19 +552,20 @@ const groupsToRender = computed(() => {
 /* ---------- editor ---------- */
 const editor = ref({ show: false, mode: 'create', id: null })
 const form   = ref({
-  name: '', slug: '', kind: 'generic', color: '', icon: '', description: '', active: true
+  name: '', slug: '', kind: '', color: '', icon: '', description: '', active: true
 })
 
 function openCreate () {
   editor.value = { show: true, mode: 'create', id: null }
-  form.value   = { name: '', slug: '', kind: 'generic', color: '', icon: '', description: '', active: true }
+  const firstKind = kindOptions.value.find(k => k.value)?.value || ''
+  form.value   = { name: '', slug: '', kind: firstKind, color: '', icon: '', description: '', active: true }
 }
 function openEdit (row) {
   editor.value = { show: true, mode: 'edit', id: row._id }
   form.value   = {
     name: row.name || '',
     slug: row.slug || '',
-    kind: row.kind || 'generic',
+    kind: row.kind || '',
     color: row.color || '',
     icon: row.icon || '',
     description: row.description || '',
@@ -602,14 +618,15 @@ async function submitEditor () {
     }
     editor.value.show = false
     await loadAll()
-  } catch (e) {
-    $q.notify({ type: 'negative', message: e.message })
+    await loadKinds() // aggiorna conteggi/chips
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message })
   } finally {
     saving.value = false
   }
 }
 
-/* ---------- toggle attivo inline (con lock UI sulla riga) ---------- */
+/* ---------- toggle attivo ---------- */
 async function toggleActive (row, newVal) {
   const prev = row.active
   row.active = newVal
@@ -623,9 +640,9 @@ async function toggleActive (row, newVal) {
     const json = await res.json()
     if (!json.ok) throw new Error(json.error || 'Aggiornamento fallito')
     $q.notify({ type: 'positive', message: row.active ? 'Attivato' : 'Disattivato' })
-  } catch (e) {
-    row.active = prev // revert
-    $q.notify({ type: 'negative', message: e.message })
+  } catch (err) {
+    row.active = prev
+    $q.notify({ type: 'negative', message: err.message })
   } finally {
     row._saving = false
   }
@@ -662,8 +679,9 @@ async function doDelete (id, force) {
     showReferrersDialog.value = false
     showDeleteConfirm.value   = false
     await loadAll()
-  } catch (e) {
-    $q.notify({ type: 'negative', message: e.message })
+    await loadKinds()
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message })
   } finally {
     saving.value = false
   }
@@ -676,7 +694,7 @@ async function doDelete (id, force) {
 }
 .hero-input :deep(.q-field__native),
 .hero-input :deep(.q-field__prefix),
-.hero-input :deep(.q-field__suffix),
+hero-input :deep(.q-field__suffix),
 .hero-input :deep(.q-field__input) { color: #fff !important; }
 .hero-input :deep(.q-field__control) {
   background: rgba(255,255,255,0.12);
@@ -688,10 +706,7 @@ async function doDelete (id, force) {
 .attr-slide :deep(.q-item) { padding: 8px 10px; }
 
 /* FAB posizionamento */
-.fab-bottom-right {
-  right: 18px;
-  bottom: 18px;
-}
+.fab-bottom-right { right: 18px; bottom: 18px; }
 
 /* sticky actions in dialog */
 .sticky-actions {

@@ -1,3 +1,4 @@
+<!-- /frontend/src/apps/cms/pages/ProductsCms.vue -->
 <template>
   <q-page class="q-pa-md">
     <!-- ====== HERO ====== -->
@@ -5,26 +6,13 @@
     <q-card flat class="hero q-pa-md q-mb-md rounded-borders shadow-2">
       <div class="column q-gutter-sm">
         <div class="row items-center justify-between no-wrap">
-          <!-- Chip locale attivo -->
-          <q-chip
-            v-if="businessName"
-            color="white"
-            text-color="primary"
-            icon="storefront"
-            class="q-ml-sm"
-          >
+          <q-chip v-if="businessName" color="white" text-color="primary" icon="storefront" class="q-ml-sm">
             {{ businessName }}
           </q-chip>
 
-          <!-- Select locale (solo MANAGE_ALL_BUSINESSES) -->
           <q-select
             v-if="canSeeAllBusinesses"
-            dense
-            filled
-            behavior="menu"
-            emit-value
-            map-options
-            class="hero-input"
+            dense filled behavior="menu" emit-value map-options class="hero-input"
             :options="(businessStore.businesses || []).map(b => ({ label: b.name, value: b._id }))"
             v-model="usersStore.selectedBusinessId"
             placeholder="Seleziona locale"
@@ -36,29 +24,16 @@
 
         <div class="text-caption text-white opacity-80">Gestione per categoria & ordine</div>
 
-        <!-- Avviso: nessun business -->
-        <q-banner
-          v-if="!businessId"
-          dense
-          class="bg-amber-3 text-amber-10 q-mt-sm rounded-borders"
-        >
-          <q-icon name="info" class="q-mr-sm" />
-          Nessun locale attivo. Associa un <b>business</b> all'utente o seleziona un locale.
+        <q-banner v-if="!businessId" dense class="bg-amber-3 text-amber-10 q-mt-sm rounded-borders">
+          <q-icon name="info" class="q-mr-sm" />Nessun locale attivo. Associa un <b>business</b> all'utente o seleziona un locale.
         </q-banner>
 
-        <!-- Controlli -->
         <div class="row q-col-gutter-sm items-center q-mt-xs">
-          <!-- Categoria -->
           <q-select
             v-model="selectedCategoryId"
             :options="categoryOptionsWithAll"
-            option-label="label"
-            option-value="id"
-            emit-value
-            map-options
-            dense
-            filled
-            clearable
+            option-label="label" option-value="id"
+            emit-value map-options dense filled clearable
             class="col-12 col-md-4 hero-input"
             label="Categoria"
             :disable="!businessId || !categoriesTree.length"
@@ -66,36 +41,20 @@
             <template #prepend><q-icon name="category" class="text-white" /></template>
           </q-select>
 
-          <!-- Ricerca -->
           <q-input
-            v-model="search"
-            dense
-            filled
-            clearable
-            debounce="200"
-            placeholder="Cerca prodotto…"
-            class="col-12 col-md hero-input"
-            input-class="text-white"
-            :disable="!businessId"
+            v-model="search" dense filled clearable debounce="200"
+            placeholder="Cerca prodotto…" class="col-12 col-md hero-input"
+            input-class="text-white" :disable="!businessId"
           >
             <template #prepend><q-icon name="search" class="text-white" /></template>
           </q-input>
 
-          <q-btn
-  color="white"
-  text-color="primary"
-  icon="print"
-  class="q-ml-sm"
-  label="Anteprima menù"
-  :disable="!businessId"
-  @click="menuPrintOpen = true"
-/>
+          <q-btn color="white" text-color="primary" icon="print" class="q-ml-sm"
+                 label="Anteprima menù" :disable="!businessId" @click="menuPrintOpen = true" />
         </div>
 
         <div v-if="search" class="row items-center q-gutter-sm q-mt-xs">
-          <q-chip dense color="amber-4" text-color="black" icon="info">
-            Filtro attivo: drag & drop disabilitato
-          </q-chip>
+          <q-chip dense color="amber-4" text-color="black" icon="info">Filtro attivo: drag & drop disabilitato</q-chip>
         </div>
       </div>
     </q-card>
@@ -120,34 +79,23 @@
 
       <div v-else>
         <q-expansion-item
-          v-for="cat in visibleCategories"
-          :key="cat._id"
-          expand-separator
-          class="rounded-borders q-mb-sm bg-white"
+          v-for="cat in visibleCategories" :key="cat._id"
+          expand-separator class="rounded-borders q-mb-sm bg-white"
         >
-          <!-- HEADER: solo nome foglia + chip conteggio; fullPath come tooltip -->
           <template #header="props">
             <q-item clickable v-ripple :class="props.headerClass" @click="props.toggle" :title="cat.fullPath" style="width: 100%;">
               <q-item-section avatar><q-icon name="category" /></q-item-section>
               <q-item-section>
                 <div class="row items-center no-wrap">
                   <div class="col ellipsis">{{ cat.title }}</div>
-                  <q-chip
-                    dense
-                    color="primary"
-                    text-color="white"
-                    icon="inventory_2"
-                    class="q-ml-sm"
-                  >
+                  <q-chip dense color="primary" text-color="white" icon="inventory_2" class="q-ml-sm">
                     {{ (listsByCat[cat._id] || []).length }}
                   </q-chip>
-
                 </div>
               </q-item-section>
             </q-item>
           </template>
 
-          <!-- CONTENUTO -->
           <div class="row items-center q-gutter-sm q-pa-sm">
             <q-space />
             <q-badge v-if="savingOrder" color="grey-6" outline>salvataggio…</q-badge>
@@ -156,12 +104,8 @@
 
           <div class="q-pa-sm">
             <Draggable
-              :list="listsByCat[cat._id]"
-              item-key="_id"
-              handle=".drag-handle"
-              :disabled="disableDrag"
-              @end="onDragEnd(cat._id)"
-              class="comfy-list"
+              :list="listsByCat[cat._id]" item-key="_id" handle=".drag-handle"
+              :disabled="disableDrag" @end="onDragEnd(cat._id)" class="comfy-list"
             >
               <template #item="{ element: prod }">
                 <div v-show="matchesSearch(prod)" class="row items-center justify-between q-pa-sm q-mb-xs rounded-borders item-row">
@@ -176,18 +120,29 @@
                       <div class="row items-center no-wrap q-mt-2">
                         <div class="text-caption text-grey-7 caption-ellipsis">
                           {{ prod.sku || '—' }} <span class="q-mx-xs">·</span>
-                          <span v-if="typeof prod.price === 'number'">€ {{ prod.price.toFixed(2) }}</span>
-                          <span v-else>prezzo n/d</span>
+
+                          <!-- Prezzi: se ci sono priceGlass/bottle mostro SOLO loro con icone; altrimenti SOLO price -->
+                          <template v-if="hasWinePrices(prod)">
+                            <span v-if="isNumber(getGlassPrice(prod))">
+                              <q-icon name="wine_bar" size="16px" class="q-mr-xs" />{{ formatMoney(getGlassPrice(prod)) }}
+                            </span>
+                            <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
+                              <span class="q-mx-xs">·</span>
+                              <q-icon name="liquor" size="16px" class="q-mr-xs" />{{ formatMoney(getBottlePrice(prod)) }}
+                            </span>
+                          </template>
+                          <template v-else>
+                            <span v-if="isNumber(prod.price)">{{ formatMoney(prod.price) }}</span>
+                            <span v-else>prezzo n/d</span>
+                          </template>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Azioni prodotto -->
                   <div class="row items-center q-gutter-xs actions-col">
                     <q-toggle
-                      dense
-                      :model-value="prod.active !== false"
+                      dense :model-value="prod.active !== false"
                       :disable="!canUpdateProducts || busyToggle.has(prod._id)"
                       @update:model-value="val => onToggleActive(prod._id, val)"
                     />
@@ -241,28 +196,23 @@
     </q-dialog>
 
     <MenuPrintDialog
-  v-model="menuPrintOpen"
-  :businessName="businessName"
-  :categoriesTree="categoriesTree"
-  :products="allProducts"
-  :attributes="printAttributes"
-  :language="menuLang"
-  :usePathInHeaders="false"
-  :coverCharge="null"
-/>
+      v-model="menuPrintOpen"
+      :businessName="businessName"
+      :categoriesTree="categoriesTree"
+      :products="allProducts"
+      :attributes="printAttributes"
+      :language="menuLang"
+      :usePathInHeaders="false"
+      :coverCharge="null"
+    />
   </q-page>
 </template>
 
 <script setup>
-// Vue & Quasar
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import MenuPrintDialog from 'src/components/print/MenuPrintDialog.vue'
-
-// DnD
-import Draggable from 'vuedraggable' // npm i vuedraggable@next
-
-// App
+import Draggable from 'vuedraggable'
 import { api } from 'boot/axios'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
@@ -273,7 +223,7 @@ const API = import.meta.env.VITE_API_URL
 
 const menuPrintOpen = ref(false)
 const menuLang = ref('it')
-const printAttributes = ref([])
+const printAttributes = ref([]) // per la stampa
 
 /* ================== STORE & PERMESSI ================== */
 const usersStore = useUsersStore()
@@ -292,9 +242,7 @@ const businessId = computed(() => {
 const businessName = computed(() => {
   const id = businessId.value
   const found = (businessStore.businesses || []).find(b => b._id === id)
-  return found?.name
-    || usersStore.currentUser?.business?.name
-    || (businessStore.currentBusiness?.name) || ''
+  return found?.name || usersStore.currentUser?.business?.name || (businessStore.currentBusiness?.name) || ''
 })
 
 const canReadProducts = computed(() => {
@@ -334,10 +282,10 @@ const editor = ref({
 /* ================== BOOTSTRAP ================== */
 onMounted(async () => {
   if (!usersStore.currentUser && usersStore.token) {
-    try { await usersStore.fetchCurrentUser() } catch(e) { console.log(e) }
+    try { await usersStore.fetchCurrentUser() } catch (e) { console.log(e) }
   }
   if (!businessStore.businesses?.length) {
-    try { await businessStore.fetchBusinesses() } catch(e) { console.log(e) }
+    try { await businessStore.fetchBusinesses() } catch (e) { console.log(e) }
   }
   await initialLoad()
 })
@@ -349,7 +297,7 @@ async function initialLoad () {
   if (!canReadProducts.value || !businessId.value) return
   loading.value = true; error.value = null
   try {
-    await Promise.all([loadCategories(), loadProducts()])
+    await Promise.all([loadCategories(), loadProducts(), loadAttributes()])
     rebuildLists()
   } catch (e) {
     error.value = e?.message || 'Errore di caricamento'
@@ -371,7 +319,20 @@ async function loadProducts () {
     params: { businessId: businessId.value }
   })
   if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
-  allProducts.value = json.data || []
+  // Normalizzo per la UI vino
+  const rows = (json.data || []).map(p => ({
+    ...p,
+    _priceGlass: typeof p.priceGlass === 'number' ? p.priceGlass
+      : (typeof p?.prices?.glass === 'number' ? p.prices.glass : null),
+    _priceBottle: typeof p.priceBottle === 'number' ? p.priceBottle
+      : (typeof p?.prices?.bottle === 'number' ? p.prices.bottle : null)
+  }))
+  allProducts.value = rows
+}
+async function loadAttributes () {
+  const { data: json } = await api.get(`${API}/cms/attributes`)
+  if (!json?.ok) throw new Error(json?.error || 'Errore attributi')
+  printAttributes.value = json.data || []
 }
 
 /* ================== CATEGORIE: util & visibilità ================== */
@@ -391,14 +352,10 @@ const catById = computed(() => {
 })
 function categoryPathLabel (id) {
   const parts = []; let cur = id
-  while (cur) {
-    const n = catById.value.get(cur); if (!n) break
-    parts.push(n.title); cur = parentOf.value.get(cur)
-  }
+  while (cur) { const n = catById.value.get(cur); if (!n) break; parts.push(n.title); cur = parentOf.value.get(cur) }
   return parts.reverse().join(' / ')
 }
 
-/* tutte le categorie (per il select — qui lascio path completo perché utile nel filtro) */
 const categoryOptions = computed(() => {
   const out = []
   const walk = (n, path) => {
@@ -408,34 +365,27 @@ const categoryOptions = computed(() => {
   ;(categoriesTree.value || []).forEach(r => walk(r, ''))
   return out
 })
-const categoryOptionsWithAll = computed(() =>
-  [{ id: null, label: '— Tutte le categorie —' }, ...categoryOptions.value]
-)
+const categoryOptionsWithAll = computed(() => [{ id: null, label: '— Tutte le categorie —' }, ...categoryOptions.value])
 
-/* solo foglie per l’accordion */
 function leafIdsUnder (rootId = null) {
   const ids = []
-  const startNodes = rootId
-    ? [catById.value.get(rootId)].filter(Boolean)
-    : (categoriesTree.value || [])
+  const startNodes = rootId ? [catById.value.get(rootId)].filter(Boolean) : (categoriesTree.value || [])
   const walk = (n) => {
     if (!n) return
     const children = n.children || []
-    if (children.length === 0) ids.push(n._id)
-    else children.forEach(walk)
+    if (children.length === 0) ids.push(n._id); else children.forEach(walk)
   }
   startNodes.forEach(walk)
   return ids
 }
 
-/* VISUALIZZAZIONE CATEGORIE (accordion): solo nome foglia + fullPath per tooltip */
 const visibleCategories = computed(() => {
   const targetId = selectedCategoryId.value
   const leafIds = targetId ? leafIdsUnder(targetId) : leafIdsUnder(null)
   return leafIds.map(id => ({
     _id: id,
-    title: catById.value.get(id)?.title || '',  // SOLO la foglia
-    fullPath: categoryPathLabel(id)             // per tooltip/hover
+    title: catById.value.get(id)?.title || '',
+    fullPath: categoryPathLabel(id)
   }))
 })
 
@@ -453,12 +403,32 @@ function rebuildLists () {
   listsByCat.value = map
 }
 
-/* filtro ricerca */
 function matchesSearch (p) {
   const term = String(search.value || '').trim().toLowerCase()
   if (!term) return true
   return (p.name || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term)
 }
+
+/* ================== PREZZI VINO (helper UI) ================== */
+function isNumber (v) { return typeof v === 'number' && !Number.isNaN(v) }
+function hasWinePrices (p) {
+  return isNumber(p._priceGlass) || isNumber(p._priceBottle)
+      || isNumber(p?.prices?.glass) || isNumber(p?.prices?.bottle)
+      || isNumber(p?.priceGlass) || isNumber(p?.priceBottle)
+}
+function getGlassPrice (p) {
+  if (isNumber(p._priceGlass)) return p._priceGlass
+  if (isNumber(p?.prices?.glass)) return p.prices.glass
+  if (isNumber(p?.priceGlass)) return p.priceGlass
+  return null
+}
+function getBottlePrice (p) {
+  if (isNumber(p._priceBottle)) return p._priceBottle
+  if (isNumber(p?.prices?.bottle)) return p.prices.bottle
+  if (isNumber(p?.priceBottle)) return p.priceBottle
+  return null
+}
+function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
 
 /* ================== DnD & SALVATAGGIO ================== */
 const disableDrag = computed(() => !canUpdateProducts.value || !!search.value || savingOrder.value)
@@ -469,9 +439,7 @@ async function saveGlobalOrderFromGroup (groupList) {
     const global = (allProducts.value || []).slice()
     const setIds = new Set((groupList || []).map(p => p._id))
     const slots = []
-    for (let i = 0; i < global.length; i++) {
-      if (setIds.has(global[i]._id)) slots.push(i)
-    }
+    for (let i = 0; i < global.length; i++) { if (setIds.has(global[i]._id)) slots.push(i) }
     if (!slots.length) { savingOrder.value = false; return }
     ;(groupList || []).forEach((p, idx) => { global[slots[idx]] = p })
     const productIds = global.map(p => p._id)
@@ -494,8 +462,7 @@ function onDragEnd (catId) {
 
 /* ================== AZIONI PRODOTTO ================== */
 async function onToggleActive (id, nextVal) {
-  if (!canUpdateProducts.value) return
-  if (!id) return
+  if (!canUpdateProducts.value || !id) return
   busyToggle.value.add(id)
   try {
     const { data: json } = await api.put(`${API}/cms/products/${encodeURIComponent(id)}`, { active: !!nextVal })
@@ -534,8 +501,7 @@ async function loadOneForEdit (id) {
 async function saveEdit () {
   if (!canUpdateProducts.value) return
   if (!editor.value.id || !editor.value.form.name) {
-    $q.notify({ type: 'warning', message: 'Nome obbligatorio' })
-    return
+    $q.notify({ type: 'warning', message: 'Nome obbligatorio' }); return
   }
   editor.value.saving = true
   try {
@@ -605,25 +571,19 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
   border-radius: 12px;
 }
 
-/* Riga prodotto */
 .item-row { background: var(--q-surface, #fff); border: 1px solid rgba(0,0,0,0.06); }
 .body--dark .item-row { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
 
-/* Miniatura */
 .thumb { background: #f5f5f5; border-radius: 10px; overflow: hidden; }
 .item-row :deep(.q-avatar img) { width: 100%; height: 100%; object-fit: cover; }
 
-/* Testi lunghi */
 .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .caption-ellipsis { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* Azioni */
 .actions-col { flex: 0 0 auto; }
 
-/* Lista comoda al tocco */
 .comfy-list :deep(.q-item) { min-height: 64px; }
 
-/* DnD: handle + cursori */
 .drag-handle { cursor: grab; }
 .drag-handle:active { cursor: grabbing; }
 </style>
