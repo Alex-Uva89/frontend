@@ -93,7 +93,21 @@
                       <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" class="q-ml-xs" />
                     </span>
                   </div>
-                  <div v-if="includePrices && typeof it.price === 'number'" class="right">€ {{ it.price.toFixed(2) }}</div>
+
+                  <!-- Prezzi: stessa logica del listato -->
+                  <div class="right" v-if="includePrices">
+                    <template v-if="it.hasWine">
+                      <span v-if="isNumber(it.glass)" class="price-chip">
+                        <q-icon name="wine_bar" size="14px" class="q-mr-xs" />{{ formatMoney(it.glass) }}
+                      </span>
+                      <span v-if="isNumber(it.bottle)" class="price-chip q-ml-xs">
+                        <q-icon name="liquor" size="14px" class="q-mr-xs" />{{ formatMoney(it.bottle) }}
+                      </span>
+                    </template>
+                    <template v-else>
+                      <span v-if="isNumber(it.price)">{{ formatMoney(it.price) }}</span>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
@@ -104,7 +118,7 @@
             <!-- FOOTER (mostrato in preview/stampa) -->
             <div ref="footerRef" class="menu-footer" v-if="footerText || coverCharge != null">
               <div v-if="coverCharge != null" class="cover-line">
-                {{ coverLabel }}: <b>€ {{ Number(coverCharge).toFixed(2) }}</b>
+                {{ coverLabel }}: <b>{{ Number(coverCharge).toFixed(2) }}</b>
               </div>
               <div v-if="footerText" class="disclaimer">{{ footerText }}</div>
             </div>
@@ -134,13 +148,27 @@
                 <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" class="q-ml-xs" />
               </span>
             </div>
-            <div v-if="includePrices && typeof it.price === 'number'" class="right">€ {{ it.price.toFixed(2) }}</div>
+
+            <!-- Stessa logica anche nel fallback -->
+            <div class="right" v-if="includePrices">
+              <template v-if="it.hasWine">
+                <span v-if="isNumber(it.glass)" class="price-chip">
+                  <q-icon name="wine_bar" size="14px" class="q-mr-xs" />{{ formatMoney(it.glass) }}
+                </span>
+                <span v-if="isNumber(it.bottle)" class="price-chip q-ml-xs">
+                  <q-icon name="liquor" size="14px" class="q-mr-xs" />{{ formatMoney(it.bottle) }}
+                </span>
+              </template>
+              <template v-else>
+                <span v-if="isNumber(it.price)">{{ formatMoney(it.price) }}</span>
+              </template>
+            </div>
           </div>
         </div>
       </div>
       <div class="footer-spacer" :style="{ height: spacerPx + 'px' }" aria-hidden="true"></div>
       <div class="menu-footer" v-if="footerText || coverCharge != null">
-        <div v-if="coverCharge != null" class="cover-line">{{ coverLabel }}: <b>€ {{ Number(coverCharge).toFixed(2) }}</b></div>
+        <div v-if="coverCharge != null" class="cover-line">{{ coverLabel }}: <b>{{ Number(coverCharge).toFixed(2) }}</b></div>
         <div v-if="footerText" class="disclaimer">{{ footerText }}</div>
       </div>
     </div>
@@ -182,7 +210,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { colors } from 'quasar'
 import { pickLocalized } from 'src/utils/i18n'
 import html2pdfModule from 'html2pdf.js'
-import html2canvas from 'html2canvas'   // <— per rasterizzare il footer in PDF
+import html2canvas from 'html2canvas'
 
 /* props */
 const props = defineProps({
@@ -279,12 +307,14 @@ const styleVars = computed(() => {
   }
 })
 
-/* helpers per dati */
+/* ======= DATI & MAPPING ======= */
 function toId(x){ if(!x)return null; if(typeof x==='string')return x; if(x._ref)return x._ref; if(x._id)return x._id; if(x?._type==='reference'&&x?.ref)return x.ref; return null }
+
 const catById = computed(()=>{
   const m=new Map(); const walk=n=>{ m.set(n._id,n); (n.children||[]).forEach(walk) }
   ;(props.categoriesTree||[]).forEach(walk); return m
 })
+
 function categoryPathLabel(id){
   if(!id) return ''
   const parts=[]; let cur=id
@@ -298,30 +328,76 @@ function categoryPathLabel(id){
   }
   return parts.reverse().join(' / ')
 }
+
 const treeOrderIndex = computed(()=>{
   let idx=0; const m=new Map(); const walk=n=>{ m.set(n._id,idx++); (n.children||[]).forEach(walk) }
   ;(props.categoriesTree||[]).forEach(walk); return m
 })
+
 const attrById = computed(()=>{ const m=new Map(); for(const a of (props.attributes||[])) m.set(a._id,a); return m })
 function allergenIconsFor(prod){
   const ids=(prod.attributes||[]).map(toId).filter(Boolean); const out=[]
   for(const id of ids){ const a=attrById.value.get(id); if(a?.kind==='allergen') out.push(a.icon||'emergency') }
   return out
 }
+
+/* ------- prezzi (stessa logica del listato) ------- */
+function isNumber (v) { return typeof v === 'number' && !Number.isNaN(v) }
+function readGlass (p) {
+  if (isNumber(p?.priceGlass)) return p.priceGlass
+  if (isNumber(p?._priceGlass)) return p._priceGlass
+  if (isNumber(p?.prices?.glass)) return p.prices.glass
+  return null
+}
+function readBottle (p) {
+  if (isNumber(p?.priceBottle)) return p.priceBottle
+  if (isNumber(p?._priceBottle)) return p._priceBottle
+  if (isNumber(p?.prices?.bottle)) return p.prices.bottle
+  return null
+}
+function hasWine (p) { return isNumber(readGlass(p)) || isNumber(readBottle(p)) }
+function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
+
 function productToRow(p){
   const label = pickLocalized(p,'translations.name',langLocal.value) || p.name
-  return { id:p._id, label, price: typeof p.price==='number'?p.price:null, active: p.active!==false, allergenIcons: allergenIconsFor(p) }
+  const glass = readGlass(p)
+  const bottle = readBottle(p)
+  const wine = isNumber(glass) || isNumber(bottle)
+  return {
+    id: p._id,
+    label,
+    active: p.active !== false,
+    allergenIcons: allergenIconsFor(p),
+    hasWine: wine,
+    glass: wine ? glass : null,
+    bottle: wine ? bottle : null,
+    // se non è vino, uso il price singolo; niente simboli
+    price: wine ? null : (isNumber(p.price) ? p.price : null)
+  }
 }
+
 const directByCategory = computed(()=>{
-  const m=new Map(); const push=(cid,row)=>{ const cur=m.get(cid); if(Array.isArray(cur)) cur.push(row); else m.set(cid,[row]) }
-  for(const p of (props.products||[])){ const row=productToRow(p); const catIds=(p.categories||[]).map(toId).filter(Boolean); for(const c of catIds){ if(catById.value.has(c)) push(c,row) } }
-  for(const [k,arr] of m.entries()){ if(Array.isArray(arr)) arr.sort((a,b)=>(a.label||'').localeCompare(b.label||'')); else m.set(k,[]) }
+  const m=new Map()
+  const push=(cid,row)=>{ const cur=m.get(cid); if(Array.isArray(cur)) cur.push(row); else m.set(cid,[row]) }
+  for(const p of (props.products||[])){
+    const row=productToRow(p)
+    const catIds=(p.categories||[]).map(toId).filter(Boolean)
+    for(const c of catIds){ if(catById.value.has(c)) push(c,row) }
+  }
+  for(const [k,arr] of m.entries()){
+    if(Array.isArray(arr)) arr.sort((a,b)=>(a.label||'').localeCompare(b.label||''))
+    else m.set(k,[])
+  }
   return m
 })
+
 const orderedCategoryIds = computed(()=>{
-  const ids=Array.from(directByCategory.value.keys()); const idx=treeOrderIndex.value
-  ids.sort((a,b)=>(idx.get(a)??1e9)-(idx.get(b)??1e9)); return ids
+  const ids=Array.from(directByCategory.value.keys())
+  const idx=treeOrderIndex.value
+  ids.sort((a,b)=>(idx.get(a)??1e9)-(idx.get(b)??1e9))
+  return ids
 })
+
 const groups = computed(()=>{
   const out=[]
   for(const cid of orderedCategoryIds.value){
@@ -331,7 +407,11 @@ const groups = computed(()=>{
     const title = props.usePathInHeaders
       ? categoryPathLabel(cid)
       : (pickLocalized(catById.value.get(cid),'translations.title',langLocal.value) || catById.value.get(cid)?.title || categoryPathLabel(cid))
-    out.push({ id:cid, label:title, items: includePrices.value? filtered : filtered.map(it=>({ ...it, price:null })) })
+    // se nascondo i prezzi, li azzero per la view
+    const items = includePrices.value
+      ? filtered
+      : filtered.map(it => ({ ...it, price:null, glass:null, bottle:null, hasWine:false }))
+    out.push({ id:cid, label:title, items })
   }
   return out
 })
@@ -373,13 +453,11 @@ async function downloadPdf(){
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
   if(!html2pdf) return
 
-  // 1) Nascondi footer+spacer nel rendering del PDF per evitare slittamenti
   el.classList.add('pdf-mode')
   const prevSpacer = spacerPx.value
   spacerPx.value = 0
   await nextTick()
 
-  // 2) Pre-rasterizza il footer (se presente) per inserirlo come immagine in basso
   let footerImg = null, footerRatio = 0
   if (footerRef.value) {
     try {
@@ -391,7 +469,6 @@ async function downloadPdf(){
     }
   }
 
-  // 3) Genera PDF
   const stamp = new Date(); const pad = n => String(n).padStart(2,'0')
   const nameSafe = (props.businessName || 'menu').toLowerCase().replace(/[^\w]+/g, '-')
   const fname = `${nameSafe}-${langLocal.value}-${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`
@@ -405,7 +482,6 @@ async function downloadPdf(){
   }
 
   await html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf)=>{
-    // 4) Disegna footer sull’ultima pagina (bottom fixed)
     const total = pdf.getNumberOfPages()
     pdf.setPage(total)
     const pageW = pdf.internal.pageSize.getWidth()
@@ -419,7 +495,7 @@ async function downloadPdf(){
       const y = pageH - bottom - h
       pdf.addImage(footerImg, 'PNG', x, y, usableW, h, undefined, 'FAST')
     } else {
-      const line1 = (props.coverCharge != null) ? `${coverLabel.value}: € ${Number(props.coverCharge).toFixed(2)}` : ''
+      const line1 = (props.coverCharge != null) ? `${coverLabel.value}: ${Number(props.coverCharge).toFixed(2)}` : ''
       const line2 = footerText.value || ''
       pdf.setFontSize(9)
       const y = pageH - bottom + 2
@@ -428,7 +504,6 @@ async function downloadPdf(){
     }
   }).save()
 
-  // 5) Ripristina stato preview
   el.classList.remove('pdf-mode')
   spacerPx.value = prevSpacer
 }
@@ -446,7 +521,7 @@ async function printNow(){
   setTimeout(()=>{ printReady.value=false }, 400)
 }
 
-/* ===== Tavolozza colori (Material + 14 sfumature) ===== */
+/* ===== Tavolozza colori ===== */
 const MATERIAL_TOKENS = ['red','pink','purple','deep-purple','indigo','blue','light-blue','cyan','teal','green','light-green','lime','yellow','amber','orange','deep-orange','brown','blue-grey','grey']
 const SHADES = Array.from({ length: 14 }, (_, i) => i + 1)
 const paletteOpen = ref(false)
@@ -466,6 +541,9 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 
 /* preset iniziale */
 applyPreset(preset.value)
+
+/* export helpers to template */
+defineExpose({ isNumber, formatMoney })
 </script>
 
 <style>
@@ -510,7 +588,18 @@ applyPreset(preset.value)
   padding:6px 2px; border-bottom:1px dotted rgba(0,0,0,.12); }
 .item-row-print .name{ font-size:var(--_base); font-weight:500; }
 .item-row-print .allergens{ margin-left:6px; opacity:.9; }
-.item-row-print .right{ font-size:var(--_price); font-weight:700; text-align:right; white-space:nowrap; }
+
+/* Prezzi a destra */
+.item-row-print .right{
+  font-size:var(--_price);
+  font-weight:700;
+  text-align:right;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+}
+.price-chip{ display:inline-flex; align-items:center; }
 
 /* Footer (preview/print) */
 .menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);
@@ -518,7 +607,7 @@ applyPreset(preset.value)
 .menu-footer .cover-line{ margin-bottom:6px; }
 .menu-footer .disclaimer{ opacity:.85; }
 
-/* In modalità PDF nascondi footer/spacer: verrà disegnato “fixed” via jsPDF */
+/* In modalità PDF nascondi footer/spacer */
 .pdf-mode .menu-footer,
 .pdf-mode .footer-spacer { display:none !important; }
 
@@ -531,7 +620,7 @@ applyPreset(preset.value)
 /* Fallback area print */
 .print-area{ display:none; }
 
-/* Swatch per tavolozza */
+/* Swatch */
 .swatch {
   width: 26px;
   height: 26px;
