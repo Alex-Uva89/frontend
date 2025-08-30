@@ -119,15 +119,19 @@
                       <div class="title text-body1 line-clamp-2">{{ prod.name }}</div>
                       <div class="row items-center no-wrap q-mt-2">
                         <div class="text-caption text-grey-7 caption-ellipsis">
-                          {{ prod.sku || '—' }} <span class="q-mx-xs">·</span>
+                          <!-- SKU (senza segnaposto). Il separatore '·' appare solo se esiste almeno un prezzo -->
+                          <template v-if="prod.sku">
+                            {{ prod.sku }}
+                            <span class="q-mx-xs" v-if="hasAnyPrice(prod)">·</span>
+                          </template>
 
-                          <!-- Prezzi: se ci sono priceGlass/bottle mostro SOLO loro con icone; altrimenti SOLO price -->
+                          <!-- Prezzi: se esistono calice/bottiglia mostro SOLO loro con icone; altrimenti SOLO price (nessuna icona, nessun simbolo valuta) -->
                           <template v-if="hasWinePrices(prod)">
                             <span v-if="isNumber(getGlassPrice(prod))">
                               <q-icon name="wine_bar" size="16px" class="q-mr-xs" />{{ formatMoney(getGlassPrice(prod)) }}
                             </span>
                             <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
-                              <span class="q-mx-xs">·</span>
+                              <span class="q-mx-xs" v-if="isNumber(getGlassPrice(prod)) && isNumber(getBottlePrice(prod))">·</span>
                               <q-icon name="liquor" size="16px" class="q-mr-xs" />{{ formatMoney(getBottlePrice(prod)) }}
                             </span>
                           </template>
@@ -209,10 +213,15 @@
 </template>
 
 <script setup>
+// Vue & Quasar
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import MenuPrintDialog from 'src/components/print/MenuPrintDialog.vue'
+
+// DnD
 import Draggable from 'vuedraggable'
+
+// App
 import { api } from 'boot/axios'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
@@ -319,7 +328,7 @@ async function loadProducts () {
     params: { businessId: businessId.value }
   })
   if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
-  // Normalizzo per la UI vino
+  // Normalizzo per la UI vino (compat: priceGlass/priceBottle o prices.{glass,bottle})
   const rows = (json.data || []).map(p => ({
     ...p,
     _priceGlass: typeof p.priceGlass === 'number' ? p.priceGlass
@@ -336,9 +345,18 @@ async function loadAttributes () {
 }
 
 /* ================== CATEGORIE: util & visibilità ================== */
+// comparator & util per rispettare l’ordine fra fratelli
+function cmpOrderTitle(a, b) {
+  const ao = (a?.order ?? 0)
+  const bo = (b?.order ?? 0)
+  if (ao !== bo) return ao - bo
+  return (a?.title || '').localeCompare(b?.title || '')
+}
+function sortKids(arr) { return [...(arr || [])].sort(cmpOrderTitle) }
+
 function buildParentMap (tree) {
   const map = new Map()
-  const walk = (n) => { (n.children || []).forEach(c => { map.set(c._id, n._id); walk(c) }) }
+  const walk = (n) => { sortKids(n.children).forEach(c => { map.set(c._id, n._id); walk(c) }) }
   ;(tree || []).forEach(walk)
   return map
 }
@@ -346,7 +364,7 @@ const parentOf = computed(() => buildParentMap(categoriesTree.value))
 
 const catById = computed(() => {
   const m = new Map()
-  const walk = (n) => { m.set(n._id, n); (n.children || []).forEach(walk) }
+  const walk = (n) => { m.set(n._id, n); sortKids(n.children).forEach(walk) }
   ;(categoriesTree.value || []).forEach(walk)
   return m
 })
@@ -360,9 +378,11 @@ const categoryOptions = computed(() => {
   const out = []
   const walk = (n, path) => {
     const label = path ? `${path} / ${n.title}` : n.title
-    out.push({ id: n._id, label }); (n.children || []).forEach(c => walk(c, label))
+    out.push({ id: n._id, label, order: n.order ?? 0 })
+    sortKids(n.children).forEach(c => walk(c, label))
   }
   ;(categoriesTree.value || []).forEach(r => walk(r, ''))
+  out.sort(cmpOrderTitle)
   return out
 })
 const categoryOptionsWithAll = computed(() => [{ id: null, label: '— Tutte le categorie —' }, ...categoryOptions.value])
@@ -372,7 +392,7 @@ function leafIdsUnder (rootId = null) {
   const startNodes = rootId ? [catById.value.get(rootId)].filter(Boolean) : (categoriesTree.value || [])
   const walk = (n) => {
     if (!n) return
-    const children = n.children || []
+    const children = sortKids(n.children)
     if (children.length === 0) ids.push(n._id); else children.forEach(walk)
   }
   startNodes.forEach(walk)
@@ -409,7 +429,7 @@ function matchesSearch (p) {
   return (p.name || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term)
 }
 
-/* ================== PREZZI VINO (helper UI) ================== */
+/* ================== PREZZI (vino / standard) ================== */
 function isNumber (v) { return typeof v === 'number' && !Number.isNaN(v) }
 function hasWinePrices (p) {
   return isNumber(p._priceGlass) || isNumber(p._priceBottle)
@@ -428,7 +448,10 @@ function getBottlePrice (p) {
   if (isNumber(p?.priceBottle)) return p.priceBottle
   return null
 }
-function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
+function hasAnyPrice (p) {
+  return hasWinePrices(p) || isNumber(p.price)
+}
+function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' } // nessun simbolo di valuta
 
 /* ================== DnD & SALVATAGGIO ================== */
 const disableDrag = computed(() => !canUpdateProducts.value || !!search.value || savingOrder.value)
