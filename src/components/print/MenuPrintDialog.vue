@@ -1,3 +1,4 @@
+<!-- /frontend/src/components/print/MenuPrintDialog.vue -->
 <template>
   <!-- Dialog di ANTEPRIMA -->
   <q-dialog
@@ -94,15 +95,11 @@
                     </span>
                   </div>
 
-                  <!-- Prezzi: stessa logica del listato -->
+                  <!-- Prezzi testuali con cifre tabulari -->
                   <div class="right" v-if="includePrices">
                     <template v-if="it.hasWine">
-                      <span v-if="isNumber(it.glass)" class="price-chip">
-                        <q-icon name="wine_bar" size="14px" class="q-mr-xs" />{{ formatMoney(it.glass) }}
-                      </span>
-                      <span v-if="isNumber(it.bottle)" class="price-chip q-ml-xs">
-                        <q-icon name="liquor" size="14px" class="q-mr-xs" />{{ formatMoney(it.bottle) }}
-                      </span>
+                      <span v-if="isNumber(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
+                      <span v-if="isNumber(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
                     </template>
                     <template v-else>
                       <span v-if="isNumber(it.price)">{{ formatMoney(it.price) }}</span>
@@ -152,12 +149,8 @@
             <!-- Stessa logica anche nel fallback -->
             <div class="right" v-if="includePrices">
               <template v-if="it.hasWine">
-                <span v-if="isNumber(it.glass)" class="price-chip">
-                  <q-icon name="wine_bar" size="14px" class="q-mr-xs" />{{ formatMoney(it.glass) }}
-                </span>
-                <span v-if="isNumber(it.bottle)" class="price-chip q-ml-xs">
-                  <q-icon name="liquor" size="14px" class="q-mr-xs" />{{ formatMoney(it.bottle) }}
-                </span>
+                <span v-if="isNumber(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
+                <span v-if="isNumber(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
               </template>
               <template v-else>
                 <span v-if="isNumber(it.price)">{{ formatMoney(it.price) }}</span>
@@ -341,21 +334,19 @@ function allergenIconsFor(prod){
   return out
 }
 
-/* ------- prezzi (stessa logica del listato) ------- */
-function isNumber (v) { return typeof v === 'number' && !Number.isNaN(v) }
+/* ------- prezzi (robusti) ------- */
+function asNum (v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+function isNumber (v) { return Number.isFinite(v) }
+
 function readGlass (p) {
-  if (isNumber(p?.priceGlass)) return p.priceGlass
-  if (isNumber(p?._priceGlass)) return p._priceGlass
-  if (isNumber(p?.prices?.glass)) return p.prices.glass
-  return null
+  return asNum(p?.priceGlass) ?? asNum(p?._priceGlass) ?? asNum(p?.prices?.glass)
 }
 function readBottle (p) {
-  if (isNumber(p?.priceBottle)) return p.priceBottle
-  if (isNumber(p?._priceBottle)) return p._priceBottle
-  if (isNumber(p?.prices?.bottle)) return p.prices.bottle
-  return null
+  return asNum(p?.priceBottle) ?? asNum(p?._priceBottle) ?? asNum(p?.prices?.bottle)
 }
-function hasWine (p) { return isNumber(readGlass(p)) || isNumber(readBottle(p)) }
 function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
 
 function productToRow(p){
@@ -371,8 +362,7 @@ function productToRow(p){
     hasWine: wine,
     glass: wine ? glass : null,
     bottle: wine ? bottle : null,
-    // se non è vino, uso il price singolo; niente simboli
-    price: wine ? null : (isNumber(p.price) ? p.price : null)
+    price: wine ? null : asNum(p.price)
   }
 }
 
@@ -407,7 +397,6 @@ const groups = computed(()=>{
     const title = props.usePathInHeaders
       ? categoryPathLabel(cid)
       : (pickLocalized(catById.value.get(cid),'translations.title',langLocal.value) || catById.value.get(cid)?.title || categoryPathLabel(cid))
-    // se nascondo i prezzi, li azzero per la view
     const items = includePrices.value
       ? filtered
       : filtered.map(it => ({ ...it, price:null, glass:null, bottle:null, hasWine:false }))
@@ -584,22 +573,31 @@ defineExpose({ isNumber, formatMoney })
 .cat-header.tt-up{ text-transform:uppercase; }
 
 /* Riga */
-.item-row-print{ display:grid; grid-template-columns:1fr auto; align-items:baseline; gap:10px;
-  padding:6px 2px; border-bottom:1px dotted rgba(0,0,0,.12); }
+.item-row-print{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  align-items:baseline;
+  gap:12px 12px;
+  padding:6px 2px;
+  border-bottom:1px dotted rgba(0,0,0,.12);
+}
 .item-row-print .name{ font-size:var(--_base); font-weight:500; }
 .item-row-print .allergens{ margin-left:6px; opacity:.9; }
 
-/* Prezzi a destra */
+/* Prezzi a destra: cifre tabulari per allineamento stabile */
 .item-row-print .right{
   font-size:var(--_price);
   font-weight:700;
   text-align:right;
   white-space:nowrap;
   display:flex;
-  align-items:center;
+  align-items:baseline;
   justify-content:flex-end;
+  gap:8px;
+  font-variant-numeric: tabular-nums;
 }
-.price-chip{ display:inline-flex; align-items:center; }
+.price-chip{ display:inline-flex; align-items:baseline; gap:6px; }
+.price-chip .abbr{ font-weight:600; opacity:.75; letter-spacing:.2px; text-transform:uppercase; }
 
 /* Footer (preview/print) */
 .menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);
@@ -607,9 +605,10 @@ defineExpose({ isNumber, formatMoney })
 .menu-footer .cover-line{ margin-bottom:6px; }
 .menu-footer .disclaimer{ opacity:.85; }
 
-/* In modalità PDF nascondi footer/spacer */
+/* In modalità PDF nascondi eventuali icone Quasar per sicurezza */
 .pdf-mode .menu-footer,
 .pdf-mode .footer-spacer { display:none !important; }
+.pdf-mode .q-icon { display:none !important; }
 
 /* Barra stile */
 .stylebar{ background:rgba(0,0,0,.02); }

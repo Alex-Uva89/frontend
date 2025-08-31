@@ -125,14 +125,14 @@
                             <span class="q-mx-xs" v-if="hasAnyPrice(prod)">·</span>
                           </template>
 
-                          <!-- Prezzi: se esistono calice/bottiglia mostro SOLO loro con icone; altrimenti SOLO price (nessuna icona, nessun simbolo valuta) -->
+                          <!-- Prezzi: se esistono calice/bottiglia mostro SOLO loro; altrimenti SOLO price -->
                           <template v-if="hasWinePrices(prod)">
                             <span v-if="isNumber(getGlassPrice(prod))">
-                              <q-icon name="wine_bar" size="16px" class="q-mr-xs" />{{ formatMoney(getGlassPrice(prod)) }}
+                              {{ formatMoney(getGlassPrice(prod)) }}
                             </span>
                             <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
                               <span class="q-mx-xs" v-if="isNumber(getGlassPrice(prod)) && isNumber(getBottlePrice(prod))">·</span>
-                              <q-icon name="liquor" size="16px" class="q-mr-xs" />{{ formatMoney(getBottlePrice(prod)) }}
+                              {{ formatMoney(getBottlePrice(prod)) }}
                             </span>
                           </template>
                           <template v-else>
@@ -323,19 +323,29 @@ async function loadCategories () {
   if (!json?.ok) throw new Error(json?.error || 'Errore categorie')
   categoriesTree.value = json.data || []
 }
+
+// coercizione sicura a numero
+function toNum (v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 async function loadProducts () {
   const { data: json } = await api.get(`${API}/cms/products`, {
     params: { businessId: businessId.value }
   })
   if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
-  // Normalizzo per la UI vino (compat: priceGlass/priceBottle o prices.{glass,bottle})
-  const rows = (json.data || []).map(p => ({
-    ...p,
-    _priceGlass: typeof p.priceGlass === 'number' ? p.priceGlass
-      : (typeof p?.prices?.glass === 'number' ? p.prices.glass : null),
-    _priceBottle: typeof p.priceBottle === 'number' ? p.priceBottle
-      : (typeof p?.prices?.bottle === 'number' ? p.prices.bottle : null)
-  }))
+  // Normalizzo per la UI vino e coercizzo a number
+  const rows = (json.data || []).map(p => {
+    const glass = (typeof p.priceGlass !== 'undefined') ? p.priceGlass : (p?.prices?.glass ?? null)
+    const bottle = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
+    return {
+      ...p,
+      _priceGlass: toNum(glass),
+      _priceBottle: toNum(bottle),
+      price: toNum(p.price)
+    }
+  })
   allProducts.value = rows
 }
 async function loadAttributes () {
@@ -345,7 +355,6 @@ async function loadAttributes () {
 }
 
 /* ================== CATEGORIE: util & visibilità ================== */
-// comparator & util per rispettare l’ordine fra fratelli
 function cmpOrderTitle(a, b) {
   const ao = (a?.order ?? 0)
   const bo = (b?.order ?? 0)
@@ -430,7 +439,7 @@ function matchesSearch (p) {
 }
 
 /* ================== PREZZI (vino / standard) ================== */
-function isNumber (v) { return typeof v === 'number' && !Number.isNaN(v) }
+function isNumber (v) { return typeof v === 'number' && Number.isFinite(v) }
 function hasWinePrices (p) {
   return isNumber(p._priceGlass) || isNumber(p._priceBottle)
       || isNumber(p?.prices?.glass) || isNumber(p?.prices?.bottle)
@@ -513,7 +522,7 @@ async function loadOneForEdit (id) {
     if (!json?.ok || !json?.data) throw new Error('fetch failed')
     const p = json.data
     editor.value.form = {
-      name: p.name || '', sku: p.sku || '', price: p.price ?? null,
+      name: p.name || '', sku: p.sku || '', price: toNum(p.price),
       active: p.active !== false, description: p.description || '', notes: p.notes || ''
     }
   } catch (e) {
@@ -593,7 +602,6 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
   backdrop-filter: blur(6px);
   border-radius: 12px;
 }
-
 
 .item-row { background: var(--q-surface, #fff); border: 1px solid rgba(0,0,0,0.06); }
 .body--dark .item-row { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
