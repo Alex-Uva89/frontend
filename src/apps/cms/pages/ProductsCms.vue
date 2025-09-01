@@ -108,37 +108,77 @@
               :disabled="disableDrag" @end="onDragEnd(cat._id)" class="comfy-list"
             >
               <template #item="{ element: prod }">
-                <div v-show="matchesSearch(prod)" class="row items-center justify-between q-pa-sm q-mb-xs rounded-borders item-row">
-                  <div class="row items-center col">
-                    <q-icon name="drag_indicator" class="q-mr-sm drag-handle" v-if="!disableDrag" />
-                    <q-avatar square size="64px" class="thumb q-mr-sm">
-                      <img v-if="prod.imageUrl" :src="prod.imageUrl" :alt="prod.name" loading="lazy" />
-                      <q-icon v-else name="image_not_supported" />
-                    </q-avatar>
-                    <div class="column col">
-                      <div class="title text-body1 line-clamp-2">{{ prod.name }}</div>
-                      <div class="row items-center no-wrap q-mt-2">
-                        <div class="text-caption text-grey-7 caption-ellipsis">
-                          <!-- SKU (senza segnaposto). Il separatore '·' appare solo se esiste almeno un prezzo -->
-                          <template v-if="prod.sku">
-                            {{ prod.sku }}
-                            <span class="q-mx-xs" v-if="hasAnyPrice(prod)">·</span>
-                          </template>
+                <div v-show="matchesSearch(prod)" class="row items-start justify-between q-pa-sm q-mb-xs rounded-borders item-row">
+                  <div class="column col">
+                    <div class="row items-center">
+                      <q-icon name="drag_indicator" class="q-mr-sm drag-handle" v-if="!disableDrag" />
+                      <q-avatar square size="64px" class="thumb q-mr-sm">
+                        <img v-if="prod.imageUrl" :src="prod.imageUrl" :alt="prod.name" loading="lazy" />
+                        <q-icon v-else name="image_not_supported" />
+                      </q-avatar>
+                      <div class="column col">
+                        <!-- Nome -->
+                        <div class="title text-body1 line-clamp-2">{{ prod.name }}</div>
 
-                          <!-- Prezzi: se esistono calice/bottiglia mostro SOLO loro; altrimenti SOLO price -->
-                          <template v-if="hasWinePrices(prod)">
-                            <span v-if="isNumber(getGlassPrice(prod))">
-                              {{ formatMoney(getGlassPrice(prod)) }}
-                            </span>
-                            <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
-                              <span class="q-mx-xs" v-if="isNumber(getGlassPrice(prod)) && isNumber(getBottlePrice(prod))">·</span>
-                              {{ formatMoney(getBottlePrice(prod)) }}
-                            </span>
-                          </template>
-                          <template v-else>
-                            <span v-if="isNumber(prod.price)">{{ formatMoney(prod.price) }}</span>
-                            <span v-else>prezzo n/d</span>
-                          </template>
+                        <!-- Riga allergeni (chip), se presenti -->
+                        <div
+                          v-if="allergenList(prod).length"
+                          class="row items-center no-wrap q-mt-xs meta-row"
+                        >
+                          <q-icon name="warning" size="16px" class="q-mr-xs text-amber-8" />
+                          <div class="row items-center wrap q-gutter-xs">
+                            <q-chip
+                              v-for="a in allergenList(prod)"
+                              :key="a._id"
+                              dense outline
+                              color="amber-2" text-color="amber-10"
+                              :icon="a.icon || 'warning'"
+                              class="q-px-sm"
+                              :title="pickAttrName(a)"
+                            >
+                              {{ pickAttrName(a) }}
+                            </q-chip>
+                          </div>
+                        </div>
+
+                        <!-- Riga vitigno / produttore, se presenti -->
+                        <div
+                          v-if="hasGrapeOrProducer(prod)"
+                          class="row items-center no-wrap q-mt-xs meta-row"
+                        >
+                          <q-icon name="wine_bar" size="16px" class="q-mr-xs text-deep-purple-7" />
+                          <span class="meta-label">Vitigno:</span>
+                          <span class="meta-value">{{ listToLabel(kindList(prod,'vitigno')) || '—' }}</span>
+
+                          <q-separator vertical inset class="q-mx-sm" />
+
+                          <q-icon name="store" size="16px" class="q-mr-xs text-blue-grey-7" />
+                          <span class="meta-label">Produttore:</span>
+                          <span class="meta-value">{{ listToLabel(kindList(prod,'produttore')) || '—' }}</span>
+                        </div>
+
+                        <!-- SKU + Prezzi (resta sotto le righe meta) -->
+                        <div class="row items-center no-wrap q-mt-xs">
+                          <div class="text-caption text-grey-7 caption-ellipsis">
+                            <template v-if="prod.sku">
+                              {{ prod.sku }}
+                              <span class="q-mx-xs" v-if="hasAnyPrice(prod)">·</span>
+                            </template>
+
+                            <template v-if="hasWinePrices(prod)">
+                              <span v-if="isNumber(getGlassPrice(prod))">
+                                {{ formatMoney(getGlassPrice(prod)) }}
+                              </span>
+                              <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
+                                <span class="q-mx-xs" v-if="isNumber(getGlassPrice(prod)) && isNumber(getBottlePrice(prod))">·</span>
+                                {{ formatMoney(getBottlePrice(prod)) }}
+                              </span>
+                            </template>
+                            <template v-else>
+                              <span v-if="isNumber(prod.price)">{{ formatMoney(prod.price) }}</span>
+                              <span v-else>prezzo n/d</span>
+                            </template>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -232,7 +272,7 @@ const API = import.meta.env.VITE_API_URL
 
 const menuPrintOpen = ref(false)
 const menuLang = ref('it')
-const printAttributes = ref([]) // per la stampa
+const printAttributes = ref([]) // per la stampa + UI elenco
 
 /* ================== STORE & PERMESSI ================== */
 const usersStore = useUsersStore()
@@ -418,6 +458,50 @@ const visibleCategories = computed(() => {
   }))
 })
 
+/* ================== ATTRIBUTI (allergeni, vitigno, produttore) ================== */
+const attrById = computed(() => {
+  const m = new Map()
+  for (const a of (printAttributes.value || [])) m.set(a._id, a)
+  return m
+})
+
+function pickAttrName (a) {
+  const t = a?.translations?.name?.[menuLang.value]
+  return (t && String(t).trim()) || a?.name || ''
+}
+
+/** Normalizza il "tipo" di attributo (stringa o oggetto reference) in un token */
+function kindToken (a) {
+  const k = a?.kind
+  let raw = ''
+  if (!k) raw = ''
+  else if (typeof k === 'string') raw = k
+  else if (typeof k === 'object') raw = k.value || k.title || k.name || ''
+  const s = String(raw).toLowerCase().trim()
+  if (!s) return ''
+  // Sinonimi comuni
+  if (s.includes('allerg')) return 'allergen'
+  if (['vitigno', 'grape', 'uva'].includes(s)) return 'vitigno'
+  if (['produttore', 'producer', 'cantina', 'winery'].includes(s)) return 'produttore'
+  return s
+}
+
+function kindList (prod, target) {
+  const ids = (prod.attributes || []).filter(Boolean)
+  const out = []
+  for (const id of ids) {
+    const a = attrById.value.get(id)
+    if (!a) continue
+    if (kindToken(a) === target) out.push(a)
+  }
+  return out
+}
+function allergenList (prod) { return kindList(prod, 'allergen') }
+function hasGrapeOrProducer (prod) {
+  return kindList(prod, 'vitigno').length > 0 || kindList(prod, 'produttore').length > 0
+}
+function listToLabel (arr) { return (arr || []).map(pickAttrName).filter(Boolean).join(', ') }
+
 /* ================== LISTE PER CATEGORIA ================== */
 function rebuildLists () {
   const map = {}
@@ -439,12 +523,9 @@ function matchesSearch (p) {
 }
 
 /* ================== PREZZI (vino / standard) ================== */
-// numero valido?
 function isNumber (v) { return typeof v === 'number' && Number.isFinite(v) }
-// numero monetario positivo
 function isPositive (v) { return typeof v === 'number' && Number.isFinite(v) && v > 0 }
 
-// getter normalizzati per calice/bottiglia
 function getGlassPrice (p) {
   if (isPositive(p._priceGlass)) return p._priceGlass
   if (isPositive(p?.prices?.glass)) return p.prices.glass
@@ -457,25 +538,15 @@ function getBottlePrice (p) {
   if (isPositive(p?.priceBottle)) return p.priceBottle
   return null
 }
-
-/**
- * Mostro i prezzi "vino" SOLO se esistono **entrambi** (calice e bottiglia) e sono > 0.
- */
 function hasWinePrices (p) {
   const g = getGlassPrice(p)
   const b = getBottlePrice(p)
   return isPositive(g) && isPositive(b)
 }
-
-/**
- * C'è almeno un prezzo da mostrare? (coppia vino **oppure** price singolo > 0)
- * Serve anche per decidere se mostrare il separatore "·" dopo lo SKU.
- */
 function hasAnyPrice (p) {
   return hasWinePrices(p) || isPositive(p.price)
 }
-
-function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' } // nessun simbolo di valuta
+function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
 
 /* ================== DnD & SALVATAGGIO ================== */
 const disableDrag = computed(() => !canUpdateProducts.value || !!search.value || savingOrder.value)
@@ -626,6 +697,11 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
 
 .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .caption-ellipsis { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* mini meta-row testuale sotto al nome */
+.meta-row { font-size: 12px; line-height: 1.2; color: #4a4f58; }
+.meta-label { font-weight: 600; margin-right: 4px; }
+.meta-value { opacity: 0.95; }
 
 .actions-col { flex: 0 0 auto; }
 

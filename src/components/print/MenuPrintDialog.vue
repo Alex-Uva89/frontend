@@ -90,9 +90,21 @@
                 <div v-for="it in g.items" :key="it.id" class="item-row-print">
                   <div class="left">
                     <span class="name">{{ it.label }}</span>
-                    <span v-if="includeAllergens && it.allergenIcons?.length" class="allergens">
-                      <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" class="q-ml-xs" />
-                    </span>
+
+                    <!-- Riga ALLERGENI -->
+                    <div v-if="includeAllergens && it.allergens?.length" class="meta-line">
+                      <span class="meta-label">Allergeni:</span>
+                      <span class="meta-value">{{ it.allergensLabel }}</span>
+                    </div>
+
+                    <!-- Riga VITIGNO/PRODUTTORE -->
+                    <div v-if="it.hasGrapeOrProducer" class="meta-line">
+                      <span class="meta-label">Vitigno:</span>
+                      <span class="meta-value">{{ it.grapesLabel || '—' }}</span>
+                      <span class="sep">·</span>
+                      <span class="meta-label">Produttore:</span>
+                      <span class="meta-value">{{ it.producersLabel || '—' }}</span>
+                    </div>
                   </div>
 
                   <!-- Prezzi testuali con cifre tabulari -->
@@ -141,9 +153,21 @@
           <div v-for="it in g.items" :key="it.id" class="item-row-print">
             <div class="left">
               <span class="name">{{ it.label }}</span>
-              <span v-if="includeAllergens && it.allergenIcons?.length" class="allergens">
-                <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" class="q-ml-xs" />
-              </span>
+
+              <!-- Riga ALLERGENI -->
+              <div v-if="includeAllergens && it.allergens?.length" class="meta-line">
+                <span class="meta-label">Allergeni:</span>
+                <span class="meta-value">{{ it.allergensLabel }}</span>
+              </div>
+
+              <!-- Riga VITIGNO/PRODUTTORE -->
+              <div v-if="it.hasGrapeOrProducer" class="meta-line">
+                <span class="meta-label">Vitigno:</span>
+                <span class="meta-value">{{ it.grapesLabel || '—' }}</span>
+                <span class="sep">·</span>
+                <span class="meta-label">Produttore:</span>
+                <span class="meta-value">{{ it.producersLabel || '—' }}</span>
+              </div>
             </div>
 
             <!-- Stessa logica anche nel fallback -->
@@ -327,12 +351,40 @@ const treeOrderIndex = computed(()=>{
   ;(props.categoriesTree||[]).forEach(walk); return m
 })
 
+/* ===== Attributi ===== */
 const attrById = computed(()=>{ const m=new Map(); for(const a of (props.attributes||[])) m.set(a._id,a); return m })
-function allergenIconsFor(prod){
-  const ids=(prod.attributes||[]).map(toId).filter(Boolean); const out=[]
-  for(const id of ids){ const a=attrById.value.get(id); if(a?.kind==='allergen') out.push(a.icon||'emergency') }
+
+function pickAttrName (a) {
+  const loc = a?.translations?.name?.[langLocal.value]
+  return (loc && String(loc).trim()) || a?.name || ''
+}
+
+/** Normalizza il tipo attributo (stringa o reference) in token */
+function kindToken (a) {
+  const k = a?.kind
+  let raw = ''
+  if (!k) raw = ''
+  else if (typeof k === 'string') raw = k
+  else if (typeof k === 'object') raw = k.value || k.title || k.name || ''
+  const s = String(raw).toLowerCase().trim()
+  if (!s) return ''
+  if (s.includes('allerg')) return 'allergen'
+  if (['vitigno','grape','uva'].includes(s)) return 'vitigno'
+  if (['produttore','producer','cantina','winery'].includes(s)) return 'produttore'
+  return s
+}
+
+function kindListFromProd (p, target) {
+  const ids=(p.attributes||[]).map(toId).filter(Boolean)
+  const out=[]
+  for(const id of ids){
+    const a=attrById.value.get(id)
+    if(!a) continue
+    if (kindToken(a) === target) out.push(a)
+  }
   return out
 }
+function listToLabel (arr) { return (arr||[]).map(pickAttrName).filter(Boolean).join(', ') }
 
 /* ------- Prezzi: mostra SOLO valori > 0 ------- */
 function toMoney (v) {
@@ -355,17 +407,31 @@ function productToRow(p){
   const label = pickLocalized(p,'translations.name',langLocal.value) || p.name
   const glass = readGlass(p)
   const bottle = readBottle(p)
-  // Mostra formato "vino" SOLO se esistono ENTRAMBI > 0
   const wine = isPositive(glass) && isPositive(bottle)
+
+  // attributi
+  const allergens  = kindListFromProd(p,'allergen')
+  const grapes     = kindListFromProd(p,'vitigno')
+  const producers  = kindListFromProd(p,'produttore')
+
   return {
     id: p._id,
     label,
     active: p.active !== false,
-    allergenIcons: allergenIconsFor(p),
+
+    // righe meta
+    allergens,
+    allergensLabel: listToLabel(allergens),
+    grapes,
+    grapesLabel: listToLabel(grapes),
+    producers,
+    producersLabel: listToLabel(producers),
+    hasGrapeOrProducer: (grapes?.length||0) > 0 || (producers?.length||0) > 0,
+
+    // prezzi
     hasWine: wine,
     glass: wine ? glass : null,
     bottle: wine ? bottle : null,
-    // Se non è vino a coppia, mostra il prezzo singolo SOLO se > 0
     price: wine ? null : toMoney(p.price)
   }
 }
@@ -581,12 +647,17 @@ defineExpose({ isPositive, formatMoney })
   display:grid;
   grid-template-columns: 1fr auto;
   align-items:baseline;
-  gap:12px 12px;
+  gap:8px 12px;
   padding:6px 2px;
   border-bottom:1px dotted rgba(0,0,0,.12);
 }
-.item-row-print .name{ font-size:var(--_base); font-weight:500; }
-.item-row-print .allergens{ margin-left:6px; opacity:.9; }
+.item-row-print .name{ font-size:var(--_base); font-weight:600; }
+
+/* meta (allergeni, vitigno/produttore) */
+.meta-line{ font-size:calc(var(--_base) * 0.9); line-height:1.25; color:#3b3e46; }
+.meta-label{ font-weight:600; margin-right:4px; }
+.meta-value{ opacity:.95; }
+.sep{ opacity:.5; margin:0 6px; }
 
 /* Prezzi a destra: cifre tabulari per allineamento stabile */
 .item-row-print .right{
