@@ -12,7 +12,7 @@
       <q-toolbar class="toolbar flex justify-between">
         <span>
           <q-btn flat round dense icon="arrow_back" @click="close" />
-          <q-toolbar-title  class="hidden lt-lg">Anteprima menù</q-toolbar-title>
+          <q-toolbar-title class="hidden lt-lg">Anteprima menù</q-toolbar-title>
         </span>
         <span>
           <q-toggle v-model="onlyActive" label="attivi" />
@@ -104,12 +104,12 @@
                   <div class="left">
                     <span class="name">{{ it.label }}</span>
 
-                    <!-- ICONCINE ALLERGENI (solo icone) -->
+                    <!-- Allergeni: solo icone -->
                     <div v-if="includeAllergens && it.allergenIcons?.length" class="allergen-icons">
                       <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" />
                     </div>
 
-                    <!-- Riga VITIGNO/PRODUTTORE (senza etichette) -->
+                    <!-- Riga vitigno/produttore (solo testo, senza label) -->
                     <div v-if="it.hasGrapeOrProducer" class="meta-line">
                       <span v-if="it.grapesLabel">{{ it.grapesLabel }}</span>
                       <span v-if="it.grapesLabel && it.producersLabel" class="sep">·</span>
@@ -117,14 +117,16 @@
                     </div>
                   </div>
 
-                  <!-- Prezzi testuali con cifre tabulari -->
+                  <!-- Prezzi testuali con icone e cifre tabulari -->
                   <div class="right" v-if="includePrices">
                     <template v-if="it.hasWine">
                       <span v-if="isPositive(it.glass)" class="price-chip">
-                        <q-icon name="wine_bar" size="16px" class="price-ico" />{{ formatMoney(it.glass) }}
+                        <q-icon name="wine_bar" class="abbr-icon" size="16px" />
+                        {{ formatMoney(it.glass) }}
                       </span>
                       <span v-if="isPositive(it.bottle)" class="price-chip">
-                        <q-icon name="liquor" size="16px" class="price-ico" />{{ formatMoney(it.bottle) }}
+                        <q-icon name="liquor" class="abbr-icon" size="16px" />
+                        {{ formatMoney(it.bottle) }}
                       </span>
                     </template>
                     <template v-else>
@@ -168,12 +170,12 @@
             <div class="left">
               <span class="name">{{ it.label }}</span>
 
-              <!-- ICONCINE ALLERGENI (solo icone) -->
+              <!-- Allergeni: solo icone -->
               <div v-if="includeAllergens && it.allergenIcons?.length" class="allergen-icons">
                 <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" />
               </div>
 
-              <!-- Riga VITIGNO/PRODUTTORE (senza etichette) -->
+              <!-- Riga vitigno/produttore (solo testo, senza label) -->
               <div v-if="it.hasGrapeOrProducer" class="meta-line">
                 <span v-if="it.grapesLabel">{{ it.grapesLabel }}</span>
                 <span v-if="it.grapesLabel && it.producersLabel" class="sep">·</span>
@@ -181,14 +183,16 @@
               </div>
             </div>
 
-            <!-- Stessa logica anche nel fallback -->
+            <!-- Stessa logica prezzi nel fallback -->
             <div class="right" v-if="includePrices">
               <template v-if="it.hasWine">
                 <span v-if="isPositive(it.glass)" class="price-chip">
-                  <q-icon name="wine_bar" size="16px" class="price-ico" />{{ formatMoney(it.glass) }}
+                  <q-icon name="wine_bar" class="abbr-icon" size="16px" />
+                  {{ formatMoney(it.glass) }}
                 </span>
                 <span v-if="isPositive(it.bottle)" class="price-chip">
-                  <q-icon name="liquor" size="16px" class="price-ico" />{{ formatMoney(it.bottle) }}
+                  <q-icon name="liquor" class="abbr-icon" size="16px" />
+                  {{ formatMoney(it.bottle) }}
                 </span>
               </template>
               <template v-else>
@@ -206,7 +210,7 @@
     </div>
   </div>
 
-  <!-- ===== Tavolozza colori (solo Material, 14 sfumature) ===== -->
+  <!-- ===== Tavolozza colori ===== -->
   <q-dialog v-model="paletteOpen" persistent>
     <q-card style="width: 92vw; max-width: 780px;">
       <q-toolbar>
@@ -284,7 +288,8 @@ const footerText = computed(() => props.footerI18n?.[langLocal.value] || props.f
 const coverLabel = computed(() => props.coverLabelI18n?.[langLocal.value] || props.coverLabelI18n?.it || 'Coperto')
 
 /* preset & stile */
-const preset = ref('classic')
+// preset iniziale su "custom" così non sovrascrive il font/colore di default
+const preset = ref('custom')
 const presetOptions = [
   { label:'Classico (pulito)', value:'classic' },
   { label:'Bistrò (moderno)', value:'bistro' },
@@ -294,23 +299,24 @@ const presetOptions = [
 ]
 function applyPreset(val){
   switch(val){
-    case 'classic':  fontChoice.value='system'; baseSize.value=13; titleScale.value=1.7; catScale.value=1.25; columns.value=1; titleAlign.value='right'; uppercaseCategories.value=true;  accent.value='#eff1f7'; break
-    case 'bistro':   fontChoice.value='sans';   baseSize.value=14; titleScale.value=1.6; catScale.value=1.3;  columns.value=1; titleAlign.value='center';uppercaseCategories.value=false; accent.value='#eaf6ff'; break
-    case 'trattoria':fontChoice.value='garamond';baseSize.value=14; titleScale.value=1.8; catScale.value=1.35; columns.value=1; titleAlign.value='center';uppercaseCategories.value=true;  accent.value='#fbf3e5'; break
-    case 'minimal':  fontChoice.value='serif';  baseSize.value=13; titleScale.value=1.5; catScale.value=1.2;  columns.value=1; titleAlign.value='left'; uppercaseCategories.value=false; accent.value='#f5f5f7'; break
-    default: break
+    case 'classic':  fontChoice.value='system';    baseSize.value=13; titleScale.value=1.7; catScale.value=1.25; columns.value=1; titleAlign.value='right'; uppercaseCategories.value=true;  accent.value='#eff1f7'; break
+    case 'bistro':   fontChoice.value='sans';      baseSize.value=14; titleScale.value=1.6; catScale.value=1.3;  columns.value=1; titleAlign.value='center';uppercaseCategories.value=false; accent.value='#eaf6ff'; break
+    case 'trattoria':fontChoice.value='garamond';  baseSize.value=14; titleScale.value=1.8; catScale.value=1.35; columns.value=1; titleAlign.value='center';uppercaseCategories.value=true;  accent.value='#fbf3e5'; break
+    case 'minimal':  fontChoice.value='serif';     baseSize.value=13; titleScale.value=1.5; catScale.value=1.2;  columns.value=1; titleAlign.value='left'; uppercaseCategories.value=false; accent.value='#f5f5f7'; break
+    case 'custom': default: break
   }
 }
 const fontOptions = [
+  { label:'Decima Mono Pro (tuo)', value:'decimaMono' },
   { label:'Sistema (pulito)', value:'system' },
   { label:'Sans moderna (Poppins→fallback)', value:'sans' },
   { label:'Serif elegante (Georgia)', value:'serif' },
   { label:'Display classico (Garamond)', value:'garamond' },
-  { label:'Decima Mono Pro (tuo)', value:'decimaMono' },
   { label:'Brand Sans (tuo)', value:'brandSans' },
   { label:'Brand Serif (tuo)', value:'brandSerif' }
 ]
-const fontChoice = ref('system')
+// Default richiesti: font "Decima Mono Pro" e colore accent lasciato standard
+const fontChoice = ref('decimaMono')
 const baseSize = ref(13)
 const titleScale = ref(1.6)
 const catScale = ref(1.25)
@@ -330,7 +336,7 @@ const styleVars = computed(() => {
   }
   const base = Math.max(11, Math.min(22, Number(baseSize.value)||13))
   return {
-    '--menu-font-family': stacks[fontChoice.value] || stacks.system,
+    '--menu-font-family': stacks[fontChoice.value] || stacks.decimaMono,
     '--menu-base': `${base}px`,
     '--menu-title': `${Math.round(base*(Number(titleScale.value)||1.6))}px`,
     '--menu-cat': `${Math.round(base*(Number(catScale.value)||1.25))}px`,
@@ -401,6 +407,7 @@ const allowedCategorySet = computed(()=>{
 
 /* ===== Attributi ===== */
 const attrById = computed(()=>{ const m=new Map(); for(const a of (props.attributes||[])) m.set(a._id,a); return m })
+
 function pickAttrName (a) {
   const loc = a?.translations?.name?.[langLocal.value]
   return (loc && String(loc).trim()) || a?.name || ''
@@ -433,23 +440,24 @@ function listToLabel (arr) { return (arr||[]).map(pickAttrName).filter(Boolean).
 function listToIcons (arr) { return (arr||[]).map(a => (a?.icon || '').trim()).filter(Boolean) }
 
 /* ------- Prezzi: mostra SOLO valori > 0 ------- */
-function toMoney (v) {
-  const n = Number(v)
-  return Number.isFinite(n) && n > 0 ? n : null
-}
-function isPositive (v) {
-  return Number.isFinite(v) && v > 0
-}
-function readGlass (p) {
-  return toMoney(p?.priceGlass) ?? toMoney(p?._priceGlass) ?? toMoney(p?.prices?.glass)
-}
-function readBottle (p) {
-  return toMoney(p?.priceBottle) ?? toMoney(p?._priceBottle) ?? toMoney(p?.prices?.bottle)
-}
+function toMoney (v) { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null }
+function isPositive (v) { return Number.isFinite(v) && v > 0 }
+function readGlass (p) { return toMoney(p?.priceGlass) ?? toMoney(p?._priceGlass) ?? toMoney(p?.prices?.glass) }
+function readBottle (p) { return toMoney(p?.priceBottle) ?? toMoney(p?._priceBottle) ?? toMoney(p?.prices?.bottle) }
 function formatMoney (n) { return isPositive(n) ? n.toFixed(2) : '' }
 
+/* ====== Risoluzione nome prodotto
+   IT: preferisci `name` (campo base) per riflettere subito le modifiche, altrimenti traduzione
+   altre lingue: preferisci traduzione, altrimenti `name` */
+function resolveProductLabel (p) {
+  const base = (p?.name || '').trim()
+  const tr = (pickLocalized(p, 'translations.name', langLocal.value) || '').trim()
+  if (langLocal.value === 'it') return base || tr || ''
+  return tr || base || ''
+}
+
 function productToRow(p){
-  const label = pickLocalized(p,'translations.name',langLocal.value) || p.name
+  const label = resolveProductLabel(p)
   const glass = readGlass(p)
   const bottle = readBottle(p)
   const wine = isPositive(glass) && isPositive(bottle)
@@ -546,19 +554,20 @@ watch([
   fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseCategories, accent, langLocal,
   selectedCategoryRoots
 ], () => nextTick(recalcSpacer), { deep:true })
-onMounted(()=>{ recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
+onMounted(()=>{ /* non applico preset se "custom" */ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
 
-/* ===== PDF: footer “fixed” disegnato sull’ULTIMA pagina ===== */
+/* ===== PDF: footer “fixed” disegnato sull’ULTIMA pagina
+   FIX pagina bianca: renderizzo direttamente .page-frame e forzo background bianco ===== */
 async function downloadPdf(){
   await recalcSpacer()
 
-  const el = previewRef.value
-  if(!el) return
+  const rootEl = previewRef.value?.querySelector('.page-frame')
+  if(!rootEl) return
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
   if(!html2pdf) return
 
-  el.classList.add('pdf-mode')
+  rootEl.classList.add('pdf-mode')
   const prevSpacer = spacerPx.value
   spacerPx.value = 0
   await nextTick()
@@ -581,12 +590,12 @@ async function downloadPdf(){
     margin: [12,10,12,10],
     filename: fname,
     image: { type:'jpeg', quality:0.95 },
-    html2canvas: { scale:2, useCORS:true, scrollY:0, scrollX:0, windowWidth: el.scrollWidth },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0, scrollX: 0, windowWidth: rootEl.scrollWidth },
     jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress:true, putOnlyUsedFonts:true },
-    pagebreak: { mode:['css','legacy'] }
+    pagebreak: { mode:['css','legacy'], avoid: ['.category-block'] }
   }
 
-  await html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf)=>{
+  await html2pdf().set(opt).from(rootEl).toPdf().get('pdf').then((pdf)=>{
     const total = pdf.getNumberOfPages()
     pdf.setPage(total)
     const pageW = pdf.internal.pageSize.getWidth()
@@ -609,7 +618,7 @@ async function downloadPdf(){
     }
   }).save()
 
-  el.classList.remove('pdf-mode')
+  rootEl.classList.remove('pdf-mode')
   spacerPx.value = prevSpacer
 }
 
@@ -618,7 +627,8 @@ async function printNow(){
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
   if (html2pdf) { await downloadPdf(); return }
   if (window.$ && window.$.fn && typeof window.$.fn.printThis === 'function' && previewRef.value) {
-    window.$(previewRef.value).printThis({ importCSS:true, importStyle:true, pageTitle:'', header:null, footer:null })
+    const rootEl = previewRef.value.querySelector('.page-frame') || previewRef.value
+    window.$(rootEl).printThis({ importCSS:true, importStyle:true, pageTitle:'', header:null, footer:null })
     return
   }
   printReady.value = true
@@ -643,12 +653,6 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
     return { token, hex: paletteHex(token) }
   })
 })))
-
-/* preset iniziale */
-applyPreset(preset.value)
-
-/* export helpers to template */
-defineExpose({ isPositive, formatMoney })
 </script>
 
 <style>
@@ -699,16 +703,13 @@ defineExpose({ isPositive, formatMoney })
 }
 .item-row-print .name{ font-size:var(--_base); font-weight:600; }
 
-/* meta (allergeni, vitigno/produttore) */
+/* meta */
 .meta-line{ font-size:calc(var(--_base) * 0.9); line-height:1.25; color:#3b3e46; }
 .sep{ opacity:.5; margin:0 6px; }
 
 /* Allergeni: solo icone */
 .allergen-icons{
-  display:flex;
-  gap:6px;
-  margin-top:2px;
-  align-items:center;
+  display:flex; gap:6px; margin-top:2px; align-items:center;
 }
 .allergen-icons .q-icon{ opacity:.9; }
 
@@ -721,14 +722,11 @@ defineExpose({ isPositive, formatMoney })
   display:flex;
   align-items:baseline;
   justify-content:flex-end;
-  gap:8px;
+  gap:10px;
   font-variant-numeric: tabular-nums;
 }
-.price-chip{ display:inline-flex; align-items:baseline; gap:6px; }
-
-/* Icone prezzo (calice/bottiglia) */
-.price-ico{ opacity:.8; margin-right:6px; line-height:1; transform: translateY(1px); }
-.price-chip .abbr{ display:none; } /* non più usato */
+.price-chip{ display:inline-flex; align-items:center; gap:6px; }
+.abbr-icon{ opacity:.75; }
 
 /* Footer (preview/print) */
 .menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);

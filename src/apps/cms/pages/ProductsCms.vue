@@ -50,7 +50,7 @@
           </q-input>
 
           <q-btn color="white" text-color="primary" icon="print" class="q-ml-sm"
-                 label="Anteprima menù" :disable="!businessId" @click="menuPrintOpen = true" />
+                 label="Anteprima menù" :disable="!businessId" @click="openPrint" />
         </div>
 
         <div v-if="search" class="row items-center q-gutter-sm q-mt-xs">
@@ -157,7 +157,7 @@
                           <span class="meta-value">{{ listToLabel(kindList(prod,'produttore')) || '—' }}</span>
                         </div>
 
-                        <!-- SKU + Prezzi (resta sotto le righe meta) -->
+                        <!-- SKU + Prezzi -->
                         <div class="row items-center no-wrap q-mt-xs">
                           <div class="text-caption text-grey-7 caption-ellipsis">
                             <template v-if="prod.sku">
@@ -253,15 +253,10 @@
 </template>
 
 <script setup>
-// Vue & Quasar
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import MenuPrintDialog from 'src/components/print/MenuPrintDialog.vue'
-
-// DnD
 import Draggable from 'vuedraggable'
-
-// App
 import { api } from 'boot/axios'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
@@ -272,7 +267,7 @@ const API = import.meta.env.VITE_API_URL
 
 const menuPrintOpen = ref(false)
 const menuLang = ref('it')
-const printAttributes = ref([]) // per la stampa + UI elenco
+const printAttributes = ref([])
 
 /* ================== STORE & PERMESSI ================== */
 const usersStore = useUsersStore()
@@ -355,6 +350,16 @@ async function initialLoad () {
   }
 }
 
+/* ========== NUOVO: ricarico prima di aprire la stampa ========== */
+async function openPrint () {
+  try {
+    await Promise.all([loadProducts(), loadAttributes()])
+  } catch (e) {
+    console.warn('refresh before print failed', e)
+  }
+  menuPrintOpen.value = true
+}
+
 /* ================== API LOAD ================== */
 async function loadCategories () {
   const { data: json } = await api.get(`${API}/cms/categories`, {
@@ -363,19 +368,15 @@ async function loadCategories () {
   if (!json?.ok) throw new Error(json?.error || 'Errore categorie')
   categoriesTree.value = json.data || []
 }
-
-// coercizione a numero monetario positivo: 0 o valori non validi -> null
 function toMoney (v) {
   const n = Number(v)
   return Number.isFinite(n) && n > 0 ? n : null
 }
-
 async function loadProducts () {
   const { data: json } = await api.get(`${API}/cms/products`, {
     params: { businessId: businessId.value }
   })
   if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
-  // Normalizzo per la UI: per i vini 0 viene considerato "assenza"
   const rows = (json.data || []).map(p => {
     const glass  = (typeof p.priceGlass  !== 'undefined') ? p.priceGlass  : (p?.prices?.glass  ?? null)
     const bottle = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
@@ -402,7 +403,6 @@ function cmpOrderTitle(a, b) {
   return (a?.title || '').localeCompare(b?.title || '')
 }
 function sortKids(arr) { return [...(arr || [])].sort(cmpOrderTitle) }
-
 function buildParentMap (tree) {
   const map = new Map()
   const walk = (n) => { sortKids(n.children).forEach(c => { map.set(c._id, n._id); walk(c) }) }
@@ -410,7 +410,6 @@ function buildParentMap (tree) {
   return map
 }
 const parentOf = computed(() => buildParentMap(categoriesTree.value))
-
 const catById = computed(() => {
   const m = new Map()
   const walk = (n) => { m.set(n._id, n); sortKids(n.children).forEach(walk) }
@@ -422,7 +421,6 @@ function categoryPathLabel (id) {
   while (cur) { const n = catById.value.get(cur); if (!n) break; parts.push(n.title); cur = parentOf.value.get(cur) }
   return parts.reverse().join(' / ')
 }
-
 const categoryOptions = computed(() => {
   const out = []
   const walk = (n, path) => {
@@ -435,7 +433,6 @@ const categoryOptions = computed(() => {
   return out
 })
 const categoryOptionsWithAll = computed(() => [{ id: null, label: '— Tutte le categorie —' }, ...categoryOptions.value])
-
 function leafIdsUnder (rootId = null) {
   const ids = []
   const startNodes = rootId ? [catById.value.get(rootId)].filter(Boolean) : (categoriesTree.value || [])
@@ -447,7 +444,6 @@ function leafIdsUnder (rootId = null) {
   startNodes.forEach(walk)
   return ids
 }
-
 const visibleCategories = computed(() => {
   const targetId = selectedCategoryId.value
   const leafIds = targetId ? leafIdsUnder(targetId) : leafIdsUnder(null)
@@ -458,48 +454,36 @@ const visibleCategories = computed(() => {
   }))
 })
 
-/* ================== ATTRIBUTI (allergeni, vitigno, produttore) ================== */
+/* ================== ATTRIBUTI (per UI) ================== */
 const attrById = computed(() => {
-  const m = new Map()
-  for (const a of (printAttributes.value || [])) m.set(a._id, a)
-  return m
+  const m = new Map(); for (const a of (printAttributes.value || [])) m.set(a._id, a); return m
 })
-
 function pickAttrName (a) {
   const t = a?.translations?.name?.[menuLang.value]
   return (t && String(t).trim()) || a?.name || ''
 }
-
-/** Normalizza il "tipo" di attributo (stringa o oggetto reference) in un token */
 function kindToken (a) {
-  const k = a?.kind
-  let raw = ''
+  const k = a?.kind; let raw = ''
   if (!k) raw = ''
   else if (typeof k === 'string') raw = k
   else if (typeof k === 'object') raw = k.value || k.title || k.name || ''
   const s = String(raw).toLowerCase().trim()
   if (!s) return ''
-  // Sinonimi comuni
   if (s.includes('allerg')) return 'allergen'
   if (['vitigno', 'grape', 'uva'].includes(s)) return 'vitigno'
   if (['produttore', 'producer', 'cantina', 'winery'].includes(s)) return 'produttore'
   return s
 }
-
 function kindList (prod, target) {
-  const ids = (prod.attributes || []).filter(Boolean)
-  const out = []
+  const ids = (prod.attributes || []).filter(Boolean); const out = []
   for (const id of ids) {
-    const a = attrById.value.get(id)
-    if (!a) continue
+    const a = attrById.value.get(id); if (!a) continue
     if (kindToken(a) === target) out.push(a)
   }
   return out
 }
 function allergenList (prod) { return kindList(prod, 'allergen') }
-function hasGrapeOrProducer (prod) {
-  return kindList(prod, 'vitigno').length > 0 || kindList(prod, 'produttore').length > 0
-}
+function hasGrapeOrProducer (prod) { return kindList(prod, 'vitigno').length > 0 || kindList(prod, 'produttore').length > 0 }
 function listToLabel (arr) { return (arr || []).map(pickAttrName).filter(Boolean).join(', ') }
 
 /* ================== LISTE PER CATEGORIA ================== */
@@ -515,17 +499,15 @@ function rebuildLists () {
   }
   listsByCat.value = map
 }
-
 function matchesSearch (p) {
   const term = String(search.value || '').trim().toLowerCase()
   if (!term) return true
   return (p.name || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term)
 }
 
-/* ================== PREZZI (vino / standard) ================== */
+/* ================== PREZZI ================== */
 function isNumber (v) { return typeof v === 'number' && Number.isFinite(v) }
 function isPositive (v) { return typeof v === 'number' && Number.isFinite(v) && v > 0 }
-
 function getGlassPrice (p) {
   if (isPositive(p._priceGlass)) return p._priceGlass
   if (isPositive(p?.prices?.glass)) return p.prices.glass
@@ -539,13 +521,10 @@ function getBottlePrice (p) {
   return null
 }
 function hasWinePrices (p) {
-  const g = getGlassPrice(p)
-  const b = getBottlePrice(p)
+  const g = getGlassPrice(p); const b = getBottlePrice(p)
   return isPositive(g) && isPositive(b)
 }
-function hasAnyPrice (p) {
-  return hasWinePrices(p) || isPositive(p.price)
-}
+function hasAnyPrice (p) { return hasWinePrices(p) || isPositive(p.price) }
 function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
 
 /* ================== DnD & SALVATAGGIO ================== */
@@ -698,7 +677,6 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
 .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .caption-ellipsis { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* mini meta-row testuale sotto al nome */
 .meta-row { font-size: 12px; line-height: 1.2; color: #4a4f58; }
 .meta-label { font-weight: 600; margin-right: 4px; }
 .meta-value { opacity: 0.95; }
