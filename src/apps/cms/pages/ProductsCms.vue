@@ -120,22 +120,24 @@
                         <!-- Nome -->
                         <div class="title text-body1 line-clamp-2">{{ prod.name }}</div>
 
-                        <!-- Riga allergeni (chip), se presenti -->
+                        <!-- Riga allergeni (chip), se presenti) -->
                         <div
                           v-if="allergenList(prod).length"
                           class="row items-center no-wrap q-mt-xs meta-row"
                         >
-                          <q-icon name="warning" size="16px" class="q-mr-xs text-amber-8" />
                           <div class="row items-center wrap q-gutter-xs">
                             <q-chip
                               v-for="a in allergenList(prod)"
                               :key="a._id"
                               dense outline
-                              color="amber-2" text-color="amber-10"
-                              :icon="a.icon || 'warning'"
-                              class="q-px-sm"
+                              color="amber-10" text-color="black"
+                              class="q-pa-md"
                               :title="pickAttrName(a)"
                             >
+                              <q-avatar v-if="a.iconUrl" square size="30px" class="chip-avatar q-mr-xs">
+                                <img :src="a.iconUrl" :alt="pickAttrName(a)" />
+                              </q-avatar>
+                              <q-icon v-else :name="a.icon || 'warning'" class="q-mr-xs" />
                               {{ pickAttrName(a) }}
                             </q-chip>
                           </div>
@@ -147,13 +149,11 @@
                           class="row items-center no-wrap q-mt-xs meta-row"
                         >
                           <q-icon name="wine_bar" size="16px" class="q-mr-xs text-deep-purple-7" />
-                          <span class="meta-label">Vitigno:</span>
                           <span class="meta-value">{{ listToLabel(kindList(prod,'vitigno')) || '—' }}</span>
 
                           <q-separator vertical inset class="q-mx-sm" />
 
                           <q-icon name="store" size="16px" class="q-mr-xs text-blue-grey-7" />
-                          <span class="meta-label">Produttore:</span>
                           <span class="meta-value">{{ listToLabel(kindList(prod,'produttore')) || '—' }}</span>
                         </div>
 
@@ -256,6 +256,7 @@
           <div class="q-mt-lg">
             <div class="text-subtitle1 q-mb-sm">Attributi</div>
             <div class="row q-col-gutter-md">
+              <!-- Allergeni -->
               <div class="col-12 col-md-6">
                 <q-select
                   v-model="editor.form.attrAllergenIds"
@@ -264,14 +265,37 @@
                   multiple use-chips dense outlined clearable
                   label="Allergeni"
                 >
+                  <!-- opzioni con avatar -->
                   <template #option="scope">
                     <q-item v-bind="scope.itemProps">
-                      <q-item-section avatar v-if="scope.opt.icon"><q-icon :name="scope.opt.icon" /></q-item-section>
+                      <q-item-section avatar>
+                        <q-avatar v-if="scope.opt.iconUrl" square size="20px" class="chip-avatar">
+                          <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                        </q-avatar>
+                        <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" />
+                        <q-icon v-else name="image" />
+                      </q-item-section>
                       <q-item-section>{{ scope.opt.label }}</q-item-section>
                     </q-item>
                   </template>
+                  <!-- chip selezionati con avatar -->
+                  <template #selected-item="scope">
+                    <q-chip square dense removable
+                            @remove="scope.removeAtIndex(scope.index)"
+                            :tabindex="scope.tabindex"
+                            class="q-ma-xs">
+                      <q-avatar v-if="scope.opt.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                        <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                      </q-avatar>
+                      <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" class="q-mr-xs" />
+                      <q-icon v-else name="image" class="q-mr-xs" />
+                      {{ scope.opt.label }}
+                    </q-chip>
+                  </template>
                 </q-select>
               </div>
+
+              <!-- Vitigno -->
               <div class="col-12 col-md-6">
                 <q-select
                   v-model="editor.form.attrGrapeIds"
@@ -279,8 +303,36 @@
                   option-value="id" option-label="label" emit-value map-options
                   multiple use-chips dense outlined clearable
                   label="Vitigno"
-                />
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <q-avatar v-if="scope.opt.iconUrl" square size="20px" class="chip-avatar">
+                          <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                        </q-avatar>
+                        <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" />
+                        <q-icon v-else name="image" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <q-chip square dense removable
+                            @remove="scope.removeAtIndex(scope.index)"
+                            :tabindex="scope.tabindex"
+                            class="q-ma-xs">
+                      <q-avatar v-if="scope.opt.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                        <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                      </q-avatar>
+                      <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" class="q-mr-xs" />
+                      <q-icon v-else name="image" class="q-mr-xs" />
+                      {{ scope.opt.label }}
+                    </q-chip>
+                  </template>
+                </q-select>
               </div>
+
+              <!-- Produttore -->
               <div class="col-12 col-md-6">
                 <q-select
                   v-model="editor.form.attrProducerIds"
@@ -288,8 +340,36 @@
                   option-value="id" option-label="label" emit-value map-options
                   multiple use-chips dense outlined clearable
                   label="Produttore"
-                />
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <q-avatar v-if="scope.opt.iconUrl" square size="20px" class="chip-avatar">
+                          <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                        </q-avatar>
+                        <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" />
+                        <q-icon v-else name="image" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <q-chip square dense removable
+                            @remove="scope.removeAtIndex(scope.index)"
+                            :tabindex="scope.tabindex"
+                            class="q-ma-xs">
+                      <q-avatar v-if="scope.opt.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                        <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                      </q-avatar>
+                      <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" class="q-mr-xs" />
+                      <q-icon v-else name="image" class="q-mr-xs" />
+                      {{ scope.opt.label }}
+                    </q-chip>
+                  </template>
+                </q-select>
               </div>
+
+              <!-- Altri -->
               <div class="col-12 col-md-6">
                 <q-select
                   v-model="editor.form.attrOtherIds"
@@ -297,7 +377,33 @@
                   option-value="id" option-label="label" emit-value map-options
                   multiple use-chips dense outlined clearable
                   label="Altri attributi"
-                />
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <q-avatar v-if="scope.opt.iconUrl" square size="20px" class="chip-avatar">
+                          <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                        </q-avatar>
+                        <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" />
+                        <q-icon v-else name="image" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <q-chip square dense removable
+                            @remove="scope.removeAtIndex(scope.index)"
+                            :tabindex="scope.tabindex"
+                            class="q-ma-xs">
+                      <q-avatar v-if="scope.opt.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                        <img :src="scope.opt.iconUrl" :alt="scope.opt.label" />
+                      </q-avatar>
+                      <q-icon v-else-if="scope.opt.icon" :name="scope.opt.icon" class="q-mr-xs" />
+                      <q-icon v-else name="image" class="q-mr-xs" />
+                      {{ scope.opt.label }}
+                    </q-chip>
+                  </template>
+                </q-select>
               </div>
             </div>
 
@@ -314,16 +420,20 @@
                   dense
                   color="grey-3"
                   text-color="grey-10"
-                  :icon="o.icon || undefined"
-                  :title="o.label"
                   class="q-px-sm"
+                  :title="o.label"
                 >
+                  <q-avatar v-if="o.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                    <img :src="o.iconUrl" :alt="o.label" />
+                  </q-avatar>
+                  <q-icon v-else-if="o.icon" :name="o.icon" class="q-mr-xs" />
+                  <q-icon v-else name="image" class="q-mr-xs" />
                   {{ o.label }}
                 </q-chip>
                 <span v-if="!previewOriginal.length" class="text-grey-7">Nessuno</span>
               </div>
 
-              <!-- Dopo modifiche (selezione corrente + non catalogati preservati) -->
+              <!-- Dopo modifiche -->
               <div class="row items-center q-gutter-xs q-mb-xs">
                 <q-badge color="primary" outline>Dopo modifiche</q-badge>
                 <q-chip
@@ -332,10 +442,14 @@
                   dense
                   color="primary"
                   text-color="white"
-                  :icon="o.icon || undefined"
-                  :title="o.label"
                   class="q-px-sm"
+                  :title="o.label"
                 >
+                  <q-avatar v-if="o.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                    <img :src="o.iconUrl" :alt="o.label" />
+                  </q-avatar>
+                  <q-icon v-else-if="o.icon" :name="o.icon" class="q-mr-xs" />
+                  <q-icon v-else name="image" class="q-mr-xs" />
                   {{ o.label }}
                 </q-chip>
                 <span v-if="!previewSelected.length" class="text-grey-7">Nessuno</span>
@@ -350,10 +464,14 @@
                   dense
                   color="positive"
                   text-color="white"
-                  :icon="o.icon || undefined"
-                  :title="o.label"
                   class="q-px-sm"
+                  :title="o.label"
                 >
+                  <q-avatar v-if="o.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                    <img :src="o.iconUrl" :alt="o.label" />
+                  </q-avatar>
+                  <q-icon v-else-if="o.icon" :name="o.icon" class="q-mr-xs" />
+                  <q-icon v-else name="image" class="q-mr-xs" />
                   {{ o.label }}
                 </q-chip>
               </div>
@@ -368,10 +486,14 @@
                   outline
                   color="negative"
                   text-color="negative"
-                  :icon="o.icon || undefined"
-                  :title="o.label"
                   class="q-px-sm chip-removed"
+                  :title="o.label"
                 >
+                  <q-avatar v-if="o.iconUrl" square size="18px" class="chip-avatar q-mr-xs">
+                    <img :src="o.iconUrl" :alt="o.label" />
+                  </q-avatar>
+                  <q-icon v-else-if="o.icon" :name="o.icon" class="q-mr-xs" />
+                  <q-icon v-else name="image" class="q-mr-xs" />
                   {{ o.label }}
                 </q-chip>
               </div>
@@ -396,12 +518,9 @@
 
     <MenuPrintDialog
       v-model="menuPrintOpen"
-      :businessName="businessName"
-      :categoriesTree="categoriesTree"
-      :products="allProducts"
-      :attributes="printAttributes"
-      :language="menuLang"
-      :usePathInHeaders="false"
+      :title="printTitle"
+      :sections="printSections"
+      :footerText="''"
       :coverCharge="null"
     />
   </q-page>
@@ -422,10 +541,9 @@ import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
 import { PERM } from 'src/auth/perm'
 
-
-// ====== HELPERS ID ATTRIBUTI ======
+/* ====== HELPERS ID ATTRIBUTI ====== */
 function normAttrId (v) {
-  // Restituisce sempre una stringa id, oppure null
+  // Ritorna sempre una stringa id, oppure null
   if (!v) return null
   if (typeof v === 'string') return v
   if (typeof v === 'object') return v._id || v._ref || v.id || v.value || null
@@ -440,7 +558,6 @@ function shortId (s) {
   return id.slice(0, 4) + '…' + id.slice(-4)
 }
 function unknownLabel (id) {
-  // id può essere object o string: normalizzo e poi abbreviato
   const sid = normAttrId(id) || '?'
   return `Non catalogato (${shortId(sid)})`
 }
@@ -539,6 +656,65 @@ async function initialLoad () {
     loading.value = false
   }
 }
+
+/* ========== PRINT ========== */
+
+const printTitle = computed(() => businessName.value || 'Menù')
+
+const printSections = computed(() => {
+  const secs = []
+  const cats = visibleCategories.value // stampa le foglie (rispetta eventuale filtro categoria)
+
+  for (const cat of cats) {
+    const products = listsByCat.value[cat._id] || []
+    const items = products.map(p => {
+      // marks: solo allergeni con icona/emoji/url
+      const marks = allergenList(p).map(a => ({
+        url: a.iconUrl || null,
+        icon: (!a.iconUrl && a.icon) ? a.icon : null,
+        emoji: '', // aggiungi qui se ne hai
+        title: pickAttrName(a)
+      }))
+
+      // meta lines: vitigno e produttore se presenti
+      const grapes = kindList(p, 'vitigno').map(pickAttrName).filter(Boolean)
+      const producers = kindList(p, 'produttore').map(pickAttrName).filter(Boolean)
+      const metaLines = []
+      if (grapes.length) metaLines.push(`Vitigno: ${grapes.join(', ')}`)
+      if (producers.length) metaLines.push(`Produttore: ${producers.join(', ')}`)
+
+      // prezzi (vino: calice+bottiglia; altrimenti prezzo singolo)
+      const g = getGlassPrice(p)
+      const b = getBottlePrice(p)
+      const prices = {}
+      if (isPositive(g) && isPositive(b)) {
+        prices.glass = g; prices.bottle = b
+      } else if (isNumber(p.price)) {
+        prices.price = p.price
+      }
+
+      // label preferendo la traduzione
+      const label =
+        (p?.translations?.name?.[menuLang.value] || '').toString().trim() || p.name || ''
+
+      return {
+        id: p._id,
+        label,
+        active: p.active !== false,
+        marks,
+        metaLines,
+        prices
+      }
+    })
+
+    if (items.length) {
+      secs.push({ id: cat._id, title: cat.title, items })
+    }
+  }
+
+  return secs
+})
+
 
 /* ========== Ricarico prima di aprire la stampa ========== */
 async function openPrint () {
@@ -698,6 +874,8 @@ const attributeOptions = computed(() => (printAttributes.value || []).map(a => (
   id: a._id,
   label: pickAttrName(a),
   icon: a.icon || '',
+  iconUrl: a.iconUrl || '',  // << preferisci questa se presente
+  color: a.color || '',
   kind: kindToken(a)
 })))
 const attrOptionById = computed(() => {
@@ -723,7 +901,7 @@ const originalAttrIdSet = computed(() => new Set(editor.value.originalAttrIds ||
 
 function toDisplayOption (id) {
   const o = attrOptionById.value.get(id)
-  return o || { id, label: unknownLabel(id), icon: '' }
+  return o || { id, label: unknownLabel(id), icon: '', iconUrl: '' }
 }
 function mapIdsToOptions (ids = []) { return ids.map(toDisplayOption) }
 
@@ -845,18 +1023,18 @@ async function loadOneForEdit (id) {
     if (!json?.ok || !json?.data) throw new Error('fetch failed')
     const p = json.data
 
-    const ids = asIdList(p.attributes)   // <-- prima filtravi "as is"
-const allergens = [], grapes = [], producers = [], others = [], unknown = []
+    const ids = asIdList(p.attributes)
+    const allergens = [], grapes = [], producers = [], others = [], unknown = []
 
-for (const aid of ids) {
-  const a = attrById.value.get(aid)
-  if (!a) { unknown.push(aid); continue }
-  const k = kindToken(a)
-  if (k === 'allergen') allergens.push(aid)
-  else if (k === 'vitigno') grapes.push(aid)
-  else if (k === 'produttore') producers.push(aid)
-  else others.push(aid)
-}
+    for (const aid of ids) {
+      const a = attrById.value.get(aid)
+      if (!a) { unknown.push(aid); continue }
+      const k = kindToken(a)
+      if (k === 'allergen') allergens.push(aid)
+      else if (k === 'vitigno') grapes.push(aid)
+      else if (k === 'produttore') producers.push(aid)
+      else others.push(aid)
+    }
 
     editor.value.originalAttrIds = ids.slice()
     editor.value.unknownAttrIds  = unknown.slice()
@@ -1024,5 +1202,13 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
 .chip-removed {
   text-decoration: line-through;
   opacity: .8;
+}
+
+/* Avatar/immagini nelle chip/opzioni: forzo il fit */
+.chip-avatar :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 </style>

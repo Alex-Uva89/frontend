@@ -12,12 +12,12 @@
       <q-toolbar class="toolbar flex justify-between">
         <span>
           <q-btn flat round dense icon="arrow_back" @click="close" />
-          <q-toolbar-title class="hidden lt-lg">Anteprima menù</q-toolbar-title>
+          <q-toolbar-title class="hidden lt-lg">Anteprima</q-toolbar-title>
         </span>
         <span>
-          <q-toggle v-model="onlyActive" label="attivi" />
+          <q-toggle v-model="onlyActive" label="Attivi" />
           <q-toggle v-model="includePrices" class="q-ml-md" label="Prezzi" />
-          <q-toggle v-model="includeAllergens" class="q-ml-md" label="Allergen" />
+          <q-toggle v-model="includeMarks" class="q-ml-md" label="Icone" />
         </span>
       </q-toolbar>
 
@@ -38,7 +38,7 @@
             <q-input v-model.number="titleScale" type="number" dense outlined label="Titolo (×)" :min="1.2" :max="2.4" step="0.1" />
           </div>
           <div class="col-6 col-sm-3 col-md-2">
-            <q-input v-model.number="catScale" type="number" dense outlined label="Categoria (×)" :min="1.0" :max="1.8" step="0.1" />
+            <q-input v-model.number="catScale" type="number" dense outlined label="Sezione (×)" :min="1.0" :max="1.8" step="0.1" />
           </div>
           <div class="col-6 col-sm-3 col-md-2">
             <q-select v-model="columns" :options="[{label:'1 col',value:1},{label:'2 col',value:2}]"
@@ -54,32 +54,12 @@
           <div class="col-12 col-sm-6 col-md-3">
             <div class="row items-center no-wrap">
               <q-input v-model="accent" dense outlined label="Colore" type="color" class="col" />
-              <q-btn
-                flat round dense icon="palette" class="q-ml-sm"
-                :title="'Apri tavolozza colori'"
-                @click="paletteOpen = true"
-              />
+              <q-btn flat round dense icon="palette" class="q-ml-sm" :title="'Apri tavolozza colori'" @click="paletteOpen = true" />
             </div>
           </div>
 
           <div class="col-6 col-sm-3 col-md-2 flex items-center">
-            <q-toggle v-model="uppercaseCategories" label="CAT. maiuscolo" />
-          </div>
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-select v-model="langLocal" :options="langOptions" emit-value map-options dense outlined label="Lingua" />
-          </div>
-
-          <!-- ===== FILTRO CATEGORIE ===== -->
-          <div class="col-12">
-            <q-select
-              v-model="selectedCategoryRoots"
-              :options="categoryOptions"
-              option-label="label" option-value="id"
-              multiple use-chips emit-value map-options dense outlined clearable
-              :hint="'Vuoto = tutte le categorie'"
-              label="Categorie da includere"
-              :popup-content-style="{ maxHeight: '50vh' }"
-            />
+            <q-toggle v-model="uppercaseSections" label="SEZ. maiuscolo" />
           </div>
         </div>
       </q-card-section>
@@ -91,46 +71,55 @@
         <div ref="previewRef" class="print-menu menu-columns" :data-cols="columns" :style="styleVars">
           <div class="page-frame">
             <div class="menu-header" :class="`ta-${titleAlign}`">
-              <div class="menu-title">{{ businessName || 'Menù' }}</div>
+              <div class="menu-title">{{ title || 'Menù' }}</div>
             </div>
 
             <div class="page-body">
-              <div v-for="g in groups" :key="g.id" class="category-block">
-                <div class="cat-header" :class="{'tt-up': uppercaseCategories}">
-                  {{ g.label }}
+              <div v-for="sec in visibleSections" :key="sec.id" class="category-block">
+                <div class="cat-header" :class="{'tt-up': uppercaseSections}">
+                  {{ sec.title }}
                 </div>
 
-                <div v-for="it in g.items" :key="it.id" class="item-row-print">
+                <div v-for="it in sec.items" :key="it.id" class="item-row-print">
                   <div class="left">
                     <span class="name">{{ it.label }}</span>
 
-                    <!-- Allergeni: solo icone -->
-                    <div v-if="includeAllergens && it.allergenIcons?.length" class="allergen-icons">
-                      <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" />
+                    <!-- Icone (es. allergeni) -->
+                    <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
+                      <template v-for="(mk,i) in it.marks" :key="i">
+                        <!-- Se c'è URL, prova immagine CORS; se fallisce, sparisce -->
+                        <img v-if="mk.url" class="mark-img"
+                             :src="mk.url"
+                             :alt="mk.title || 'icon'"
+                             crossorigin="anonymous"
+                             decoding="async"
+                             @error="(e)=>{ e.target.style.display='none' }" />
+                        <!-- Fallback icona/emoji -->
+                        <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
+                        <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
+                      </template>
                     </div>
 
-                    <!-- Riga vitigno/produttore (solo testo, senza label) -->
-                    <div v-if="it.hasGrapeOrProducer" class="meta-line">
-                      <span v-if="it.grapesLabel">{{ it.grapesLabel }}</span>
-                      <span v-if="it.grapesLabel && it.producersLabel" class="sep">·</span>
-                      <span v-if="it.producersLabel">{{ it.producersLabel }}</span>
+                    <!-- Meta lines (testo libero, già composto dal parent) -->
+                    <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">
+                      {{ m }}
                     </div>
                   </div>
 
-                  <!-- Prezzi testuali con icone e cifre tabulari -->
+                  <!-- Prezzi -->
                   <div class="right" v-if="includePrices">
-                    <template v-if="it.hasWine">
-                      <span v-if="isPositive(it.glass)" class="price-chip">
+                    <template v-if="hasWine(it)">
+                      <span v-if="isPositive(it.prices?.glass)" class="price-chip">
                         <q-icon name="wine_bar" class="abbr-icon" size="16px" />
-                        {{ formatMoney(it.glass) }}
+                        {{ formatMoney(it.prices?.glass) }}
                       </span>
-                      <span v-if="isPositive(it.bottle)" class="price-chip">
+                      <span v-if="isPositive(it.prices?.bottle)" class="price-chip">
                         <q-icon name="liquor" class="abbr-icon" size="16px" />
-                        {{ formatMoney(it.bottle) }}
+                        {{ formatMoney(it.prices?.bottle) }}
                       </span>
                     </template>
                     <template v-else>
-                      <span v-if="isPositive(it.price)">{{ formatMoney(it.price) }}</span>
+                      <span v-if="isPositive(it.prices?.price)">{{ formatMoney(it.prices?.price) }}</span>
                     </template>
                   </div>
                 </div>
@@ -162,46 +151,53 @@
   <!-- FALLBACK window.print -->
   <div v-show="printReady" class="print-area print-menu menu-columns" :data-cols="columns" :style="styleVars">
     <div class="page-frame">
-      <div class="menu-header" :class="`ta-${titleAlign}`"><div class="menu-title">{{ businessName || 'Menù' }}</div></div>
+      <div class="menu-header" :class="`ta-${titleAlign}`"><div class="menu-title">{{ title || 'Menù' }}</div></div>
       <div class="page-body">
-        <div v-for="g in groups" :key="'p-'+g.id" class="category-block">
-          <div class="cat-header" :class="{'tt-up': uppercaseCategories}">{{ g.label }}</div>
-          <div v-for="it in g.items" :key="it.id" class="item-row-print">
+        <div v-for="sec in visibleSections" :key="'p-'+sec.id" class="category-block">
+          <div class="cat-header" :class="{'tt-up': uppercaseSections}">{{ sec.title }}</div>
+
+          <div v-for="it in sec.items" :key="it.id" class="item-row-print">
             <div class="left">
               <span class="name">{{ it.label }}</span>
 
-              <!-- Allergeni: solo icone -->
-              <div v-if="includeAllergens && it.allergenIcons?.length" class="allergen-icons">
-                <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" />
+              <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
+                <template v-for="(mk,i) in it.marks" :key="i">
+                  <img v-if="mk.url" class="mark-img"
+                       :src="mk.url"
+                       :alt="mk.title || 'icon'"
+                       crossorigin="anonymous"
+                       decoding="async"
+                       @error="(e)=>{ e.target.style.display='none' }" />
+                  <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
+                  <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
+                </template>
               </div>
 
-              <!-- Riga vitigno/produttore (solo testo, senza label) -->
-              <div v-if="it.hasGrapeOrProducer" class="meta-line">
-                <span v-if="it.grapesLabel">{{ it.grapesLabel }}</span>
-                <span v-if="it.grapesLabel && it.producersLabel" class="sep">·</span>
-                <span v-if="it.producersLabel">{{ it.producersLabel }}</span>
+              <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">
+                {{ m }}
               </div>
             </div>
 
-            <!-- Stessa logica prezzi nel fallback -->
             <div class="right" v-if="includePrices">
-              <template v-if="it.hasWine">
-                <span v-if="isPositive(it.glass)" class="price-chip">
+              <template v-if="hasWine(it)">
+                <span v-if="isPositive(it.prices?.glass)" class="price-chip">
                   <q-icon name="wine_bar" class="abbr-icon" size="16px" />
-                  {{ formatMoney(it.glass) }}
+                  {{ formatMoney(it.prices?.glass) }}
                 </span>
-                <span v-if="isPositive(it.bottle)" class="price-chip">
+                <span v-if="isPositive(it.prices?.bottle)" class="price-chip">
                   <q-icon name="liquor" class="abbr-icon" size="16px" />
-                  {{ formatMoney(it.bottle) }}
+                  {{ formatMoney(it.prices?.bottle) }}
                 </span>
               </template>
               <template v-else>
-                <span v-if="isPositive(it.price)">{{ formatMoney(it.price) }}</span>
+                <span v-if="isPositive(it.prices?.price)">{{ formatMoney(it.prices?.price) }}</span>
               </template>
             </div>
           </div>
+
         </div>
       </div>
+
       <div class="footer-spacer" :style="{ height: spacerPx + 'px' }" aria-hidden="true"></div>
       <div class="menu-footer" v-if="footerText || coverCharge != null">
         <div v-if="coverCharge != null" class="cover-line">{{ coverLabel }}: <b>{{ Number(coverCharge).toFixed(2) }}</b></div>
@@ -223,12 +219,7 @@
           <div class="text-subtitle2 q-mb-xs">{{ grp.group }}</div>
           <div class="row q-col-gutter-xs">
             <div v-for="tok in grp.tokens" :key="tok.token" class="col-auto">
-              <q-btn
-                class="swatch"
-                :style="{ backgroundColor: tok.hex }"
-                :title="`${tok.token} · ${tok.hex}`"
-                @click="selectAccent(tok.token)"
-              />
+              <q-btn class="swatch" :style="{ backgroundColor: tok.hex }" :title="`${tok.token} · ${tok.hex}`" @click="selectAccent(tok.token)" />
             </div>
           </div>
         </div>
@@ -244,28 +235,22 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { colors } from 'quasar'
-import { pickLocalized } from 'src/utils/i18n'
 import html2pdfModule from 'html2pdf.js'
 import html2canvas from 'html2canvas'
 
-/* props */
+/* ===================================
+   PROPS: dati già PRONTI dal genitore
+   =================================== */
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  businessName: { type: String, default: '' },
-  categoriesTree: { type: Array, default: () => [] },
-  products: { type: Array, default: () => [] },
-  attributes: { type: Array, default: () => [] },
-  usePathInHeaders: { type: Boolean, default: false },
-  language: { type: String, default: 'it' },
-  footerI18n: {
-    type: Object,
-    default: () => ({
-      it: 'Si prega di informarci di eventuali allergie alimentari. Il feedback è sempre benvenuto: condividilo con il tuo cameriere e online.',
-      en: 'Please inform us of any food allergies. Feedback is always welcome: feel free to share it with your server and online.'
-    })
+  title:      { type: String,  default: 'Menù' },
+  sections:   { // [{ id, title, items:[{ id, label, active?, marks?, metaLines?, prices? }] }]
+    type: Array, default: () => []
   },
-  coverCharge: { type: Number, default: null },
-  coverLabelI18n: { type: Object, default: () => ({ it: 'Coperto', en: 'Cover charge' }) }
+  // Footer
+  footerText:    { type: String, default: '' },
+  coverCharge:   { type: Number, default: null },
+  coverLabel:    { type: String, default: 'Coperto' }
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -276,33 +261,25 @@ watch(openLocal, v => { emit('update:modelValue', v); if (v) nextTick(recalcSpac
 function close () { emit('update:modelValue', false) }
 
 /* toggles */
-const onlyActive = ref(true)
-const includePrices = ref(true)
-const includeAllergens = ref(true)
+const onlyActive   = ref(true)
+const includePrices= ref(true)
+const includeMarks = ref(true)
 
-/* i18n */
-const langLocal = ref(props.language)
-watch(() => props.language, v => { if (v) langLocal.value = v })
-const langOptions = [{ label:'Italiano', value:'it' }, { label:'English', value:'en' }]
-const footerText = computed(() => props.footerI18n?.[langLocal.value] || props.footerI18n?.it || '')
-const coverLabel = computed(() => props.coverLabelI18n?.[langLocal.value] || props.coverLabelI18n?.it || 'Coperto')
-
-/* preset & stile */
-// preset iniziale su "custom" così non sovrascrive il font/colore di default
+/* ===== Stile ===== */
 const preset = ref('custom')
 const presetOptions = [
   { label:'Classico (pulito)', value:'classic' },
-  { label:'Bistrò (moderno)', value:'bistro' },
+  { label:'Bistrò (moderno)',  value:'bistro' },
   { label:'Trattoria (elegante)', value:'trattoria' },
   { label:'Minimal (essenziale)', value:'minimal' },
   { label:'Personalizzato', value:'custom' }
 ]
 function applyPreset(val){
   switch(val){
-    case 'classic':  fontChoice.value='system';    baseSize.value=13; titleScale.value=1.7; catScale.value=1.25; columns.value=1; titleAlign.value='right'; uppercaseCategories.value=true;  accent.value='#eff1f7'; break
-    case 'bistro':   fontChoice.value='sans';      baseSize.value=14; titleScale.value=1.6; catScale.value=1.3;  columns.value=1; titleAlign.value='center';uppercaseCategories.value=false; accent.value='#eaf6ff'; break
-    case 'trattoria':fontChoice.value='garamond';  baseSize.value=14; titleScale.value=1.8; catScale.value=1.35; columns.value=1; titleAlign.value='center';uppercaseCategories.value=true;  accent.value='#fbf3e5'; break
-    case 'minimal':  fontChoice.value='serif';     baseSize.value=13; titleScale.value=1.5; catScale.value=1.2;  columns.value=1; titleAlign.value='left'; uppercaseCategories.value=false; accent.value='#f5f5f7'; break
+    case 'classic':  fontChoice.value='system';    baseSize.value=13; titleScale.value=1.7; catScale.value=1.25; columns.value=1; titleAlign.value='right'; uppercaseSections.value=true;  accent.value='#eff1f7'; break
+    case 'bistro':   fontChoice.value='sans';      baseSize.value=14; titleScale.value=1.6; catScale.value=1.3;  columns.value=1; titleAlign.value='center';uppercaseSections.value=false; accent.value='#eaf6ff'; break
+    case 'trattoria':fontChoice.value='garamond';  baseSize.value=14; titleScale.value=1.8; catScale.value=1.35; columns.value=1; titleAlign.value='center';uppercaseSections.value=true;  accent.value='#fbf3e5'; break
+    case 'minimal':  fontChoice.value='serif';     baseSize.value=13; titleScale.value=1.5; catScale.value=1.2;  columns.value=1; titleAlign.value='left'; uppercaseSections.value=false; accent.value='#f5f5f7'; break
     case 'custom': default: break
   }
 }
@@ -315,15 +292,14 @@ const fontOptions = [
   { label:'Brand Sans (tuo)', value:'brandSans' },
   { label:'Brand Serif (tuo)', value:'brandSerif' }
 ]
-// Default richiesti: font "Decima Mono Pro" e colore accent lasciato standard
 const fontChoice = ref('decimaMono')
-const baseSize = ref(13)
+const baseSize   = ref(13)
 const titleScale = ref(1.6)
-const catScale = ref(1.25)
-const columns = ref(1)
+const catScale   = ref(1.25)
+const columns    = ref(1)
 const titleAlign = ref('right')
-const uppercaseCategories = ref(true)
-const accent = ref('#eff1f7')
+const uppercaseSections = ref(true)
+const accent     = ref('#eff1f7')
 const styleVars = computed(() => {
   const stacks={
     system:"system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
@@ -345,188 +321,22 @@ const styleVars = computed(() => {
   }
 })
 
-/* ======= DATI & MAPPING ======= */
-function toId(x){ if(!x)return null; if(typeof x==='string')return x; if(x._ref)return x._ref; if(x._id)return x._id; if(x?._type==='reference'&&x?.ref)return x.ref; return null }
-
-const catById = computed(()=>{
-  const m=new Map(); const walk=n=>{ m.set(n._id,n); (n.children||[]).forEach(walk) }
-  ;(props.categoriesTree||[]).forEach(walk); return m
-})
-
-function categoryPathLabel(id){
-  if(!id) return ''
-  const parts=[]; let cur=id
-  while(cur){
-    const n=catById.value.get(cur); if(!n) break
-    const t = pickLocalized(n,'translations.title',langLocal.value) || n.title
-    parts.push(t)
-    let parent=null
-    for(const [k,v] of catById.value.entries()){ if((v.children||[]).some(c=>toId(c)===cur)){ parent=k; break } }
-    cur=parent
-  }
-  return parts.reverse().join(' / ')
-}
-
-const treeOrderIndex = computed(()=>{
-  let idx=0; const m=new Map(); const walk=n=>{ m.set(n._id,idx++); (n.children||[]).forEach(walk) }
-  ;(props.categoriesTree||[]).forEach(walk); return m
-})
-
-/* Opzioni per il filtro categorie (mostro il path completo) */
-const categoryOptions = computed(() => {
+/* ====== Dati visibili ====== */
+const visibleSections = computed(()=>{
   const out=[]
-  const walk=(n, path='')=>{
-    const labelBase = pickLocalized(n,'translations.title',langLocal.value) || n.title || ''
-    const label = path ? `${path} / ${labelBase}` : labelBase
-    out.push({ id:n._id, label })
-    ;(n.children||[]).forEach(c=>walk(c, label))
+  for(const sec of (props.sections || [])){
+    if(!sec || !Array.isArray(sec.items)) continue
+    const items = onlyActive.value ? sec.items.filter(it => it?.active !== false) : sec.items.slice()
+    if(!items.length) continue
+    out.push({ id: sec.id || sec.title || Math.random().toString(36).slice(2), title: sec.title || '', items })
   }
-  ;(props.categoriesTree||[]).forEach(r=>walk(r,''))
   return out
 })
 
-/* Filtro categorie selezionate: se vuoto => tutte */
-const selectedCategoryRoots = ref([])
-
-/* Raccoglie discendenti (incluso il nodo) */
-function collectDescendants(startId, out){
-  if(!startId || out.has(startId)) return
-  out.add(startId)
-  const node = catById.value.get(startId)
-  const kids = (node?.children||[]).map(toId).filter(Boolean)
-  for(const k of kids) collectDescendants(k, out)
-}
-
-const allowedCategorySet = computed(()=>{
-  const ids = (selectedCategoryRoots.value||[]).filter(Boolean)
-  if(!ids.length) return null // null = nessun filtro
-  const set = new Set()
-  for(const id of ids) collectDescendants(id, set)
-  return set
-})
-
-/* ===== Attributi ===== */
-const attrById = computed(()=>{ const m=new Map(); for(const a of (props.attributes||[])) m.set(a._id,a); return m })
-
-function pickAttrName (a) {
-  const loc = a?.translations?.name?.[langLocal.value]
-  return (loc && String(loc).trim()) || a?.name || ''
-}
-/** Normalizza il tipo attributo (stringa o reference) in token */
-function kindToken (a) {
-  const k = a?.kind
-  let raw = ''
-  if (!k) raw = ''
-  else if (typeof k === 'string') raw = k
-  else if (typeof k === 'object') raw = k.value || k.title || k.name || ''
-  const s = String(raw).toLowerCase().trim()
-  if (!s) return ''
-  if (s.includes('allerg')) return 'allergen'
-  if (['vitigno','grape','uva'].includes(s)) return 'vitigno'
-  if (['produttore','producer','cantina','winery'].includes(s)) return 'produttore'
-  return s
-}
-function kindListFromProd (p, target) {
-  const ids=(p.attributes||[]).map(toId).filter(Boolean)
-  const out=[]
-  for(const id of ids){
-    const a=attrById.value.get(id)
-    if(!a) continue
-    if (kindToken(a) === target) out.push(a)
-  }
-  return out
-}
-function listToLabel (arr) { return (arr||[]).map(pickAttrName).filter(Boolean).join(', ') }
-function listToIcons (arr) { return (arr||[]).map(a => (a?.icon || '').trim()).filter(Boolean) }
-
-/* ------- Prezzi: mostra SOLO valori > 0 ------- */
-function toMoney (v) { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null }
-function isPositive (v) { return Number.isFinite(v) && v > 0 }
-function readGlass (p) { return toMoney(p?.priceGlass) ?? toMoney(p?._priceGlass) ?? toMoney(p?.prices?.glass) }
-function readBottle (p) { return toMoney(p?.priceBottle) ?? toMoney(p?._priceBottle) ?? toMoney(p?.prices?.bottle) }
-function formatMoney (n) { return isPositive(n) ? n.toFixed(2) : '' }
-
-/* ====== Risoluzione nome prodotto
-   IT: preferisci `name` (campo base) per riflettere subito le modifiche, altrimenti traduzione
-   altre lingue: preferisci traduzione, altrimenti `name` */
-function resolveProductLabel (p) {
-  const base = (p?.name || '').trim()
-  const tr = (pickLocalized(p, 'translations.name', langLocal.value) || '').trim()
-  if (langLocal.value === 'it') return base || tr || ''
-  return tr || base || ''
-}
-
-function productToRow(p){
-  const label = resolveProductLabel(p)
-  const glass = readGlass(p)
-  const bottle = readBottle(p)
-  const wine = isPositive(glass) && isPositive(bottle)
-
-  // attributi
-  const allergenAttrs = kindListFromProd(p,'allergen')
-  const grapes        = kindListFromProd(p,'vitigno')
-  const producers     = kindListFromProd(p,'produttore')
-
-  return {
-    id: p._id,
-    label,
-    active: p.active !== false,
-
-    // righe meta
-    allergenIcons: listToIcons(allergenAttrs),
-    grapesLabel:   listToLabel(grapes),
-    producersLabel:listToLabel(producers),
-    hasGrapeOrProducer: (grapes?.length||0) > 0 || (producers?.length||0) > 0,
-
-    // prezzi
-    hasWine: wine,
-    glass: wine ? glass : null,
-    bottle: wine ? bottle : null,
-    price: wine ? null : toMoney(p.price)
-  }
-}
-
-const directByCategory = computed(()=>{
-  const m=new Map()
-  const push=(cid,row)=>{ const cur=m.get(cid); if(Array.isArray(cur)) cur.push(row); else m.set(cid,[row]) }
-  for(const p of (props.products||[])){
-    const row=productToRow(p)
-    const catIds=(p.categories||[]).map(toId).filter(Boolean)
-    for(const c of catIds){ if(catById.value.has(c)) push(c,row) }
-  }
-  for(const [k,arr] of m.entries()){
-    if(Array.isArray(arr)) arr.sort((a,b)=>(a.label||'').localeCompare(b.label||''))
-    else m.set(k,[])
-  }
-  return m
-})
-
-const orderedCategoryIds = computed(()=>{
-  const ids=Array.from(directByCategory.value.keys())
-  const idx=treeOrderIndex.value
-  ids.sort((a,b)=>(idx.get(a)??1e9)-(idx.get(b)??1e9))
-  return ids
-})
-
-const groups = computed(()=>{
-  const out=[]
-  for(const cid of orderedCategoryIds.value){
-    // filtro categorie: se ho un set di consentite e il cid non è incluso, salto
-    if (allowedCategorySet.value && !allowedCategorySet.value.has(cid)) continue
-
-    const base=directByCategory.value.get(cid)||[]
-    const filtered=onlyActive.value? base.filter(it=>it.active): base
-    if(!filtered.length) continue
-    const title = props.usePathInHeaders
-      ? categoryPathLabel(cid)
-      : (pickLocalized(catById.value.get(cid),'translations.title',langLocal.value) || catById.value.get(cid)?.title || categoryPathLabel(cid))
-    const items = includePrices.value
-      ? filtered
-      : filtered.map(it => ({ ...it, price:null, glass:null, bottle:null, hasWine:false }))
-    out.push({ id:cid, label:title, items })
-  }
-  return out
-})
+/* ====== Prezzi ====== */
+function isPositive (v) { const n = Number(v); return Number.isFinite(n) && n > 0 }
+function hasWine (it) { return isPositive(it?.prices?.glass) && isPositive(it?.prices?.bottle) }
+function formatMoney (n) { return isPositive(n) ? Number(n).toFixed(2) : '' }
 
 /* ===== Footer sempre in basso (preview/stampa) ===== */
 const previewRef = ref(null)
@@ -550,15 +360,17 @@ async function recalcSpacer(){
   spacerPx.value = Math.round(need)
 }
 watch([
-  groups, onlyActive, includePrices, includeAllergens,
-  fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseCategories, accent, langLocal,
-  selectedCategoryRoots
+  visibleSections, onlyActive, includePrices, includeMarks,
+  fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseSections, accent
 ], () => nextTick(recalcSpacer), { deep:true })
-onMounted(()=>{ /* non applico preset se "custom" */ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
+onMounted(()=>{ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
 
-/* ===== PDF: footer “fixed” disegnato sull’ULTIMA pagina
-   FIX pagina bianca: renderizzo direttamente .page-frame e forzo background bianco ===== */
+/* ===== PDF
+   Per vedere le immagini in PDF html2canvas deve poterle “leggere”:
+   - l’host deve inviare Access-Control-Allow-Origin (CORS) adeguato
+   - qui settiamo useCORS:true e crossorigin="anonymous" sulle <img>
+   Se l’host NON consente CORS, le immagini non verranno incluse nel PDF (il dialog HTML può comunque mostrarle). */
 async function downloadPdf(){
   await recalcSpacer()
 
@@ -575,7 +387,13 @@ async function downloadPdf(){
   let footerImg = null, footerRatio = 0
   if (footerRef.value) {
     try {
-      const canvas = await html2canvas(footerRef.value, { scale: 2, backgroundColor: null, useCORS: true })
+      const canvas = await html2canvas(footerRef.value, {
+        scale: 2,
+        backgroundColor: null,
+        useCORS: true,        // <— importante
+        allowTaint: false,
+        imageTimeout: 5000
+      })
       footerImg = canvas.toDataURL('image/png', 0.95)
       footerRatio = canvas.height / canvas.width
     } catch (e) {
@@ -584,13 +402,21 @@ async function downloadPdf(){
   }
 
   const stamp = new Date(); const pad = n => String(n).padStart(2,'0')
-  const nameSafe = (props.businessName || 'menu').toLowerCase().replace(/[^\w]+/g, '-')
-  const fname = `${nameSafe}-${langLocal.value}-${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`
+  const nameSafe = (props.title || 'menu').toLowerCase().replace(/[^\w]+/g, '-')
+  const fname = `${nameSafe}-${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`
   const opt = {
     margin: [12,10,12,10],
     filename: fname,
     image: { type:'jpeg', quality:0.95 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0, scrollX: 0, windowWidth: rootEl.scrollWidth },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,         // <— importante
+      allowTaint: false,
+      imageTimeout: 8000,
+      backgroundColor: '#ffffff',
+      scrollY: 0, scrollX: 0,
+      windowWidth: rootEl.scrollWidth
+    },
     jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress:true, putOnlyUsedFonts:true },
     pagebreak: { mode:['css','legacy'], avoid: ['.category-block'] }
   }
@@ -609,8 +435,8 @@ async function downloadPdf(){
       const y = pageH - bottom - h
       pdf.addImage(footerImg, 'PNG', x, y, usableW, h, undefined, 'FAST')
     } else {
-      const line1 = (props.coverCharge != null) ? `${coverLabel.value}: ${Number(props.coverCharge).toFixed(2)}` : ''
-      const line2 = footerText.value || ''
+      const line1 = (props.coverCharge != null) ? `${props.coverLabel}: ${Number(props.coverCharge).toFixed(2)}` : ''
+      const line2 = props.footerText || ''
       pdf.setFontSize(9)
       const y = pageH - bottom + 2
       if (line1) pdf.text(line1, left, y - 6)
@@ -622,15 +448,10 @@ async function downloadPdf(){
   spacerPx.value = prevSpacer
 }
 
-/* STAMPA: PDF prioritario, poi printThis, poi window.print */
+/* STAMPA: PDF prioritario, fallback a window.print */
 async function printNow(){
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
   if (html2pdf) { await downloadPdf(); return }
-  if (window.$ && window.$.fn && typeof window.$.fn.printThis === 'function' && previewRef.value) {
-    const rootEl = previewRef.value.querySelector('.page-frame') || previewRef.value
-    window.$(rootEl).printThis({ importCSS:true, importStyle:true, pageTitle:'', header:null, footer:null })
-    return
-  }
   printReady.value = true
   await nextTick(); window.print()
   setTimeout(()=>{ printReady.value=false }, 400)
@@ -686,7 +507,7 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .menu-header.ta-right{ text-align:right; }
 .menu-title{ font-size:var(--_title); font-weight:800; letter-spacing:.3px; }
 
-/* Categorie */
+/* Sezioni */
 .category-block{ break-inside:avoid; margin:18px 0 12px; padding:0; }
 .cat-header{ display:inline-block; background:var(--_accent); padding:6px 10px; border-radius:10px;
   font-weight:800; font-size:var(--_cat); letter-spacing:.3px; margin-bottom:10px; }
@@ -707,13 +528,12 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .meta-line{ font-size:calc(var(--_base) * 0.9); line-height:1.25; color:#3b3e46; }
 .sep{ opacity:.5; margin:0 6px; }
 
-/* Allergeni: solo icone */
-.allergen-icons{
-  display:flex; gap:6px; margin-top:2px; align-items:center;
-}
-.allergen-icons .q-icon{ opacity:.9; }
+/* Icone (es. allergeni) */
+.marks-row{ display:flex; gap:6px; margin-top:2px; align-items:center; }
+.mark-img{ width:14px; height:14px; object-fit:contain; display:inline-block; vertical-align:middle; }
+.emoji{ font-size:14px; line-height:1; }
 
-/* Prezzi a destra: cifre tabulari per allineamento stabile */
+/* Prezzi */
 .item-row-print .right{
   font-size:var(--_price);
   font-weight:700;
