@@ -68,6 +68,19 @@
           <div class="col-12 col-sm-6 col-md-3">
             <q-select v-model="langLocal" :options="langOptions" emit-value map-options dense outlined label="Lingua" />
           </div>
+
+          <!-- ===== FILTRO CATEGORIE ===== -->
+          <div class="col-12">
+            <q-select
+              v-model="selectedCategoryRoots"
+              :options="categoryOptions"
+              option-label="label" option-value="id"
+              multiple use-chips emit-value map-options dense outlined clearable
+              :hint="'Vuoto = tutte le categorie'"
+              label="Categorie da includere"
+              :popup-content-style="{ maxHeight: '50vh' }"
+            />
+          </div>
         </div>
       </q-card-section>
 
@@ -91,19 +104,16 @@
                   <div class="left">
                     <span class="name">{{ it.label }}</span>
 
-                    <!-- Riga ALLERGENI -->
-                    <div v-if="includeAllergens && it.allergens?.length" class="meta-line">
-                      <span class="meta-label">Allergeni:</span>
-                      <span class="meta-value">{{ it.allergensLabel }}</span>
+                    <!-- ICONCINE ALLERGENI (solo icone) -->
+                    <div v-if="includeAllergens && it.allergenIcons?.length" class="allergen-icons">
+                      <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" />
                     </div>
 
-                    <!-- Riga VITIGNO/PRODUTTORE -->
+                    <!-- Riga VITIGNO/PRODUTTORE (senza etichette) -->
                     <div v-if="it.hasGrapeOrProducer" class="meta-line">
-                      <span class="meta-label">Vitigno:</span>
-                      <span class="meta-value">{{ it.grapesLabel || '—' }}</span>
-                      <span class="sep">·</span>
-                      <span class="meta-label">Produttore:</span>
-                      <span class="meta-value">{{ it.producersLabel || '—' }}</span>
+                      <span v-if="it.grapesLabel">{{ it.grapesLabel }}</span>
+                      <span v-if="it.grapesLabel && it.producersLabel" class="sep">·</span>
+                      <span v-if="it.producersLabel">{{ it.producersLabel }}</span>
                     </div>
                   </div>
 
@@ -154,19 +164,16 @@
             <div class="left">
               <span class="name">{{ it.label }}</span>
 
-              <!-- Riga ALLERGENI -->
-              <div v-if="includeAllergens && it.allergens?.length" class="meta-line">
-                <span class="meta-label">Allergeni:</span>
-                <span class="meta-value">{{ it.allergensLabel }}</span>
+              <!-- ICONCINE ALLERGENI (solo icone) -->
+              <div v-if="includeAllergens && it.allergenIcons?.length" class="allergen-icons">
+                <q-icon v-for="(ico,i) in it.allergenIcons" :key="i" :name="ico || 'emergency'" size="14px" />
               </div>
 
-              <!-- Riga VITIGNO/PRODUTTORE -->
+              <!-- Riga VITIGNO/PRODUTTORE (senza etichette) -->
               <div v-if="it.hasGrapeOrProducer" class="meta-line">
-                <span class="meta-label">Vitigno:</span>
-                <span class="meta-value">{{ it.grapesLabel || '—' }}</span>
-                <span class="sep">·</span>
-                <span class="meta-label">Produttore:</span>
-                <span class="meta-value">{{ it.producersLabel || '—' }}</span>
+                <span v-if="it.grapesLabel">{{ it.grapesLabel }}</span>
+                <span v-if="it.grapesLabel && it.producersLabel" class="sep">·</span>
+                <span v-if="it.producersLabel">{{ it.producersLabel }}</span>
               </div>
             </div>
 
@@ -340,7 +347,7 @@ function categoryPathLabel(id){
     const t = pickLocalized(n,'translations.title',langLocal.value) || n.title
     parts.push(t)
     let parent=null
-    for(const [k,v] of catById.value.entries()){ if((v.children||[]).some(c=>c._id===cur)){ parent=k; break } }
+    for(const [k,v] of catById.value.entries()){ if((v.children||[]).some(c=>toId(c)===cur)){ parent=k; break } }
     cur=parent
   }
   return parts.reverse().join(' / ')
@@ -351,14 +358,45 @@ const treeOrderIndex = computed(()=>{
   ;(props.categoriesTree||[]).forEach(walk); return m
 })
 
+/* Opzioni per il filtro categorie (mostro il path completo) */
+const categoryOptions = computed(() => {
+  const out=[]
+  const walk=(n, path='')=>{
+    const labelBase = pickLocalized(n,'translations.title',langLocal.value) || n.title || ''
+    const label = path ? `${path} / ${labelBase}` : labelBase
+    out.push({ id:n._id, label })
+    ;(n.children||[]).forEach(c=>walk(c, label))
+  }
+  ;(props.categoriesTree||[]).forEach(r=>walk(r,''))
+  return out
+})
+
+/* Filtro categorie selezionate: se vuoto => tutte */
+const selectedCategoryRoots = ref([])
+
+/* Raccoglie discendenti (incluso il nodo) */
+function collectDescendants(startId, out){
+  if(!startId || out.has(startId)) return
+  out.add(startId)
+  const node = catById.value.get(startId)
+  const kids = (node?.children||[]).map(toId).filter(Boolean)
+  for(const k of kids) collectDescendants(k, out)
+}
+
+const allowedCategorySet = computed(()=>{
+  const ids = (selectedCategoryRoots.value||[]).filter(Boolean)
+  if(!ids.length) return null // null = nessun filtro
+  const set = new Set()
+  for(const id of ids) collectDescendants(id, set)
+  return set
+})
+
 /* ===== Attributi ===== */
 const attrById = computed(()=>{ const m=new Map(); for(const a of (props.attributes||[])) m.set(a._id,a); return m })
-
 function pickAttrName (a) {
   const loc = a?.translations?.name?.[langLocal.value]
   return (loc && String(loc).trim()) || a?.name || ''
 }
-
 /** Normalizza il tipo attributo (stringa o reference) in token */
 function kindToken (a) {
   const k = a?.kind
@@ -373,7 +411,6 @@ function kindToken (a) {
   if (['produttore','producer','cantina','winery'].includes(s)) return 'produttore'
   return s
 }
-
 function kindListFromProd (p, target) {
   const ids=(p.attributes||[]).map(toId).filter(Boolean)
   const out=[]
@@ -385,6 +422,7 @@ function kindListFromProd (p, target) {
   return out
 }
 function listToLabel (arr) { return (arr||[]).map(pickAttrName).filter(Boolean).join(', ') }
+function listToIcons (arr) { return (arr||[]).map(a => (a?.icon || '').trim()).filter(Boolean) }
 
 /* ------- Prezzi: mostra SOLO valori > 0 ------- */
 function toMoney (v) {
@@ -394,7 +432,6 @@ function toMoney (v) {
 function isPositive (v) {
   return Number.isFinite(v) && v > 0
 }
-
 function readGlass (p) {
   return toMoney(p?.priceGlass) ?? toMoney(p?._priceGlass) ?? toMoney(p?.prices?.glass)
 }
@@ -410,9 +447,9 @@ function productToRow(p){
   const wine = isPositive(glass) && isPositive(bottle)
 
   // attributi
-  const allergens  = kindListFromProd(p,'allergen')
-  const grapes     = kindListFromProd(p,'vitigno')
-  const producers  = kindListFromProd(p,'produttore')
+  const allergenAttrs = kindListFromProd(p,'allergen')
+  const grapes        = kindListFromProd(p,'vitigno')
+  const producers     = kindListFromProd(p,'produttore')
 
   return {
     id: p._id,
@@ -420,12 +457,9 @@ function productToRow(p){
     active: p.active !== false,
 
     // righe meta
-    allergens,
-    allergensLabel: listToLabel(allergens),
-    grapes,
-    grapesLabel: listToLabel(grapes),
-    producers,
-    producersLabel: listToLabel(producers),
+    allergenIcons: listToIcons(allergenAttrs),
+    grapesLabel:   listToLabel(grapes),
+    producersLabel:listToLabel(producers),
     hasGrapeOrProducer: (grapes?.length||0) > 0 || (producers?.length||0) > 0,
 
     // prezzi
@@ -461,6 +495,9 @@ const orderedCategoryIds = computed(()=>{
 const groups = computed(()=>{
   const out=[]
   for(const cid of orderedCategoryIds.value){
+    // filtro categorie: se ho un set di consentite e il cid non è incluso, salto
+    if (allowedCategorySet.value && !allowedCategorySet.value.has(cid)) continue
+
     const base=directByCategory.value.get(cid)||[]
     const filtered=onlyActive.value? base.filter(it=>it.active): base
     if(!filtered.length) continue
@@ -498,7 +535,8 @@ async function recalcSpacer(){
 }
 watch([
   groups, onlyActive, includePrices, includeAllergens,
-  fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseCategories, accent, langLocal
+  fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseCategories, accent, langLocal,
+  selectedCategoryRoots
 ], () => nextTick(recalcSpacer), { deep:true })
 onMounted(()=>{ recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
@@ -655,9 +693,16 @@ defineExpose({ isPositive, formatMoney })
 
 /* meta (allergeni, vitigno/produttore) */
 .meta-line{ font-size:calc(var(--_base) * 0.9); line-height:1.25; color:#3b3e46; }
-.meta-label{ font-weight:600; margin-right:4px; }
-.meta-value{ opacity:.95; }
 .sep{ opacity:.5; margin:0 6px; }
+
+/* Allergeni: solo icone */
+.allergen-icons{
+  display:flex;
+  gap:6px;
+  margin-top:2px;
+  align-items:center;
+}
+.allergen-icons .q-icon{ opacity:.9; }
 
 /* Prezzi a destra: cifre tabulari per allineamento stabile */
 .item-row-print .right{
@@ -680,10 +725,9 @@ defineExpose({ isPositive, formatMoney })
 .menu-footer .cover-line{ margin-bottom:6px; }
 .menu-footer .disclaimer{ opacity:.85; }
 
-/* In modalità PDF nascondi eventuali icone Quasar per sicurezza */
+/* In modalità PDF nascondo solo gli elementi non necessari */
 .pdf-mode .menu-footer,
 .pdf-mode .footer-spacer { display:none !important; }
-.pdf-mode .q-icon { display:none !important; }
 
 /* Barra stile */
 .stylebar{ background:rgba(0,0,0,.02); }
