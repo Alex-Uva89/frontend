@@ -61,6 +61,27 @@
           <div class="col-6 col-sm-3 col-md-2 flex items-center">
             <q-toggle v-model="uppercaseSections" label="SEZ. maiuscolo" />
           </div>
+
+          <!-- === Filtro categorie (nuovo) === -->
+          <div class="col-12 col-sm-6 col-md-6">
+            <q-select
+              v-model="selectedCats"
+              :options="catOptions"
+              multiple
+              emit-value
+              map-options
+              dense
+              outlined
+              use-chips
+              label="Categorie da stampare (vuoto = tutte)"
+              :hint="selectedCats?.length ? (selectedCats.length + ' selezionate') : 'Tutte'"
+            />
+            <div class="q-mt-xs">
+              <q-btn flat dense size="sm" label="Tutte" @click="selectAllCats" />
+              <q-btn flat dense size="sm" class="q-ml-sm" label="Nessuna" @click="selectedCats = []" />
+            </div>
+          </div>
+          <!-- === /Filtro categorie === -->
         </div>
       </q-card-section>
 
@@ -87,20 +108,18 @@
                     <!-- Icone (es. allergeni) -->
                     <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
                       <template v-for="(mk,i) in it.marks" :key="i">
-                        <!-- Se c'è URL, prova immagine CORS; se fallisce, sparisce -->
                         <img v-if="mk.url" class="mark-img"
                              :src="mk.url"
                              :alt="mk.title || 'icon'"
                              crossorigin="anonymous"
                              decoding="async"
                              @error="(e)=>{ e.target.style.display='none' }" />
-                        <!-- Fallback icona/emoji -->
                         <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
                         <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
                       </template>
                     </div>
 
-                    <!-- Meta lines (testo libero, già composto dal parent) -->
+                    <!-- Meta lines -->
                     <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">
                       {{ m }}
                     </div>
@@ -321,15 +340,43 @@ const styleVars = computed(() => {
   }
 })
 
-/* ====== Dati visibili ====== */
-const visibleSections = computed(()=>{
-  const out=[]
-  for(const sec of (props.sections || [])){
-    if(!sec || !Array.isArray(sec.items)) continue
-    const items = onlyActive.value ? sec.items.filter(it => it?.active !== false) : sec.items.slice()
-    if(!items.length) continue
-    out.push({ id: sec.id || sec.title || Math.random().toString(36).slice(2), title: sec.title || '', items })
-  }
+/* ===== Filtro categorie (nuovo) ===== */
+const selectedCats = ref([])
+
+function sectionId (sec, idx) {
+  if (sec?.id) return String(sec.id)
+  const base = (sec?.title || `Sezione ${idx + 1}`).toLowerCase().replace(/[^\w]+/g, '-')
+  return `sec-${idx}-${base}`
+}
+
+const catOptions = computed(() => {
+  return (props.sections || []).map((sec, idx) => ({
+    label: sec?.title || `Sezione ${idx + 1}`,
+    value: sectionId(sec, idx)
+  }))
+})
+
+function selectAllCats () {
+  selectedCats.value = catOptions.value.map(o => o.value)
+}
+
+/* ====== Dati visibili (con filtro categorie) ====== */
+const visibleSections = computed(() => {
+  const chosen = new Set(selectedCats.value || [])
+  const out = []
+  ;(props.sections || []).forEach((sec, idx) => {
+    if (!sec || !Array.isArray(sec.items)) return
+
+    const sid = sectionId(sec, idx)
+    if (chosen.size > 0 && !chosen.has(sid)) return
+
+    const items = onlyActive.value
+      ? sec.items.filter(it => it?.active !== false)
+      : sec.items.slice()
+
+    if (!items.length) return
+    out.push({ id: sid, title: sec.title || '', items })
+  })
   return out
 })
 
@@ -361,16 +408,13 @@ async function recalcSpacer(){
 }
 watch([
   visibleSections, onlyActive, includePrices, includeMarks,
-  fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseSections, accent
+  fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseSections, accent,
+  selectedCats // <— ricalcola quando cambia il filtro
 ], () => nextTick(recalcSpacer), { deep:true })
 onMounted(()=>{ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
 
-/* ===== PDF
-   Per vedere le immagini in PDF html2canvas deve poterle “leggere”:
-   - l’host deve inviare Access-Control-Allow-Origin (CORS) adeguato
-   - qui settiamo useCORS:true e crossorigin="anonymous" sulle <img>
-   Se l’host NON consente CORS, le immagini non verranno incluse nel PDF (il dialog HTML può comunque mostrarle). */
+/* ===== PDF ===== */
 async function downloadPdf(){
   await recalcSpacer()
 
@@ -390,7 +434,7 @@ async function downloadPdf(){
       const canvas = await html2canvas(footerRef.value, {
         scale: 2,
         backgroundColor: null,
-        useCORS: true,        // <— importante
+        useCORS: true,
         allowTaint: false,
         imageTimeout: 5000
       })
@@ -410,7 +454,7 @@ async function downloadPdf(){
     image: { type:'jpeg', quality:0.95 },
     html2canvas: {
       scale: 2,
-      useCORS: true,         // <— importante
+      useCORS: true,
       allowTaint: false,
       imageTimeout: 8000,
       backgroundColor: '#ffffff',
