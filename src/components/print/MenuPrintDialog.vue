@@ -120,8 +120,12 @@
                   <!-- Prezzi testuali con cifre tabulari -->
                   <div class="right" v-if="includePrices">
                     <template v-if="it.hasWine">
-                      <span v-if="isPositive(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
-                      <span v-if="isPositive(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
+                      <span v-if="isPositive(it.glass)" class="price-chip">
+                        <q-icon name="wine_bar" size="16px" class="price-ico" />{{ formatMoney(it.glass) }}
+                      </span>
+                      <span v-if="isPositive(it.bottle)" class="price-chip">
+                        <q-icon name="liquor" size="16px" class="price-ico" />{{ formatMoney(it.bottle) }}
+                      </span>
                     </template>
                     <template v-else>
                       <span v-if="isPositive(it.price)">{{ formatMoney(it.price) }}</span>
@@ -180,8 +184,12 @@
             <!-- Stessa logica anche nel fallback -->
             <div class="right" v-if="includePrices">
               <template v-if="it.hasWine">
-                <span v-if="isPositive(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
-                <span v-if="isPositive(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
+                <span v-if="isPositive(it.glass)" class="price-chip">
+                  <q-icon name="wine_bar" size="16px" class="price-ico" />{{ formatMoney(it.glass) }}
+                </span>
+                <span v-if="isPositive(it.bottle)" class="price-chip">
+                  <q-icon name="liquor" size="16px" class="price-ico" />{{ formatMoney(it.bottle) }}
+                </span>
               </template>
               <template v-else>
                 <span v-if="isPositive(it.price)">{{ formatMoney(it.price) }}</span>
@@ -717,7 +725,10 @@ defineExpose({ isPositive, formatMoney })
   font-variant-numeric: tabular-nums;
 }
 .price-chip{ display:inline-flex; align-items:baseline; gap:6px; }
-.price-chip .abbr{ font-weight:600; opacity:.75; letter-spacing:.2px; text-transform:uppercase; }
+
+/* Icone prezzo (calice/bottiglia) */
+.price-ico{ opacity:.8; margin-right:6px; line-height:1; transform: translateY(1px); }
+.price-chip .abbr{ display:none; } /* non più usato */
 
 /* Footer (preview/print) */
 .menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);
