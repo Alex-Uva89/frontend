@@ -207,7 +207,7 @@
 
     <!-- ====== DIALOG EDIT ====== -->
     <q-dialog v-model="editor.open" persistent :maximized="$q.screen.lt.md">
-      <q-card style="width: 720px; max-width: 95vw">
+      <q-card style="width: 820px; max-width: 95vw">
         <q-toolbar>
           <q-btn flat round dense icon="arrow_back" v-close-popup />
           <q-toolbar-title>Modifica prodotto</q-toolbar-title>
@@ -215,20 +215,175 @@
         </q-toolbar>
         <q-separator />
         <q-card-section>
+          <!-- BASE -->
           <div class="row q-col-gutter-md">
             <div class="col-12 col-md-8">
-              <q-input v-model="editor.form.name" label="Nome *" dense outlined :rules="[rRequired]" />
+              <q-input v-model="editor.form.name" label="Nome (base) *" dense outlined :rules="[rRequired]" />
             </div>
             <div class="col-12 col-md-4">
               <q-input v-model="editor.form.sku" label="SKU" dense outlined />
             </div>
+
             <div class="col-12 col-md-4">
               <q-input v-model.number="editor.form.price" type="number" step="0.01" label="Prezzo" dense outlined />
             </div>
+            <div class="col-6 col-md-4">
+              <q-input v-model.number="editor.form.priceGlass" type="number" step="0.01" label="Prezzo calice" dense outlined />
+            </div>
+            <div class="col-6 col-md-4">
+              <q-input v-model.number="editor.form.priceBottle" type="number" step="0.01" label="Prezzo bottiglia" dense outlined />
+            </div>
+
             <div class="col-12 col-md-4 flex items-center">
               <q-toggle v-model="editor.form.active" label="Attivo" />
             </div>
           </div>
+
+          <!-- TRADUZIONI -->
+          <div class="q-mt-lg">
+            <div class="text-subtitle1 q-mb-sm">Traduzioni nome</div>
+            <div class="row q-col-gutter-md">
+              <div class="col-12 col-md-6">
+                <q-input v-model="editor.form.t_name_it" label="Italiano (it)" dense outlined />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input v-model="editor.form.t_name_en" label="English (en)" dense outlined />
+              </div>
+            </div>
+          </div>
+
+          <!-- ATTRIBUTI -->
+          <div class="q-mt-lg">
+            <div class="text-subtitle1 q-mb-sm">Attributi</div>
+            <div class="row q-col-gutter-md">
+              <div class="col-12 col-md-6">
+                <q-select
+                  v-model="editor.form.attrAllergenIds"
+                  :options="allergenOptions"
+                  option-value="id" option-label="label" emit-value map-options
+                  multiple use-chips dense outlined clearable
+                  label="Allergeni"
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar v-if="scope.opt.icon"><q-icon :name="scope.opt.icon" /></q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                </q-select>
+              </div>
+              <div class="col-12 col-md-6">
+                <q-select
+                  v-model="editor.form.attrGrapeIds"
+                  :options="grapeOptions"
+                  option-value="id" option-label="label" emit-value map-options
+                  multiple use-chips dense outlined clearable
+                  label="Vitigno"
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-select
+                  v-model="editor.form.attrProducerIds"
+                  :options="producerOptions"
+                  option-value="id" option-label="label" emit-value map-options
+                  multiple use-chips dense outlined clearable
+                  label="Produttore"
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-select
+                  v-model="editor.form.attrOtherIds"
+                  :options="otherAttrOptions"
+                  option-value="id" option-label="label" emit-value map-options
+                  multiple use-chips dense outlined clearable
+                  label="Altri attributi"
+                />
+              </div>
+            </div>
+
+            <!-- ========== ANTEPRIMA ATTRIBUTI ========== -->
+            <div class="q-mt-md">
+              <div class="text-subtitle2 q-mb-xs">Anteprima attributi</div>
+
+              <!-- Attuali (originali) -->
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <q-badge color="grey-7" outline>Attuali</q-badge>
+                <q-chip
+                  v-for="o in previewOriginal"
+                  :key="'orig-'+o.id"
+                  dense
+                  color="grey-3"
+                  text-color="grey-10"
+                  :icon="o.icon || undefined"
+                  :title="o.label"
+                  class="q-px-sm"
+                >
+                  {{ o.label }}
+                </q-chip>
+                <span v-if="!previewOriginal.length" class="text-grey-7">Nessuno</span>
+              </div>
+
+              <!-- Dopo modifiche (selezione corrente + non catalogati preservati) -->
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <q-badge color="primary" outline>Dopo modifiche</q-badge>
+                <q-chip
+                  v-for="o in previewSelected"
+                  :key="'sel-'+o.id"
+                  dense
+                  color="primary"
+                  text-color="white"
+                  :icon="o.icon || undefined"
+                  :title="o.label"
+                  class="q-px-sm"
+                >
+                  {{ o.label }}
+                </q-chip>
+                <span v-if="!previewSelected.length" class="text-grey-7">Nessuno</span>
+              </div>
+
+              <!-- Nuovi -->
+              <div v-if="previewAdded.length" class="row items-center q-gutter-xs q-mb-xs">
+                <q-badge color="positive" outline>Nuovi</q-badge>
+                <q-chip
+                  v-for="o in previewAdded"
+                  :key="'add-'+o.id"
+                  dense
+                  color="positive"
+                  text-color="white"
+                  :icon="o.icon || undefined"
+                  :title="o.label"
+                  class="q-px-sm"
+                >
+                  {{ o.label }}
+                </q-chip>
+              </div>
+
+              <!-- Rimossi -->
+              <div v-if="previewRemoved.length" class="row items-center q-gutter-xs">
+                <q-badge color="negative" outline>Rimossi</q-badge>
+                <q-chip
+                  v-for="o in previewRemoved"
+                  :key="'rem-'+o.id"
+                  dense
+                  outline
+                  color="negative"
+                  text-color="negative"
+                  :icon="o.icon || undefined"
+                  :title="o.label"
+                  class="q-px-sm chip-removed"
+                >
+                  {{ o.label }}
+                </q-chip>
+              </div>
+
+              <div v-if="!previewAdded.length && !previewRemoved.length && !previewOriginal.length && !previewSelected.length" class="text-grey-7">
+                Nessun attributo selezionato.
+              </div>
+            </div>
+            <!-- ========== /ANTEPRIMA ATTRIBUTI ========== -->
+          </div>
+
+          <!-- TESTI -->
           <q-input v-model="editor.form.description" type="textarea" autogrow dense outlined label="Descrizione" class="q-mt-md" />
           <q-input v-model="editor.form.notes" type="textarea" autogrow dense outlined label="Note interne" class="q-mt-sm" />
         </q-card-section>
@@ -253,21 +408,49 @@
 </template>
 
 <script setup>
+// Vue & Quasar
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import MenuPrintDialog from 'src/components/print/MenuPrintDialog.vue'
+
+// DnD
 import Draggable from 'vuedraggable'
+
+// App
 import { api } from 'boot/axios'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
 import { PERM } from 'src/auth/perm'
+
+
+// ====== HELPERS ID ATTRIBUTI ======
+function normAttrId (v) {
+  // Restituisce sempre una stringa id, oppure null
+  if (!v) return null
+  if (typeof v === 'string') return v
+  if (typeof v === 'object') return v._id || v._ref || v.id || v.value || null
+  return null
+}
+function asIdList (list) {
+  return (list || []).map(normAttrId).filter(Boolean)
+}
+function shortId (s) {
+  const id = String(s || '')
+  if (id.length <= 10) return id || '?'
+  return id.slice(0, 4) + '…' + id.slice(-4)
+}
+function unknownLabel (id) {
+  // id può essere object o string: normalizzo e poi abbreviato
+  const sid = normAttrId(id) || '?'
+  return `Non catalogato (${shortId(sid)})`
+}
 
 const $q = useQuasar()
 const API = import.meta.env.VITE_API_URL
 
 const menuPrintOpen = ref(false)
 const menuLang = ref('it')
-const printAttributes = ref([])
+const printAttributes = ref([]) // attributi per stampa & editor
 
 /* ================== STORE & PERMESSI ================== */
 const usersStore = useUsersStore()
@@ -320,7 +503,14 @@ const editor = ref({
   open: false,
   saving: false,
   id: null,
-  form: { name: '', sku: '', price: null, active: true, description: '', notes: '' }
+  originalAttrIds: [],   // per "Attuali"
+  unknownAttrIds: [],    // non presenti nel catalogo, preservati
+  form: {
+    name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
+    active: true, description: '', notes: '',
+    t_name_it: '', t_name_en: '',
+    attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: []
+  }
 })
 
 /* ================== BOOTSTRAP ================== */
@@ -350,10 +540,11 @@ async function initialLoad () {
   }
 }
 
-/* ========== NUOVO: ricarico prima di aprire la stampa ========== */
+/* ========== Ricarico prima di aprire la stampa ========== */
 async function openPrint () {
   try {
     await Promise.all([loadProducts(), loadAttributes()])
+    rebuildLists()
   } catch (e) {
     console.warn('refresh before print failed', e)
   }
@@ -368,6 +559,7 @@ async function loadCategories () {
   if (!json?.ok) throw new Error(json?.error || 'Errore categorie')
   categoriesTree.value = json.data || []
 }
+// coercizione a numero monetario positivo: 0 o valori non validi -> null
 function toMoney (v) {
   const n = Number(v)
   return Number.isFinite(n) && n > 0 ? n : null
@@ -377,6 +569,7 @@ async function loadProducts () {
     params: { businessId: businessId.value }
   })
   if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
+  // Normalizzo per UI
   const rows = (json.data || []).map(p => {
     const glass  = (typeof p.priceGlass  !== 'undefined') ? p.priceGlass  : (p?.prices?.glass  ?? null)
     const bottle = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
@@ -403,6 +596,7 @@ function cmpOrderTitle(a, b) {
   return (a?.title || '').localeCompare(b?.title || '')
 }
 function sortKids(arr) { return [...(arr || [])].sort(cmpOrderTitle) }
+
 function buildParentMap (tree) {
   const map = new Map()
   const walk = (n) => { sortKids(n.children).forEach(c => { map.set(c._id, n._id); walk(c) }) }
@@ -410,6 +604,7 @@ function buildParentMap (tree) {
   return map
 }
 const parentOf = computed(() => buildParentMap(categoriesTree.value))
+
 const catById = computed(() => {
   const m = new Map()
   const walk = (n) => { m.set(n._id, n); sortKids(n.children).forEach(walk) }
@@ -421,6 +616,7 @@ function categoryPathLabel (id) {
   while (cur) { const n = catById.value.get(cur); if (!n) break; parts.push(n.title); cur = parentOf.value.get(cur) }
   return parts.reverse().join(' / ')
 }
+
 const categoryOptions = computed(() => {
   const out = []
   const walk = (n, path) => {
@@ -433,6 +629,7 @@ const categoryOptions = computed(() => {
   return out
 })
 const categoryOptionsWithAll = computed(() => [{ id: null, label: '— Tutte le categorie —' }, ...categoryOptions.value])
+
 function leafIdsUnder (rootId = null) {
   const ids = []
   const startNodes = rootId ? [catById.value.get(rootId)].filter(Boolean) : (categoriesTree.value || [])
@@ -444,6 +641,7 @@ function leafIdsUnder (rootId = null) {
   startNodes.forEach(walk)
   return ids
 }
+
 const visibleCategories = computed(() => {
   const targetId = selectedCategoryId.value
   const leafIds = targetId ? leafIdsUnder(targetId) : leafIdsUnder(null)
@@ -454,37 +652,85 @@ const visibleCategories = computed(() => {
   }))
 })
 
-/* ================== ATTRIBUTI (per UI) ================== */
+/* ================== ATTRIBUTI (supporto UI & editor) ================== */
 const attrById = computed(() => {
-  const m = new Map(); for (const a of (printAttributes.value || [])) m.set(a._id, a); return m
+  const m = new Map()
+  for (const a of (printAttributes.value || [])) m.set(a._id, a)
+  return m
 })
 function pickAttrName (a) {
   const t = a?.translations?.name?.[menuLang.value]
   return (t && String(t).trim()) || a?.name || ''
 }
+/** Normalizza il "tipo" di attributo (stringa o oggetto reference) in un token */
 function kindToken (a) {
-  const k = a?.kind; let raw = ''
+  const k = a?.kind
+  let raw = ''
   if (!k) raw = ''
   else if (typeof k === 'string') raw = k
   else if (typeof k === 'object') raw = k.value || k.title || k.name || ''
   const s = String(raw).toLowerCase().trim()
   if (!s) return ''
+  // Sinonimi comuni
   if (s.includes('allerg')) return 'allergen'
   if (['vitigno', 'grape', 'uva'].includes(s)) return 'vitigno'
   if (['produttore', 'producer', 'cantina', 'winery'].includes(s)) return 'produttore'
   return s
 }
 function kindList (prod, target) {
-  const ids = (prod.attributes || []).filter(Boolean); const out = []
+  const ids = asIdList(prod?.attributes)
+  const out = []
   for (const id of ids) {
-    const a = attrById.value.get(id); if (!a) continue
+    const a = attrById.value.get(id)
+    if (!a) continue
     if (kindToken(a) === target) out.push(a)
   }
   return out
 }
 function allergenList (prod) { return kindList(prod, 'allergen') }
-function hasGrapeOrProducer (prod) { return kindList(prod, 'vitigno').length > 0 || kindList(prod, 'produttore').length > 0 }
+function hasGrapeOrProducer (prod) {
+  return kindList(prod, 'vitigno').length > 0 || kindList(prod, 'produttore').length > 0
+}
 function listToLabel (arr) { return (arr || []).map(pickAttrName).filter(Boolean).join(', ') }
+
+/* ====== Opzioni per editor ====== */
+const attributeOptions = computed(() => (printAttributes.value || []).map(a => ({
+  id: a._id,
+  label: pickAttrName(a),
+  icon: a.icon || '',
+  kind: kindToken(a)
+})))
+const attrOptionById = computed(() => {
+  const m = new Map()
+  attributeOptions.value.forEach(o => m.set(o.id, o))
+  return m
+})
+const allergenOptions  = computed(() => attributeOptions.value.filter(o => o.kind === 'allergen'))
+const grapeOptions     = computed(() => attributeOptions.value.filter(o => o.kind === 'vitigno'))
+const producerOptions  = computed(() => attributeOptions.value.filter(o => o.kind === 'produttore'))
+const otherAttrOptions = computed(() => attributeOptions.value.filter(o => !['allergen','vitigno','produttore'].includes(o.kind)))
+
+/* ====== Anteprima attributi (diff: include non catalogati) ====== */
+const selectedKnownSet = computed(() => new Set([
+  ...(editor.value.form.attrAllergenIds || []),
+  ...(editor.value.form.attrGrapeIds || []),
+  ...(editor.value.form.attrProducerIds || []),
+  ...(editor.value.form.attrOtherIds || [])
+]))
+const carryUnknownSet = computed(() => new Set(editor.value.unknownAttrIds || []))
+const effectiveSelectedSet = computed(() => new Set([...selectedKnownSet.value, ...carryUnknownSet.value]))
+const originalAttrIdSet = computed(() => new Set(editor.value.originalAttrIds || []))
+
+function toDisplayOption (id) {
+  const o = attrOptionById.value.get(id)
+  return o || { id, label: unknownLabel(id), icon: '' }
+}
+function mapIdsToOptions (ids = []) { return ids.map(toDisplayOption) }
+
+const previewOriginal = computed(() => mapIdsToOptions(Array.from(originalAttrIdSet.value)))
+const previewSelected = computed(() => mapIdsToOptions(Array.from(effectiveSelectedSet.value)))
+const previewAdded    = computed(() => mapIdsToOptions(Array.from(effectiveSelectedSet.value).filter(id => !originalAttrIdSet.value.has(id))))
+const previewRemoved  = computed(() => mapIdsToOptions(Array.from(originalAttrIdSet.value).filter(id => !effectiveSelectedSet.value.has(id))))
 
 /* ================== LISTE PER CATEGORIA ================== */
 function rebuildLists () {
@@ -499,6 +745,7 @@ function rebuildLists () {
   }
   listsByCat.value = map
 }
+
 function matchesSearch (p) {
   const term = String(search.value || '').trim().toLowerCase()
   if (!term) return true
@@ -577,24 +824,69 @@ async function onToggleActive (id, nextVal) {
     busyToggle.value.delete(id)
   }
 }
+
 function openEdit (id) {
-  editor.value = { open: true, saving: false, id, form: { name: '', sku: '', price: null, active: true, description: '', notes: '' } }
+  editor.value = {
+    open: true, saving: false, id,
+    originalAttrIds: [], unknownAttrIds: [],
+    form: {
+      name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
+      active: true, description: '', notes: '',
+      t_name_it: '', t_name_en: '',
+      attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: []
+    }
+  }
   loadOneForEdit(id)
 }
+
 async function loadOneForEdit (id) {
   try {
     const { data: json } = await api.get(`${API}/cms/products/${encodeURIComponent(id)}`)
     if (!json?.ok || !json?.data) throw new Error('fetch failed')
     const p = json.data
+
+    const ids = asIdList(p.attributes)   // <-- prima filtravi "as is"
+const allergens = [], grapes = [], producers = [], others = [], unknown = []
+
+for (const aid of ids) {
+  const a = attrById.value.get(aid)
+  if (!a) { unknown.push(aid); continue }
+  const k = kindToken(a)
+  if (k === 'allergen') allergens.push(aid)
+  else if (k === 'vitigno') grapes.push(aid)
+  else if (k === 'produttore') producers.push(aid)
+  else others.push(aid)
+}
+
+    editor.value.originalAttrIds = ids.slice()
+    editor.value.unknownAttrIds  = unknown.slice()
     editor.value.form = {
-      name: p.name || '', sku: p.sku || '', price: toMoney(p.price),
-      active: p.active !== false, description: p.description || '', notes: p.notes || ''
+      name: p.name || '',
+      sku: p.sku || '',
+      price: toMoney(p.price),
+      priceGlass: toMoney(p?.priceGlass ?? p?.prices?.glass),
+      priceBottle: toMoney(p?.priceBottle ?? p?.prices?.bottle),
+      active: p.active !== false,
+      description: p.description || '',
+      notes: p.notes || '',
+      t_name_it: (p?.translations?.name?.it || ''),
+      t_name_en: (p?.translations?.name?.en || ''),
+      attrAllergenIds: allergens,
+      attrGrapeIds: grapes,
+      attrProducerIds: producers,
+      attrOtherIds: others
     }
   } catch (e) {
     $q.notify({ type: 'negative', message: e?.message || 'Impossibile caricare il prodotto' })
     editor.value.open = false
   }
 }
+
+function trimOrNull (s) {
+  const t = (s ?? '').toString().trim()
+  return t.length ? t : null
+}
+
 async function saveEdit () {
   if (!canUpdateProducts.value) return
   if (!editor.value.id || !editor.value.form.name) {
@@ -602,23 +894,61 @@ async function saveEdit () {
   }
   editor.value.saving = true
   try {
+    // unione: selezionati noti + unknown (preservati)
+    const attrIds = Array.from(new Set([
+      ...(editor.value.form.attrAllergenIds || []),
+      ...(editor.value.form.attrGrapeIds || []),
+      ...(editor.value.form.attrProducerIds || []),
+      ...(editor.value.form.attrOtherIds || []),
+      ...(editor.value.unknownAttrIds || [])
+    ]))
+
     const payload = {
       name: editor.value.form.name,
       sku: editor.value.form.sku || '',
       price: editor.value.form.price ?? null,
+      priceGlass: editor.value.form.priceGlass ?? null,
+      priceBottle: editor.value.form.priceBottle ?? null,
       active: !!editor.value.form.active,
       description: editor.value.form.description || '',
-      notes: editor.value.form.notes || ''
+      notes: editor.value.form.notes || '',
+      attributes: attrIds,
+      translations: {
+        name: {
+          it: trimOrNull(editor.value.form.t_name_it),
+          en: trimOrNull(editor.value.form.t_name_en)
+        }
+      }
     }
+
     const { data: json } = await api.put(`${API}/cms/products/${encodeURIComponent(editor.value.id)}`, payload)
     if (!json?.ok) throw new Error(json?.error || 'update failed')
+
+    // Aggiorna gli array locali
     const id = editor.value.id
-    const idx = (allProducts.value || []).findIndex(p => p._id === id)
-    if (idx >= 0) allProducts.value[idx] = { ...allProducts.value[idx], ...payload }
-    for (const arr of Object.values(listsByCat.value)) {
-      const i = (arr || []).findIndex(p => p._id === id)
-      if (i >= 0) arr[i] = { ...arr[i], ...payload }
+    const mergeLocal = (obj) => {
+      const idx = (allProducts.value || []).findIndex(p => p._id === id)
+      if (idx >= 0) {
+        allProducts.value[idx] = { ...allProducts.value[idx], ...obj, attributes: attrIds }
+      }
+      for (const arr of Object.values(listsByCat.value)) {
+        const i = (arr || []).findIndex(p => p._id === id)
+        if (i >= 0) arr[i] = { ...arr[i], ...obj, attributes: attrIds }
+      }
     }
+    mergeLocal({
+      name: payload.name,
+      sku: payload.sku,
+      price: toMoney(payload.price),
+      priceGlass: payload.priceGlass,
+      priceBottle: payload.priceBottle,
+      translations: payload.translations
+    })
+
+    // aggiorno stato editor per prossime modifiche
+    editor.value.originalAttrIds = attrIds.slice()
+    editor.value.unknownAttrIds  = attrIds.filter(aid => !attrById.value.has(aid))
+
     $q.notify({ type: 'positive', message: 'Prodotto aggiornato' })
     editor.value.open = false
   } catch (e) {
@@ -627,6 +957,7 @@ async function saveEdit () {
     editor.value.saving = false
   }
 }
+
 function confirmDelete (id, name = '') {
   if (!canDeleteProducts.value) return
   $q.dialog({
@@ -677,6 +1008,7 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
 .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .caption-ellipsis { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+/* mini meta-row testuale sotto al nome */
 .meta-row { font-size: 12px; line-height: 1.2; color: #4a4f58; }
 .meta-label { font-weight: 600; margin-right: 4px; }
 .meta-value { opacity: 0.95; }
@@ -687,4 +1019,10 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
 
 .drag-handle { cursor: grab; }
 .drag-handle:active { cursor: grabbing; }
+
+/* Chip rimossi (anteprima) */
+.chip-removed {
+  text-decoration: line-through;
+  opacity: .8;
+}
 </style>
