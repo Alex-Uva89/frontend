@@ -98,11 +98,11 @@
                   <!-- Prezzi testuali con cifre tabulari -->
                   <div class="right" v-if="includePrices">
                     <template v-if="it.hasWine">
-                      <span v-if="isNumber(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
-                      <span v-if="isNumber(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
+                      <span v-if="isPositive(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
+                      <span v-if="isPositive(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
                     </template>
                     <template v-else>
-                      <span v-if="isNumber(it.price)">{{ formatMoney(it.price) }}</span>
+                      <span v-if="isPositive(it.price)">{{ formatMoney(it.price) }}</span>
                     </template>
                   </div>
                 </div>
@@ -149,11 +149,11 @@
             <!-- Stessa logica anche nel fallback -->
             <div class="right" v-if="includePrices">
               <template v-if="it.hasWine">
-                <span v-if="isNumber(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
-                <span v-if="isNumber(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
+                <span v-if="isPositive(it.glass)" class="price-chip"><span class="abbr">cal</span>{{ formatMoney(it.glass) }}</span>
+                <span v-if="isPositive(it.bottle)" class="price-chip"><span class="abbr">bot</span>{{ formatMoney(it.bottle) }}</span>
               </template>
               <template v-else>
-                <span v-if="isNumber(it.price)">{{ formatMoney(it.price) }}</span>
+                <span v-if="isPositive(it.price)">{{ formatMoney(it.price) }}</span>
               </template>
             </div>
           </div>
@@ -334,26 +334,29 @@ function allergenIconsFor(prod){
   return out
 }
 
-/* ------- prezzi (robusti) ------- */
-function asNum (v) {
+/* ------- Prezzi: mostra SOLO valori > 0 ------- */
+function toMoney (v) {
   const n = Number(v)
-  return Number.isFinite(n) ? n : null
+  return Number.isFinite(n) && n > 0 ? n : null
 }
-function isNumber (v) { return Number.isFinite(v) }
+function isPositive (v) {
+  return Number.isFinite(v) && v > 0
+}
 
 function readGlass (p) {
-  return asNum(p?.priceGlass) ?? asNum(p?._priceGlass) ?? asNum(p?.prices?.glass)
+  return toMoney(p?.priceGlass) ?? toMoney(p?._priceGlass) ?? toMoney(p?.prices?.glass)
 }
 function readBottle (p) {
-  return asNum(p?.priceBottle) ?? asNum(p?._priceBottle) ?? asNum(p?.prices?.bottle)
+  return toMoney(p?.priceBottle) ?? toMoney(p?._priceBottle) ?? toMoney(p?.prices?.bottle)
 }
-function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
+function formatMoney (n) { return isPositive(n) ? n.toFixed(2) : '' }
 
 function productToRow(p){
   const label = pickLocalized(p,'translations.name',langLocal.value) || p.name
   const glass = readGlass(p)
   const bottle = readBottle(p)
-  const wine = isNumber(glass) || isNumber(bottle)
+  // Mostra formato "vino" SOLO se esistono ENTRAMBI > 0
+  const wine = isPositive(glass) && isPositive(bottle)
   return {
     id: p._id,
     label,
@@ -362,7 +365,8 @@ function productToRow(p){
     hasWine: wine,
     glass: wine ? glass : null,
     bottle: wine ? bottle : null,
-    price: wine ? null : asNum(p.price)
+    // Se non è vino a coppia, mostra il prezzo singolo SOLO se > 0
+    price: wine ? null : toMoney(p.price)
   }
 }
 
@@ -532,7 +536,7 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 applyPreset(preset.value)
 
 /* export helpers to template */
-defineExpose({ isNumber, formatMoney })
+defineExpose({ isPositive, formatMoney })
 </script>
 
 <style>

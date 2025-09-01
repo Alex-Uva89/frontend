@@ -16,7 +16,7 @@
             :options="(businessStore.businesses || []).map(b => ({ label: b.name, value: b._id }))"
             v-model="usersStore.selectedBusinessId"
             placeholder="Seleziona locale"
-            style="min-width: 280px"
+            style="width: fit-content"
           >
             <template #prepend><q-icon name="storefront" class="text-white" /></template>
           </q-select>
@@ -324,10 +324,10 @@ async function loadCategories () {
   categoriesTree.value = json.data || []
 }
 
-// coercizione sicura a numero
-function toNum (v) {
+// coercizione a numero monetario positivo: 0 o valori non validi -> null
+function toMoney (v) {
   const n = Number(v)
-  return Number.isFinite(n) ? n : null
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
 async function loadProducts () {
@@ -335,15 +335,15 @@ async function loadProducts () {
     params: { businessId: businessId.value }
   })
   if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
-  // Normalizzo per la UI vino e coercizzo a number
+  // Normalizzo per la UI: per i vini 0 viene considerato "assenza"
   const rows = (json.data || []).map(p => {
-    const glass = (typeof p.priceGlass !== 'undefined') ? p.priceGlass : (p?.prices?.glass ?? null)
+    const glass  = (typeof p.priceGlass  !== 'undefined') ? p.priceGlass  : (p?.prices?.glass  ?? null)
     const bottle = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
     return {
       ...p,
-      _priceGlass: toNum(glass),
-      _priceBottle: toNum(bottle),
-      price: toNum(p.price)
+      _priceGlass: toMoney(glass),
+      _priceBottle: toMoney(bottle),
+      price: toMoney(p.price)
     }
   })
   allProducts.value = rows
@@ -439,27 +439,42 @@ function matchesSearch (p) {
 }
 
 /* ================== PREZZI (vino / standard) ================== */
+// numero valido?
 function isNumber (v) { return typeof v === 'number' && Number.isFinite(v) }
-function hasWinePrices (p) {
-  return isNumber(p._priceGlass) || isNumber(p._priceBottle)
-      || isNumber(p?.prices?.glass) || isNumber(p?.prices?.bottle)
-      || isNumber(p?.priceGlass) || isNumber(p?.priceBottle)
-}
+// numero monetario positivo
+function isPositive (v) { return typeof v === 'number' && Number.isFinite(v) && v > 0 }
+
+// getter normalizzati per calice/bottiglia
 function getGlassPrice (p) {
-  if (isNumber(p._priceGlass)) return p._priceGlass
-  if (isNumber(p?.prices?.glass)) return p.prices.glass
-  if (isNumber(p?.priceGlass)) return p.priceGlass
+  if (isPositive(p._priceGlass)) return p._priceGlass
+  if (isPositive(p?.prices?.glass)) return p.prices.glass
+  if (isPositive(p?.priceGlass)) return p.priceGlass
   return null
 }
 function getBottlePrice (p) {
-  if (isNumber(p._priceBottle)) return p._priceBottle
-  if (isNumber(p?.prices?.bottle)) return p.prices.bottle
-  if (isNumber(p?.priceBottle)) return p.priceBottle
+  if (isPositive(p._priceBottle)) return p._priceBottle
+  if (isPositive(p?.prices?.bottle)) return p.prices.bottle
+  if (isPositive(p?.priceBottle)) return p.priceBottle
   return null
 }
-function hasAnyPrice (p) {
-  return hasWinePrices(p) || isNumber(p.price)
+
+/**
+ * Mostro i prezzi "vino" SOLO se esistono **entrambi** (calice e bottiglia) e sono > 0.
+ */
+function hasWinePrices (p) {
+  const g = getGlassPrice(p)
+  const b = getBottlePrice(p)
+  return isPositive(g) && isPositive(b)
 }
+
+/**
+ * C'è almeno un prezzo da mostrare? (coppia vino **oppure** price singolo > 0)
+ * Serve anche per decidere se mostrare il separatore "·" dopo lo SKU.
+ */
+function hasAnyPrice (p) {
+  return hasWinePrices(p) || isPositive(p.price)
+}
+
 function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' } // nessun simbolo di valuta
 
 /* ================== DnD & SALVATAGGIO ================== */
@@ -522,7 +537,7 @@ async function loadOneForEdit (id) {
     if (!json?.ok || !json?.data) throw new Error('fetch failed')
     const p = json.data
     editor.value.form = {
-      name: p.name || '', sku: p.sku || '', price: toNum(p.price),
+      name: p.name || '', sku: p.sku || '', price: toMoney(p.price),
       active: p.active !== false, description: p.description || '', notes: p.notes || ''
     }
   } catch (e) {
@@ -604,7 +619,7 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
 }
 
 .item-row { background: var(--q-surface, #fff); border: 1px solid rgba(0,0,0,0.06); }
-.body--dark .item-row { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+.body--dark .item-row { background: rgba(255,255,255,0.04); border-color: rgba(0,0,0,0.08); }
 
 .thumb { background: #f5f5f5; border-radius: 10px; overflow: hidden; }
 .item-row :deep(.q-avatar img) { width: 100%; height: 100%; object-fit: cover; }
