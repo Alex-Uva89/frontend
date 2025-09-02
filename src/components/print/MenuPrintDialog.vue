@@ -89,6 +89,7 @@
 
       <!-- PREVIEW -->
       <q-card-section class="q-pt-none q-px-lg q-pb-lg" style="height: fit-content;">
+        <!-- IMPORTANT: root passato a html2pdf = questo container -->
         <div ref="previewRef" class="print-menu menu-columns" :data-cols="columns" :style="styleVars">
           <div class="page-frame">
             <div class="menu-header" :class="`ta-${titleAlign}`">
@@ -319,6 +320,7 @@ const columns    = ref(1)
 const titleAlign = ref('right')
 const uppercaseSections = ref(true)
 const accent     = ref('#eff1f7')
+
 const styleVars = computed(() => {
   const stacks={
     system:"system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
@@ -340,7 +342,7 @@ const styleVars = computed(() => {
   }
 })
 
-/* ===== Filtro categorie (nuovo) ===== */
+/* ===== Filtro categorie ===== */
 const selectedCats = ref([])
 
 function sectionId (sec, idx) {
@@ -366,14 +368,11 @@ const visibleSections = computed(() => {
   const out = []
   ;(props.sections || []).forEach((sec, idx) => {
     if (!sec || !Array.isArray(sec.items)) return
-
     const sid = sectionId(sec, idx)
     if (chosen.size > 0 && !chosen.has(sid)) return
-
     const items = onlyActive.value
       ? sec.items.filter(it => it?.active !== false)
       : sec.items.slice()
-
     if (!items.length) return
     out.push({ id: sid, title: sec.title || '', items })
   })
@@ -409,16 +408,26 @@ async function recalcSpacer(){
 watch([
   visibleSections, onlyActive, includePrices, includeMarks,
   fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseSections, accent,
-  selectedCats // <— ricalcola quando cambia il filtro
+  selectedCats
 ], () => nextTick(recalcSpacer), { deep:true })
 onMounted(()=>{ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
 
 /* ===== PDF ===== */
 async function downloadPdf(){
+  // assicura che i webfont siano caricati
+  try {
+  if (document.fonts && document.fonts.ready) {
+    await document.fonts.ready;
+  }
+} catch (e) {
+  console.log(e)
+}
+
   await recalcSpacer()
 
-  const rootEl = previewRef.value?.querySelector('.page-frame')
+  // ROOT = contenitore con le CSS variables (styleVars)
+  const rootEl = previewRef.value
   if(!rootEl) return
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
   if(!html2pdf) return
