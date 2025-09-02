@@ -1,4 +1,3 @@
-<!-- /frontend/src/components/print/MenuPrintDialog.vue -->
 <template>
   <!-- Dialog di ANTEPRIMA -->
   <q-dialog
@@ -62,7 +61,7 @@
             <q-toggle v-model="uppercaseSections" label="SEZ. maiuscolo" />
           </div>
 
-          <!-- === Filtro categorie (nuovo) === -->
+          <!-- === Filtro categorie === -->
           <div class="col-12 col-sm-6 col-md-6">
             <q-select
               v-model="selectedCats"
@@ -97,52 +96,94 @@
             </div>
 
             <div class="page-body">
-              <div v-for="sec in visibleSections" :key="sec.id" class="category-block">
+              <div v-for="(sec) in visibleSections" :key="sec.id" class="category-block">
                 <div class="cat-header" :class="{'tt-up': uppercaseSections}">
                   {{ sec.title }}
                 </div>
 
-                <div v-for="it in sec.items" :key="it.id" class="item-row-print">
-                  <div class="left">
-                    <span class="name">{{ it.label }}</span>
-
-                    <!-- Icone (es. allergeni) -->
-                    <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
-                      <template v-for="(mk,i) in it.marks" :key="i">
-                        <img v-if="mk.url" class="mark-img"
-                             :src="mk.url"
-                             :alt="mk.title || 'icon'"
-                             crossorigin="anonymous"
-                             decoding="async"
-                             @error="(e)=>{ e.target.style.display='none' }" />
-                        <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
-                        <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
-                      </template>
-                    </div>
-
-                    <!-- Meta lines -->
-                    <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">
-                      {{ m }}
-                    </div>
+                <!-- Header colonne (icone) SOLO se la sezione ha varianti vero bicchiere/bottiglia -->
+                <div
+                  v-if="includePrices && !sectionOnlySingle(sec) && (sectionHasGlass(sec) || sectionHasBottle(sec))"
+                  class="items-grid grid-header-row"
+                  :class="{ 'has-glass': sectionHasGlass(sec), 'has-bottle': sectionHasBottle(sec) }"
+                >
+                  <div class="cell name"></div>
+                  <div v-if="sectionHasGlass(sec)" class="cell glass th">
+                    <q-icon name="wine_bar" size="18px" />
                   </div>
-
-                  <!-- Prezzi -->
-                  <div class="right" v-if="includePrices">
-                    <template v-if="hasWine(it)">
-                      <span v-if="isPositive(it.prices?.glass)" class="price-chip">
-                        <q-icon name="wine_bar" class="abbr-icon" size="16px" />
-                        {{ formatMoney(it.prices?.glass) }}
-                      </span>
-                      <span v-if="isPositive(it.prices?.bottle)" class="price-chip">
-                        <q-icon name="liquor" class="abbr-icon" size="16px" />
-                        {{ formatMoney(it.prices?.bottle) }}
-                      </span>
-                    </template>
-                    <template v-else>
-                      <span v-if="isPositive(it.prices?.price)">{{ formatMoney(it.prices?.price) }}</span>
-                    </template>
+                  <div v-if="sectionHasBottle(sec)" class="cell bottle th">
+                    <q-icon name="liquor" size="18px" />
                   </div>
                 </div>
+
+                <!-- LISTA: variante a colonne (Nome | Bicchiere | Bottiglia) -->
+                <div
+                  v-if="includePrices && !sectionOnlySingle(sec) && (sectionHasGlass(sec) || sectionHasBottle(sec))"
+                  class="items-grid"
+                  :class="{
+                    'has-glass': sectionHasGlass(sec),
+                    'has-bottle': sectionHasBottle(sec)
+                  }"
+                >
+                  <template v-for="it in sec.items" :key="it.id">
+                    <div class="cell name">
+                      <span class="name">{{ it.label }}</span>
+
+                      <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
+                        <template v-for="(mk,i) in it.marks" :key="i">
+                          <img v-if="mk.url" class="mark-img" :src="mk.url" :alt="mk.title || 'icon'"
+                               crossorigin="anonymous" decoding="async"
+                               @error="(e)=>{ e.target.style.display='none' }" />
+                          <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
+                          <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
+                        </template>
+                      </div>
+
+                      <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">{{ m }}</div>
+                    </div>
+
+                    <!-- Prezzo Bicchiere -->
+                    <div v-if="sectionHasGlass(sec)" class="cell glass tr flex justify-start">
+                      <span v-if="hasGlass(it)">{{ formatMoneyInt(it.prices?.glass) }}</span>
+                    </div>
+
+                    <!-- Prezzo Bottiglia (o singolo prezzo per item misti) -->
+                    <div v-if="sectionHasBottle(sec)" class="cell bottle tr flex justify-start">
+                      <template v-if="hasBottle(it)">
+                        <span>{{ formatMoneyInt(it.prices?.bottle) }}</span>
+                      </template>
+                      <template v-else-if="isPositive(it.prices?.price)">
+                        <span>{{ formatMoneyInt(it.prices?.price) }}</span>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- LISTA: solo prezzo singolo (nessuna icona) -->
+                <template v-else>
+                  <div v-for="it in sec.items" :key="'single-'+it.id" class="item-row-print">
+                    <div class="left">
+                      <span class="name">{{ it.label }}</span>
+
+                      <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
+                        <template v-for="(mk,i) in it.marks" :key="i">
+                          <img v-if="mk.url" class="mark-img" :src="mk.url" :alt="mk.title || 'icon'"
+                               crossorigin="anonymous" decoding="async"
+                               @error="(e)=>{ e.target.style.display='none' }" />
+                          <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
+                          <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
+                        </template>
+                      </div>
+
+                      <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">{{ m }}</div>
+                    </div>
+
+                    <div class="right" v-if="includePrices" style="width: 50px; justify-content: start;">
+                      <span v-if="isPositive(it.prices?.price)">{{ formatMoneyInt(it.prices?.price) }}</span>
+                    </div>
+                  </div>
+                </template>
+
               </div>
             </div>
 
@@ -152,7 +193,7 @@
             <!-- FOOTER (mostrato in preview/stampa) -->
             <div ref="footerRef" class="menu-footer" v-if="footerText || coverCharge != null">
               <div v-if="coverCharge != null" class="cover-line">
-                {{ coverLabel }}: <b>{{ Number(coverCharge).toFixed(2) }}</b>
+                {{ coverLabel }}: <b>{{ formatMoneyInt(coverCharge) }}</b>
               </div>
               <div v-if="footerText" class="disclaimer">{{ footerText }}</div>
             </div>
@@ -168,65 +209,7 @@
     </q-card>
   </q-dialog>
 
-  <!-- FALLBACK window.print -->
-  <div v-show="printReady" class="print-area print-menu menu-columns" :data-cols="columns" :style="styleVars">
-    <div class="page-frame">
-      <div class="menu-header" :class="`ta-${titleAlign}`"><div class="menu-title">{{ title || 'Menù' }}</div></div>
-      <div class="page-body">
-        <div v-for="sec in visibleSections" :key="'p-'+sec.id" class="category-block">
-          <div class="cat-header" :class="{'tt-up': uppercaseSections}">{{ sec.title }}</div>
-
-          <div v-for="it in sec.items" :key="it.id" class="item-row-print">
-            <div class="left">
-              <span class="name">{{ it.label }}</span>
-
-              <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
-                <template v-for="(mk,i) in it.marks" :key="i">
-                  <img v-if="mk.url" class="mark-img"
-                       :src="mk.url"
-                       :alt="mk.title || 'icon'"
-                       crossorigin="anonymous"
-                       decoding="async"
-                       @error="(e)=>{ e.target.style.display='none' }" />
-                  <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
-                  <span v-else-if="mk.emoji" class="emoji">{{ mk.emoji }}</span>
-                </template>
-              </div>
-
-              <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">
-                {{ m }}
-              </div>
-            </div>
-
-            <div class="right" v-if="includePrices">
-              <template v-if="hasWine(it)">
-                <span v-if="isPositive(it.prices?.glass)" class="price-chip">
-                  <q-icon name="wine_bar" class="abbr-icon" size="16px" />
-                  {{ formatMoney(it.prices?.glass) }}
-                </span>
-                <span v-if="isPositive(it.prices?.bottle)" class="price-chip">
-                  <q-icon name="liquor" class="abbr-icon" size="16px" />
-                  {{ formatMoney(it.prices?.bottle) }}
-                </span>
-              </template>
-              <template v-else>
-                <span v-if="isPositive(it.prices?.price)">{{ formatMoney(it.prices?.price) }}</span>
-              </template>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <div class="footer-spacer" :style="{ height: spacerPx + 'px' }" aria-hidden="true"></div>
-      <div class="menu-footer" v-if="footerText || coverCharge != null">
-        <div v-if="coverCharge != null" class="cover-line">{{ coverLabel }}: <b>{{ Number(coverCharge).toFixed(2) }}</b></div>
-        <div v-if="footerText" class="disclaimer">{{ footerText }}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Tavolozza colori ===== -->
+  <!-- Tavolozza colori -->
   <q-dialog v-model="paletteOpen" persistent>
     <q-card style="width: 92vw; max-width: 780px;">
       <q-toolbar>
@@ -379,10 +362,17 @@ const visibleSections = computed(() => {
   return out
 })
 
-/* ====== Prezzi ====== */
+/* ====== Prezzi & helpers ====== */
 function isPositive (v) { const n = Number(v); return Number.isFinite(n) && n > 0 }
-function hasWine (it) { return isPositive(it?.prices?.glass) && isPositive(it?.prices?.bottle) }
-function formatMoney (n) { return isPositive(n) ? Number(n).toFixed(2) : '' }
+function hasGlass (it) { return isPositive(it?.prices?.glass) }
+function hasBottle (it) { return isPositive(it?.prices?.bottle) }
+function sectionHasGlass (sec) { return Array.isArray(sec?.items) && sec.items.some(it => hasGlass(it)) }
+function sectionHasBottle (sec) { return Array.isArray(sec?.items) && sec.items.some(it => hasBottle(it)) }
+function sectionOnlySingle (sec) {
+  // TRUE se ogni item ha solo prices.price (nessun glass/bottle)
+  return Array.isArray(sec?.items) && sec.items.length > 0 && sec.items.every(it => isPositive(it?.prices?.price) && !hasGlass(it) && !hasBottle(it))
+}
+function formatMoneyInt (n) { const v = Number(n); return Number.isFinite(v) ? String(Math.round(v)) : '' }
 
 /* ===== Footer sempre in basso (preview/stampa) ===== */
 const previewRef = ref(null)
@@ -415,18 +405,10 @@ onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
 
 /* ===== PDF ===== */
 async function downloadPdf(){
-  // assicura che i webfont siano caricati
-  try {
-  if (document.fonts && document.fonts.ready) {
-    await document.fonts.ready;
-  }
-} catch (e) {
-  console.log(e)
-}
+  try { if (document.fonts && document.fonts.ready) { await document.fonts.ready; } } catch (e) { console.log(e) }
 
   await recalcSpacer()
 
-  // ROOT = contenitore con le CSS variables (styleVars)
   const rootEl = previewRef.value
   if(!rootEl) return
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
@@ -488,7 +470,7 @@ async function downloadPdf(){
       const y = pageH - bottom - h
       pdf.addImage(footerImg, 'PNG', x, y, usableW, h, undefined, 'FAST')
     } else {
-      const line1 = (props.coverCharge != null) ? `${props.coverLabel}: ${Number(props.coverCharge).toFixed(2)}` : ''
+      const line1 = (props.coverCharge != null) ? `${props.coverLabel}: ${formatMoneyInt(props.coverCharge)}` : ''
       const line2 = props.footerText || ''
       pdf.setFontSize(9)
       const y = pageH - bottom + 2
@@ -566,16 +548,36 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
   font-weight:800; font-size:var(--_cat); letter-spacing:.3px; margin-bottom:10px; }
 .cat-header.tt-up{ text-transform:uppercase; }
 
-/* Riga */
-.item-row-print{
-  display:grid;
-  grid-template-columns: 1fr auto;
-  align-items:baseline;
-  gap:8px 12px;
-  padding:6px 2px;
-  border-bottom:1px dotted rgba(0,0,0,.12);
+/* ====== Griglia Nome | Bicchiere | Bottiglia ====== */
+.items-grid{
+  display: grid;
+  gap: 8px 12px;
+  align-items: baseline;
+  padding: 6px 2px;
+  border-bottom: 1px dotted rgba(0,0,0,.12);
+  grid-template-columns: 1fr; /* default: solo nome */
 }
-.item-row-print .name{ font-size:var(--_base); font-weight:600; }
+
+/* accendi colonna Bicchiere */
+.items-grid.has-glass{
+  grid-template-columns: 1fr minmax(40px, auto);
+}
+
+/* accendi anche Bottiglia (3 colonne) */
+.items-grid.has-glass.has-bottle{
+  grid-template-columns: 1fr minmax(40px, auto) minmax(50px, auto);
+}
+
+.items-grid .cell.name .name{ font-size:var(--_base); font-weight:600; }
+.items-grid .cell.tr{ text-align:right; font-size:var(--_price); font-weight:700; white-space:nowrap; font-variant-numeric: tabular-nums; }
+
+/* Header della griglia (icone) */
+.grid-header-row{
+  border-bottom: 1px solid rgba(0,0,0,.12);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+.grid-header-row .cell.th{ font-weight:800; opacity:.85; }
 
 /* meta */
 .meta-line{ font-size:calc(var(--_base) * 0.9); line-height:1.25; color:#3b3e46; }
@@ -586,7 +588,16 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .mark-img{ width:14px; height:14px; object-fit:contain; display:inline-block; vertical-align:middle; }
 .emoji{ font-size:14px; line-height:1; }
 
-/* Prezzi */
+/* Vecchia riga singola (fallback) */
+.item-row-print{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  align-items:baseline;
+  gap:8px 12px;
+  padding:6px 2px;
+  border-bottom:1px dotted rgba(0,0,0,.12);
+}
+.item-row-print .name{ font-size:var(--_base); font-weight:600; }
 .item-row-print .right{
   font-size:var(--_price);
   font-weight:700;
@@ -598,8 +609,6 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
   gap:10px;
   font-variant-numeric: tabular-nums;
 }
-.price-chip{ display:inline-flex; align-items:center; gap:6px; }
-.abbr-icon{ opacity:.75; }
 
 /* Footer (preview/print) */
 .menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);
