@@ -51,7 +51,19 @@
 
           <q-btn color="white" text-color="primary" icon="print" class="q-ml-sm"
                  label="Anteprima menù" :disable="!businessId" @click="openPrint" />
+
+          <AddProductComponent
+            class="q-pa-none q-ml-sm"
+            :category-options="categoryOptions"
+            :default-category-id="selectedCategoryId"
+            :business-id="businessId"
+            :can-create="canCreateProducts"
+            button-label="Nuovo prodotto"
+            @created="onProductCreated"
+          />
         </div>
+
+
 
         <div v-if="search" class="row items-center q-gutter-sm q-mt-xs">
           <q-chip dense color="amber-4" text-color="black" icon="info">Filtro attivo: drag & drop disabilitato</q-chip>
@@ -579,6 +591,18 @@
       :footerText="''"
       :coverCharge="null"
     />
+
+
+    <SecurityCodeDialog
+      v-model="deleteDialogOpen"
+      title="Elimina prodotto"
+      :message="deleteConfirmMessage"
+      confirm-label="Elimina"
+      color="negative"
+      :length="6"
+      @confirmed="onDeleteConfirmed"
+    />
+
   </q-page>
 </template>
 
@@ -590,6 +614,13 @@ import MenuPrintDialog from 'src/components/print/MenuPrintDialog.vue'
 
 // DnD
 import Draggable from 'vuedraggable'
+
+// Dialog add product
+import AddProductComponent from 'src/components/common/csm/AddProductComponent.vue'
+
+// Confirm Delete Dialog
+import SecurityCodeDialog from 'src/components/common/SecurityCodeConfirmDialog.vue'
+
 
 // App
 import { api } from 'boot/axios'
@@ -755,6 +786,65 @@ async function initialLoad () {
     loading.value = false
   }
 }
+
+/* ========== CREATE PRODUCTS ========== */
+
+const canCreateProducts = computed(() => {
+  const p = usersStore.currentUser?.perm ?? 0
+  return !!(p & (PERM.PRODUCTS_CREATE | PERM.PRODUCTS_WRITE))
+})
+
+async function onProductCreated () {
+  try {
+    await loadProducts()
+    rebuildLists()
+  } catch (e) {
+    console.warn('refresh after create failed', e)
+  }
+}
+
+/* ====== DIALOG CON CODICE (DELETE) ====== */
+const deleteDialogOpen = ref(false)
+const pendingDeleteId = ref(null)
+const pendingDeleteName = ref('')
+
+const ESCAPE_LOOKUP = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+  '`': '&#x60;',
+  '=': '&#x3D;',
+  '/': '&#x2F;'
+}
+const ESCAPE_RE = /[&<>"'`=/]/g
+
+function escapeHtml (s) {
+  return String(s ?? '').replace(ESCAPE_RE, ch => ESCAPE_LOOKUP[ch])
+}
+
+const deleteConfirmMessage = computed(() =>
+  `Confermi l'eliminazione definitiva di <b>${escapeHtml(pendingDeleteName.value || 'prodotto')}</b>?<br/>Questa azione non è reversibile.`
+)
+
+
+function confirmDelete (id, name = '') {
+  if (!canDeleteProducts.value) return
+  pendingDeleteId.value = id
+  pendingDeleteName.value = name
+  deleteDialogOpen.value = true
+}
+
+function onDeleteConfirmed () {
+  const id = pendingDeleteId.value
+  deleteDialogOpen.value = false
+  pendingDeleteId.value = null
+  pendingDeleteName.value = ''
+  if (id) doDelete(id)
+}
+
+
 
 /* ========== PRINT ========== */
 
@@ -1247,16 +1337,6 @@ async function saveEdit () {
   } finally {
     editor.value.saving = false
   }
-}
-
-function confirmDelete (id, name = '') {
-  if (!canDeleteProducts.value) return
-  $q.dialog({
-    title: 'Elimina prodotto',
-    message: `Confermi l'eliminazione definitiva di <b>${name || 'prodotto'}</b>?`,
-    html: true, cancel: true, persistent: true,
-    ok: { label: 'Elimina', color: 'negative' }
-  }).onOk(() => doDelete(id))
 }
 async function doDelete (id) {
   try {
