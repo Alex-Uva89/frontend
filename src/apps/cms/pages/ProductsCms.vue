@@ -5,14 +5,15 @@
     <div class="text-h5 q-mb-md">Prodotti</div>
     <q-card flat class="hero q-pa-md q-mb-md rounded-borders shadow-2">
       <div class="column q-gutter-sm">
-        <div class="row items-center justify-between no-wrap">
+        <div class="row items-center justify-between no-wrap hero-top">
           <q-chip v-if="businessName" color="white" text-color="primary" icon="storefront" class="q-ml-sm">
             {{ businessName }}
           </q-chip>
 
           <q-select
             v-if="canSeeAllBusinesses"
-            dense filled behavior="menu" emit-value map-options class="hero-input"
+            class="hero-input hero-business-select"
+            dense filled behavior="menu" emit-value map-options
             :options="(businessStore.businesses || []).map(b => ({ label: b.name, value: b._id }))"
             v-model="usersStore.selectedBusinessId"
             placeholder="Seleziona locale"
@@ -28,7 +29,7 @@
           <q-icon name="info" class="q-mr-sm" />Nessun locale attivo. Associa un <b>business</b> all'utente o seleziona un locale.
         </q-banner>
 
-        <div class="row q-col-gutter-sm items-center q-mt-xs">
+        <div class="row q-col-gutter-sm items-center q-mt-xs hero-filters">
           <q-select
             v-model="selectedCategoryId"
             :options="categoryOptionsWithAll"
@@ -49,18 +50,23 @@
             <template #prepend><q-icon name="search" class="text-white" /></template>
           </q-input>
 
-          <q-btn color="white" text-color="primary" icon="print" class="q-ml-sm"
-                 label="Anteprima menù" :disable="!businessId" @click="openPrint" />
 
-          <AddProductComponent
-            class="q-pa-none q-ml-sm"
-            :category-options="categoryOptions"
-            :default-category-id="selectedCategoryId"
-            :business-id="businessId"
-            :can-create="canCreateProducts"
-            button-label="Nuovo prodotto"
-            @created="onProductCreated"
-          />
+          <!-- ====== HERO ACTIONS ====== -->
+          <div class="col-12 col-md-auto row no-wrap items-center q-gutter-xs hero-actions">
+            <q-btn
+              color="white" text-color="primary" icon="print"
+              label="Anteprima menù" :disable="!businessId" @click="openPrint"
+            />
+            <AddProductComponent
+              class="q-pa-none add-component"
+              :category-options="categoryOptions"
+              :default-category-id="selectedCategoryId"
+              :business-id="businessId"
+              :can-create="canCreateProducts"
+              button-label="Nuovo prodotto"
+              @created="onProductCreated"
+            />
+          </div>
         </div>
 
 
@@ -135,7 +141,7 @@
                         <!-- Riga allergeni (chip), se presenti) -->
                         <div
                           v-if="allergenList(prod).length"
-                          class="row items-center no-wrap q-mt-xs meta-row"
+                          class="row items-center no-wrap q-mt-xs meta-row meta-allergens"
                         >
                           <div class="row items-center wrap q-gutter-xs">
                             <q-chip
@@ -158,7 +164,7 @@
                         <!-- Riga vitigno / produttore, se presenti -->
                         <div
                           v-if="hasGrapeOrProducer(prod)"
-                          class="row items-center no-wrap q-mt-xs meta-row"
+                          class="row items-center no-wrap q-mt-xs meta-row meta-wine"
                         >
                           <q-icon name="wine_bar" size="16px" class="q-mr-xs text-deep-purple-7" />
                           <span class="meta-value">{{ listToLabel(kindList(prod,'vitigno')) || '—' }}</span>
@@ -1404,4 +1410,145 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
   object-fit: cover;
   display: block;
 }
+
+/* ===== Mobile-first tuning (solo telefoni) ===== */
+@media (max-width: 599.98px) {
+  /* Ogni riga prodotto diventa a colonna */
+  .comfy-list .item-row {
+    flex-direction: column;
+    padding: 8px;
+  }
+
+  /* Blocco immagine + titolo più compatto */
+  .item-row .thumb {
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 8px;
+  }
+  .item-row .title {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  /* SKU / prezzi più piccoli */
+  .item-row .caption-ellipsis {
+    font-size: 12px;
+  }
+
+  /* Azioni spostate sotto, full width con separatore */
+  .item-row .actions-col {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(0,0,0,0.12);
+  }
+  .body--dark .item-row .actions-col {
+    border-top-color: rgba(255,255,255,0.12);
+  }
+
+  /* Drag handle più vicino al contenuto */
+  .item-row .drag-handle {
+    margin-right: 4px;
+    font-size: 18px;
+  }
+
+  /* Nascondo vitigno/produttore su mobile (troppo densi) */
+  .meta-row.meta-wine {
+    display: none !important;
+  }
+
+  /* Allergeni: pilloline scrollabili orizzontalmente */
+  .meta-row.meta-allergens {
+    margin-top: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .meta-row.meta-allergens .q-chip {
+    transform: scale(0.92);
+    margin-right: 4px;
+  }
+
+  /* Spazio lista più arioso */
+  .comfy-list :deep(.q-item) {
+    min-height: 56px;
+  }
+}
+
+/* ===== HERO: mobile-first (XS) ===== */
+@media (max-width: 599.98px) {
+  .hero {
+    padding: 12px !important;           /* compattiamo il card */
+    border-radius: 12px;
+  }
+
+  /* Riga top: chip + select business vanno a capo con spaziatura */
+  .hero-top {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  /* Caption sotto al titolo: togliamola su mobile per spazio */
+  .hero .text-caption {
+    display: none;
+  }
+
+  /* Select business full width */
+  .hero-business-select {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  /* Riga filtri: più respiro fra elementi */
+  .hero-filters {
+    row-gap: 8px;
+    margin: auto;
+  }
+
+  /* I campi in hero devono riempire lo spazio su XS */
+  .hero-filters .hero-input {
+    width: 100%;
+  }
+
+  /* Contenitore azioni: full width, bottoni affiancati o stacked */
+  .hero-actions {
+    width: 100%;
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    margin: auto;
+  }
+  .body--dark .hero-actions {
+    border-top-color: rgba(255,255,255,0.12);
+  }
+
+  /* Bottoni azione: occupano tutta la riga su schermi stretti */
+  .hero-actions :deep(.q-btn) {
+    flex: 1 1 48%;
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .add-component{
+    width: 100%;
+  }
+
+  /* Se lo spazio scende sotto ~360px, stack verticalmente */
+  @media (max-width: 359.98px) {
+    .hero-actions {
+      flex-wrap: wrap;
+    }
+    .hero-actions :deep(.q-btn) {
+      flex-basis: 100%;
+    }
+  }
+}
+
+
 </style>
