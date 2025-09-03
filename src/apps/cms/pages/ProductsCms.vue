@@ -239,6 +239,62 @@
             </div>
           </div>
 
+          <!-- ===== IMMAGINI (COVER) ===== -->
+          <div class="q-mt-lg">
+            <div class="text-subtitle1 q-mb-sm">Immagini</div>
+            <div class="row q-col-gutter-md">
+              <div class="col-12 col-md-6">
+                <div class="text-caption q-mb-xs">Copertina</div>
+
+                <q-img
+                  :src="coverUrl || undefined"
+                  ratio="16/9"
+                  class="rounded-borders bg-grey-3"
+                >
+                  <div class="absolute-bottom-right q-pa-sm">
+                    <q-btn
+                      dense color="primary" icon="photo_camera" label="Scegli file"
+                      :loading="coverUploading"
+                      @click="coverPicker && coverPicker.pickFiles()"
+                    />
+                    <q-btn
+                      v-if="editor.form.images && editor.form.images.length"
+                      dense flat color="negative" icon="delete"
+                      class="q-ml-xs"
+                      @click="removeCover"
+                    />
+                  </div>
+                </q-img>
+
+                <!-- q-file VISIBILE -->
+                <q-file
+                  ref="coverPicker"
+                  v-model="coverFile"
+                  accept="image/*"
+                  label="Carica immagine…"
+                  counter
+                  filled
+                  dense
+                  class="q-mt-sm"
+                  @update:model-value="onCoverSelected"
+                >
+                  <template #prepend>
+                    <q-icon name="upload" />
+                  </template>
+                </q-file>
+
+                <!-- Alt (opzionale) -->
+                <q-input
+                  v-if="editor.form.images && editor.form.images.length"
+                  v-model="editor.form.images[0].alt"
+                  label="Alt immagine (descrizione)"
+                  dense outlined class="q-mt-sm"
+                />
+              </div>
+            </div>
+          </div>
+          <!-- ===== /IMMAGINI ===== -->
+
           <!-- TRADUZIONI -->
           <div class="q-mt-lg">
             <div class="text-subtitle1 q-mb-sm">Traduzioni nome</div>
@@ -626,9 +682,52 @@ const editor = ref({
     name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
     active: true, description: '', notes: '',
     t_name_it: '', t_name_en: '',
-    attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: []
+    attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: [],
+    images: [] // << NEW: array [{assetId,url,alt}]
   }
 })
+
+/* ====== IMMAGINI (COVER) ====== */
+const coverFile = ref(null)
+const coverUploading = ref(false)
+const coverPicker = ref(null)
+
+const coverUrl = computed(() =>
+  editor.value?.form?.images?.[0]?.url || ''
+)
+
+function removeCover () {
+  editor.value.form.images = []
+}
+
+async function onCoverSelected (fileOrFiles) {
+  const f = Array.isArray(fileOrFiles) ? fileOrFiles[0] : fileOrFiles
+  if (!f) return
+  try {
+    coverUploading.value = true
+    const form = new FormData()
+    // il backend si aspetta il campo "file"
+    form.append('file', f)
+
+    const { data: json } = await api.post(`${API}/cms/uploads/image`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    if (!json?.ok || !json?.data?.assetId) {
+      throw new Error(json?.error || 'Upload fallito')
+    }
+    const assetId = json.data.assetId
+    const url = json.data.url
+    const alt = editor.value.form.images?.[0]?.alt || editor.value.form.name || ''
+    // set come cover
+    editor.value.form.images = [{ assetId, url, alt }]
+    $q.notify({ type: 'positive', message: 'Immagine caricata' })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e?.message || 'Upload fallito' })
+  } finally {
+    coverUploading.value = false
+    coverFile.value = null
+  }
+}
 
 /* ================== BOOTSTRAP ================== */
 onMounted(async () => {
@@ -779,14 +878,15 @@ function buildParentMap (tree) {
   ;(tree || []).forEach(walk)
   return map
 }
-const parentOf = computed(() => buildParentMap(categoriesTree.value))
-
-const catById = computed(() => {
+const Cmap = computed(() => {
   const m = new Map()
   const walk = (n) => { m.set(n._id, n); sortKids(n.children).forEach(walk) }
   ;(categoriesTree.value || []).forEach(walk)
   return m
 })
+const parentOf = computed(() => buildParentMap(categoriesTree.value))
+
+const catById = computed(() => Cmap.value)
 function categoryPathLabel (id) {
   const parts = []; let cur = id
   while (cur) { const n = catById.value.get(cur); if (!n) break; parts.push(n.title); cur = parentOf.value.get(cur) }
@@ -1011,7 +1111,8 @@ function openEdit (id) {
       name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
       active: true, description: '', notes: '',
       t_name_it: '', t_name_en: '',
-      attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: []
+      attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: [],
+      images: [] // << NEW
     }
   }
   loadOneForEdit(id)
@@ -1052,7 +1153,15 @@ async function loadOneForEdit (id) {
       attrAllergenIds: allergens,
       attrGrapeIds: grapes,
       attrProducerIds: producers,
-      attrOtherIds: others
+      attrOtherIds: others,
+      images: (p.images || [])
+        .map(img => ({
+          key: img._key || null,
+          assetId: img?.asset?._id || null,
+          url: img?.asset?.url || null,
+          alt: img?.alt || ''
+        }))
+        .filter(x => x.assetId)
     }
   } catch (e) {
     $q.notify({ type: 'negative', message: e?.message || 'Impossibile caricare il prodotto' })
@@ -1096,7 +1205,10 @@ async function saveEdit () {
           it: trimOrNull(editor.value.form.t_name_it),
           en: trimOrNull(editor.value.form.t_name_en)
         }
-      }
+      },
+      images: (editor.value.form.images || [])
+        .filter(i => i?.assetId)
+        .map(i => ({ assetId: i.assetId, alt: i.alt || '' }))
     }
 
     const { data: json } = await api.put(`${API}/cms/products/${encodeURIComponent(editor.value.id)}`, payload)
@@ -1120,7 +1232,8 @@ async function saveEdit () {
       price: toMoney(payload.price),
       priceGlass: payload.priceGlass,
       priceBottle: payload.priceBottle,
-      translations: payload.translations
+      translations: payload.translations,
+      imageUrl: (editor.value.form.images?.[0]?.url || null) // <<< NEW per thumb lista
     })
 
     // aggiorno stato editor per prossime modifiche
