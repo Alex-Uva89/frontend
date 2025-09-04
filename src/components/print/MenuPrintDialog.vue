@@ -66,6 +66,19 @@
             <q-toggle v-model="uppercaseSections" label="SEZ. maiuscolo" />
           </div>
 
+          <!-- Compatta + margini PDF -->
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-toggle v-model="compactMode" label="Compatta" />
+          </div>
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-select v-model="marginChoice"
+              :options="[
+                { label:'Margini comodi', value:'comfortable' },
+                { label:'Margini compatti', value:'compact' }
+              ]"
+              emit-value map-options dense outlined label="Margini PDF" />
+          </div>
+
           <!-- === Filtro categorie === -->
           <div class="col-12 col-sm-6 col-md-6">
             <q-select
@@ -94,7 +107,7 @@
       <!-- PREVIEW -->
       <q-card-section class="q-pt-none q-px-lg q-pb-lg" style="height: fit-content;">
         <!-- IMPORTANT: root passato a html2pdf = questo container -->
-        <div ref="previewRef" class="print-menu menu-columns" :data-cols="columns" :style="styleVars">
+        <div ref="previewRef" class="print-menu menu-columns" :class="{ compact: compactMode }" :data-cols="columns" :style="styleVars">
           <div class="page-frame">
             <div class="menu-header" :class="`ta-${titleAlign}`">
               <div class="menu-title">{{ titleText }}</div>
@@ -287,7 +300,6 @@ function tr (val, fallback = '') {
   if (val == null) return fallback || ''
   if (typeof val === 'string') return val
   if (typeof val === 'object') {
-    // supporta { it, en } e fallback ragionevoli
     if (val[lang.value]) return String(val[lang.value])
     if (val.it) return String(val.it)
     if (val.en) return String(val.en)
@@ -310,14 +322,16 @@ const presetOptions = [
   { label:'Bistrò (moderno)',  value:'bistro' },
   { label:'Trattoria (elegante)', value:'trattoria' },
   { label:'Minimal (essenziale)', value:'minimal' },
+  { label:'Compatto (stampa)', value:'compact' },
   { label:'Personalizzato', value:'custom' }
 ]
 function applyPreset(val){
   switch(val){
-    case 'classic':  fontChoice.value='system';    baseSize.value=13; titleScale.value=1.7; catScale.value=1.25; columns.value=1; titleAlign.value='right'; uppercaseSections.value=true;  accent.value='#eff1f7'; break
-    case 'bistro':   fontChoice.value='sans';      baseSize.value=14; titleScale.value=1.6; catScale.value=1.3;  columns.value=1; titleAlign.value='center';uppercaseSections.value=false; accent.value='#eaf6ff'; break
-    case 'trattoria':fontChoice.value='garamond';  baseSize.value=14; titleScale.value=1.8; catScale.value=1.35; columns.value=1; titleAlign.value='center';uppercaseSections.value=true;  accent.value='#fbf3e5'; break
-    case 'minimal':  fontChoice.value='serif';     baseSize.value=13; titleScale.value=1.5; catScale.value=1.2;  columns.value=1; titleAlign.value='left'; uppercaseSections.value=false; accent.value='#f5f5f7'; break
+    case 'classic':   fontChoice.value='system';    baseSize.value=13; titleScale.value=1.7; catScale.value=1.25; columns.value=1; titleAlign.value='right'; uppercaseSections.value=true;  accent.value='#eff1f7'; compactMode.value=false; marginChoice.value='comfortable'; break
+    case 'bistro':    fontChoice.value='sans';      baseSize.value=14; titleScale.value=1.6; catScale.value=1.3;  columns.value=1; titleAlign.value='center';uppercaseSections.value=false; accent.value='#eaf6ff'; compactMode.value=false; marginChoice.value='comfortable'; break
+    case 'trattoria': fontChoice.value='garamond';  baseSize.value=14; titleScale.value=1.8; catScale.value=1.35; columns.value=1; titleAlign.value='center';uppercaseSections.value=true;  accent.value='#fbf3e5'; compactMode.value=false; marginChoice.value='comfortable'; break
+    case 'minimal':   fontChoice.value='serif';     baseSize.value=13; titleScale.value=1.5; catScale.value=1.2;  columns.value=1; titleAlign.value='left'; uppercaseSections.value=false; accent.value='#f5f5f7'; compactMode.value=false; marginChoice.value='comfortable'; break
+    case 'compact':   fontChoice.value='system';    baseSize.value=12; titleScale.value=1.5; catScale.value=1.15; columns.value=2; titleAlign.value='left';  uppercaseSections.value=false; accent.value='#ffffff'; compactMode.value=true;  marginChoice.value='compact'; break
     case 'custom': default: break
   }
 }
@@ -338,6 +352,8 @@ const columns    = ref(1)
 const titleAlign = ref('right')
 const uppercaseSections = ref(true)
 const accent     = ref('#eff1f7')
+const compactMode = ref(false)
+const marginChoice = ref('comfortable') // 'comfortable' | 'compact'
 
 const styleVars = computed(() => {
   const stacks={
@@ -350,13 +366,19 @@ const styleVars = computed(() => {
     brandSerif:"'Brand Serif', Georgia, 'Times New Roman', serif",
   }
   const base = Math.max(11, Math.min(22, Number(baseSize.value)||13))
+  const rowGap = Math.max(4, Math.round(base * (compactMode.value ? 0.55 : 0.62)))
+  const secGap = Math.max(8, Math.round(base * (compactMode.value ? 1.0 : 1.3)))
   return {
     '--menu-font-family': stacks[fontChoice.value] || stacks.decimaMono,
     '--menu-base': `${base}px`,
     '--menu-title': `${Math.round(base*(Number(titleScale.value)||1.6))}px`,
     '--menu-cat': `${Math.round(base*(Number(catScale.value)||1.25))}px`,
     '--menu-price': `${Math.round(base*1.1)}px`,
-    '--menu-accent': accent.value || '#eff1f7'
+    '--menu-accent': accent.value || '#eff1f7',
+    '--menu-row-gap': `${rowGap}px`,
+    '--menu-sec-gap': `${secGap}px`,
+    '--menu-column-gap': compactMode.value ? '16px' : '24px',
+    '--menu-line-height': compactMode.value ? 1.28 : 1.35
   }
 })
 
@@ -365,7 +387,6 @@ const selectedCats = ref([])
 
 function sectionId (sec, idx) {
   if (sec?.id) return String(sec.id)
-  // id stabile anche con titoli localizzati
   const baseTitle = typeof sec?.title === 'string'
     ? sec.title
     : (sec?.title?.it || sec?.title?.en || `Sezione ${idx + 1}`)
@@ -374,16 +395,13 @@ function sectionId (sec, idx) {
 }
 
 const catOptions = computed(() => {
-  // accende la reattività alla lingua
   return (props.sections || []).map((sec, idx) => ({
     label: tr(sec?.title) || `Sezione ${idx + 1}`,
     value: sectionId(sec, idx)
   }))
 })
 
-function selectAllCats () {
-  selectedCats.value = catOptions.value.map(o => o.value)
-}
+function selectAllCats () { selectedCats.value = catOptions.value.map(o => o.value) }
 
 /* ====== Dati visibili (con filtro categorie) ====== */
 const visibleSections = computed(() => {
@@ -409,7 +427,6 @@ function hasBottle (it) { return isPositive(it?.prices?.bottle) }
 function sectionHasGlass (sec) { return Array.isArray(sec?.items) && sec.items.some(it => hasGlass(it)) }
 function sectionHasBottle (sec) { return Array.isArray(sec?.items) && sec.items.some(it => hasBottle(it)) }
 function sectionOnlySingle (sec) {
-  // TRUE se ogni item ha solo prices.price (nessun glass/bottle)
   return Array.isArray(sec?.items) && sec.items.length > 0 && sec.items.every(it => isPositive(it?.prices?.price) && !hasGlass(it) && !hasBottle(it))
 }
 function formatMoneyInt (n) { const v = Number(n); return Number.isFinite(v) ? String(Math.round(v)) : '' }
@@ -438,12 +455,16 @@ async function recalcSpacer(){
 watch([
   visibleSections, onlyActive, includePrices, includeMarks,
   fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseSections, accent,
-  selectedCats
+  selectedCats, compactMode
 ], () => nextTick(recalcSpacer), { deep:true })
 onMounted(()=>{ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
 
 /* ===== PDF ===== */
+function getPdfMargins(){
+  return (marginChoice.value === 'compact') ? [8,8,10,8] : [12,10,12,10]
+}
+
 async function downloadPdf(){
   try { if (document.fonts && document.fonts.ready) { await document.fonts.ready; } } catch (e) { console.log(e) }
 
@@ -454,8 +475,12 @@ async function downloadPdf(){
   const html2pdf = (html2pdfModule?.default || html2pdfModule || window.html2pdf)
   if(!html2pdf) return
 
+  // Forzo regole PDF
   rootEl.classList.add('pdf-mode')
   const prevSpacer = spacerPx.value
+  const prevColCount = rootEl.style.columnCount
+  // Forza colonne anche senza media query
+  rootEl.style.columnCount = String(columns.value)
   spacerPx.value = 0
   await nextTick()
 
@@ -471,16 +496,14 @@ async function downloadPdf(){
       })
       footerImg = canvas.toDataURL('image/png', 0.95)
       footerRatio = canvas.height / canvas.width
-    } catch (e) {
-      console.warn('html2canvas footer failed, fallback to text', e)
-    }
+    } catch (e) { console.warn('html2canvas footer failed, fallback to text', e) }
   }
 
   const stamp = new Date(); const pad = n => String(n).padStart(2,'0')
   const nameSafe = String(titleText.value || 'menu').toLowerCase().replace(/[^\w]+/g, '-')
   const fname = `${nameSafe}-${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`
   const opt = {
-    margin: [12,10,12,10],
+    margin: getPdfMargins(),
     filename: fname,
     image: { type:'jpeg', quality:0.95 },
     html2canvas: {
@@ -493,7 +516,8 @@ async function downloadPdf(){
       windowWidth: rootEl.scrollWidth
     },
     jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress:true, putOnlyUsedFonts:true },
-    pagebreak: { mode:['css','legacy'], avoid: ['.category-block'] }
+    pagebreak: { mode:['css','legacy'] } // niente avoid globale sulle sezioni
+    // se vuoi proteggere i titoli: pagebreak: { mode:['css','legacy'], avoid:['.cat-header'] }
   }
 
   await html2pdf().set(opt).from(rootEl).toPdf().get('pdf').then((pdf)=>{
@@ -501,7 +525,7 @@ async function downloadPdf(){
     pdf.setPage(total)
     const pageW = pdf.internal.pageSize.getWidth()
     const pageH = pdf.internal.pageSize.getHeight()
-    const left  = opt.margin[3], right = opt.margin[1], bottom = opt.margin[2]
+    const [right,bottom,left] = opt.margin
     const usableW = pageW - left - right
 
     if (footerImg && footerRatio > 0) {
@@ -520,6 +544,7 @@ async function downloadPdf(){
   }).save()
 
   rootEl.classList.remove('pdf-mode')
+  rootEl.style.columnCount = prevColCount || null
   spacerPx.value = prevSpacer
 }
 
@@ -564,7 +589,7 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
   --_price: var(--menu-price, 14px);
   --_accent: var(--menu-accent, #eff1f7);
   font-family: var(--_font);
-  color:#101114; line-height:1.35;
+  color:#101114; line-height: var(--menu-line-height, 1.35);
 }
 
 /* Simula A4 anche in preview */
@@ -572,8 +597,12 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .page-body{ flex:1 1 auto; overflow:visible; }
 
 /* colonne preview */
-.menu-columns{ column-gap:24px; }
+.menu-columns{ column-gap: var(--menu-column-gap, 24px); }
 .menu-columns[data-cols="2"]{ column-count:1; }
+
+/* Forza colonne in PDF */
+.pdf-mode.menu-columns[data-cols="2"]{ column-count:2 !important; }
+.pdf-mode.menu-columns[data-cols="1"]{ column-count:1 !important; }
 
 /* Header */
 .menu-header{ margin:8px 0 16px; }
@@ -583,7 +612,11 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .menu-title{ font-size:var(--_title); font-weight:800; letter-spacing:.3px; }
 
 /* Sezioni */
-.category-block{ break-inside:avoid; margin:18px 0 12px; padding:0; }
+.category-block{ break-inside:avoid; margin:var(--menu-sec-gap, 18px) 0 12px; padding:0; }
+/* In PDF permetto lo spezzamento del blocco ma evito il break subito dopo l'header */
+.pdf-mode .category-block{ break-inside:auto; }
+.pdf-mode .cat-header{ break-after:avoid; }
+
 .cat-header{ display:inline-block; background:var(--_accent); padding:6px 10px; border-radius:10px;
   font-weight:800; font-size:var(--_cat); letter-spacing:.3px; margin-bottom:10px; }
 .cat-header.tt-up{ text-transform:uppercase; }
@@ -591,7 +624,7 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 /* ====== Griglia Nome | Bicchiere | Bottiglia ====== */
 .items-grid{
   display: grid;
-  gap: 8px 12px;
+  gap: var(--menu-row-gap, 8px) 12px;
   align-items: baseline;
   padding: 6px 2px;
   border-bottom: 1px dotted rgba(0,0,0,.12);
@@ -599,25 +632,17 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 }
 
 /* accendi colonna Bicchiere */
-.items-grid.has-glass{
-  grid-template-columns: 1fr minmax(40px, auto);
-}
-
+.items-grid.has-glass{ grid-template-columns: 1fr minmax(40px, auto); }
 /* accendi anche Bottiglia (3 colonne) */
-.items-grid.has-glass.has-bottle{
-  grid-template-columns: 1fr minmax(40px, auto) minmax(50px, auto);
-}
+.items-grid.has-glass.has-bottle{ grid-template-columns: 1fr minmax(40px, auto) minmax(50px, auto); }
 
 .items-grid .cell.name .name{ font-size:var(--_base); font-weight:600; }
 .items-grid .cell.tr{ text-align:right; font-size:var(--_price); font-weight:700; white-space:nowrap; font-variant-numeric: tabular-nums; }
 
 /* Header della griglia (icone) */
-.grid-header-row{
-  border-bottom: 1px solid rgba(0,0,0,.12);
-  padding-bottom: 8px;
-  margin-bottom: 4px;
-}
+.grid-header-row{ border-bottom: 1px solid rgba(0,0,0,.12); padding-bottom: 8px; margin-bottom: 4px; }
 .grid-header-row .cell.th{ font-weight:800; opacity:.85; }
+.pdf-mode .grid-header-row{ padding-bottom:4px; margin-bottom:2px; }
 
 /* meta */
 .meta-line{ font-size:calc(var(--_base) * 0.9); line-height:1.25; color:#3b3e46; }
@@ -629,30 +654,12 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .emoji{ font-size:14px; line-height:1; }
 
 /* Vecchia riga singola (fallback) */
-.item-row-print{
-  display:grid;
-  grid-template-columns: 1fr auto;
-  align-items:baseline;
-  gap:8px 12px;
-  padding:6px 2px;
-  border-bottom:1px dotted rgba(0,0,0,.12);
-}
+.item-row-print{ display:grid; grid-template-columns: 1fr auto; align-items:baseline; gap:var(--menu-row-gap, 8px) 12px; padding:6px 2px; border-bottom:1px dotted rgba(0,0,0,.12); }
 .item-row-print .name{ font-size:var(--_base); font-weight:600; }
-.item-row-print .right{
-  font-size:var(--_price);
-  font-weight:700;
-  text-align:right;
-  white-space:nowrap;
-  display:flex;
-  align-items:baseline;
-  justify-content:flex-end;
-  gap:10px;
-  font-variant-numeric: tabular-nums;
-}
+.item-row-print .right{ font-size:var(--_price); font-weight:700; text-align:right; white-space:nowrap; display:flex; align-items:baseline; justify-content:flex-end; gap:10px; font-variant-numeric: tabular-nums; }
 
 /* Footer (preview/print) */
-.menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);
-  font-size:calc(var(--_base)*0.9); color:#3b3e46; }
+.menu-footer{ margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,.08); font-size:calc(var(--_base)*0.9); color:#3b3e46; }
 .menu-footer .cover-line{ margin-bottom:6px; }
 .menu-footer .disclaimer{ opacity:.85; }
 
@@ -670,13 +677,7 @@ const paletteList = computed(() => MATERIAL_TOKENS.map(base => ({
 .print-area{ display:none; }
 
 /* Swatch */
-.swatch {
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
-}
+.swatch { width: 26px; height: 26px; min-width: 26px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
 
 /* Desktop */
 @media (min-width:900px){ .menu-columns[data-cols="2"]{ column-count:2; } }
