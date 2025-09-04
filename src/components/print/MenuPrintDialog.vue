@@ -57,6 +57,11 @@
             </div>
           </div>
 
+          <!-- Lingua -->
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-select v-model="lang" :options="langOptions" emit-value map-options dense outlined label="Lingua" />
+          </div>
+
           <div class="col-6 col-sm-3 col-md-2 flex items-center">
             <q-toggle v-model="uppercaseSections" label="SEZ. maiuscolo" />
           </div>
@@ -92,13 +97,13 @@
         <div ref="previewRef" class="print-menu menu-columns" :data-cols="columns" :style="styleVars">
           <div class="page-frame">
             <div class="menu-header" :class="`ta-${titleAlign}`">
-              <div class="menu-title">{{ title || 'Menù' }}</div>
+              <div class="menu-title">{{ titleText }}</div>
             </div>
 
             <div class="page-body">
               <div v-for="(sec) in visibleSections" :key="sec.id" class="category-block">
                 <div class="cat-header" :class="{'tt-up': uppercaseSections}">
-                  {{ sec.title }}
+                  {{ tr(sec.title) }}
                 </div>
 
                 <!-- Header colonne (icone) SOLO se la sezione ha varianti vero bicchiere/bottiglia -->
@@ -127,11 +132,11 @@
                 >
                   <template v-for="it in sec.items" :key="it.id">
                     <div class="cell name">
-                      <span class="name">{{ it.label }}</span>
+                      <span class="name">{{ tr(it.label) }}</span>
 
                       <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
                         <template v-for="(mk,i) in it.marks" :key="i">
-                          <img v-if="mk.url" class="mark-img" :src="mk.url" :alt="mk.title || 'icon'"
+                          <img v-if="mk.url" class="mark-img" :src="mk.url" :alt="tr(mk.title) || 'icon'"
                                crossorigin="anonymous" decoding="async"
                                @error="(e)=>{ e.target.style.display='none' }" />
                           <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
@@ -139,7 +144,7 @@
                         </template>
                       </div>
 
-                      <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">{{ m }}</div>
+                      <div v-for="(m,idx) in metaLinesFor(it)" :key="idx" class="meta-line">{{ m }}</div>
                     </div>
 
                     <!-- Prezzo Bicchiere -->
@@ -163,11 +168,11 @@
                 <template v-else>
                   <div v-for="it in sec.items" :key="'single-'+it.id" class="item-row-print">
                     <div class="left">
-                      <span class="name">{{ it.label }}</span>
+                      <span class="name">{{ tr(it.label) }}</span>
 
                       <div v-if="includeMarks && (it.marks?.length)" class="marks-row">
                         <template v-for="(mk,i) in it.marks" :key="i">
-                          <img v-if="mk.url" class="mark-img" :src="mk.url" :alt="mk.title || 'icon'"
+                          <img v-if="mk.url" class="mark-img" :src="mk.url" :alt="tr(mk.title) || 'icon'"
                                crossorigin="anonymous" decoding="async"
                                @error="(e)=>{ e.target.style.display='none' }" />
                           <q-icon v-else-if="mk.icon" :name="mk.icon" size="14px" />
@@ -175,7 +180,7 @@
                         </template>
                       </div>
 
-                      <div v-for="(m,idx) in (it.metaLines || [])" :key="idx" class="meta-line">{{ m }}</div>
+                      <div v-for="(m,idx) in metaLinesFor(it)" :key="idx" class="meta-line">{{ m }}</div>
                     </div>
 
                     <div class="right" v-if="includePrices" style="width: 50px; justify-content: start;">
@@ -191,11 +196,11 @@
             <div class="footer-spacer" :style="{ height: spacerPx + 'px' }" aria-hidden="true"></div>
 
             <!-- FOOTER (mostrato in preview/stampa) -->
-            <div ref="footerRef" class="menu-footer" v-if="footerText || coverCharge != null">
+            <div ref="footerRef" class="menu-footer" v-if="footerTextText || coverCharge != null">
               <div v-if="coverCharge != null" class="cover-line">
-                {{ coverLabel }}: <b>{{ formatMoneyInt(coverCharge) }}</b>
+                {{ coverLabelText }}: <b>{{ formatMoneyInt(coverCharge) }}</b>
               </div>
-              <div v-if="footerText" class="disclaimer">{{ footerText }}</div>
+              <div v-if="footerTextText" class="disclaimer">{{ footerTextText }}</div>
             </div>
           </div>
         </div>
@@ -246,14 +251,14 @@ import html2canvas from 'html2canvas'
    =================================== */
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  title:      { type: String,  default: 'Menù' },
+  title:      { type: [String, Object],  default: 'Menù' }, // accetta anche { it, en }
   sections:   { // [{ id, title, items:[{ id, label, active?, marks?, metaLines?, prices? }] }]
     type: Array, default: () => []
   },
-  // Footer
-  footerText:    { type: String, default: '' },
+  // Footer (accetta anche { it, en })
+  footerText:    { type: [String, Object], default: '' },
   coverCharge:   { type: Number, default: null },
-  coverLabel:    { type: String, default: 'Coperto' }
+  coverLabel:    { type: [String, Object], default: 'Coperto' }
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -267,6 +272,36 @@ function close () { emit('update:modelValue', false) }
 const onlyActive   = ref(true)
 const includePrices= ref(true)
 const includeMarks = ref(true)
+
+/* ===== Lingua / i18n (IT/EN) ===== */
+const lang = ref('it')
+const langOptions = [
+  { label:'Italiano', value:'it' },
+  { label:'English',  value:'en' }
+]
+const I18N = {
+  it: { menu:'Menù',       cover:'Coperto' },
+  en: { menu:'Menu',       cover:'Cover charge' }
+}
+function tr (val, fallback = '') {
+  if (val == null) return fallback || ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'object') {
+    // supporta { it, en } e fallback ragionevoli
+    if (val[lang.value]) return String(val[lang.value])
+    if (val.it) return String(val.it)
+    if (val.en) return String(val.en)
+  }
+  return fallback || String(val)
+}
+function metaLinesFor (it) {
+  const arr = Array.isArray(it?.metaLines) ? it.metaLines : []
+  return arr.map(m => tr(m)).filter(Boolean)
+}
+const titleText = computed(() => tr(props.title, I18N[lang.value].menu))
+const coverLabelText = computed(() => tr(props.coverLabel, I18N[lang.value].cover))
+const footerTextText = computed(() => tr(props.footerText, ''))
+watch(lang, () => nextTick(recalcSpacer))
 
 /* ===== Stile ===== */
 const preset = ref('custom')
@@ -330,13 +365,19 @@ const selectedCats = ref([])
 
 function sectionId (sec, idx) {
   if (sec?.id) return String(sec.id)
-  const base = (sec?.title || `Sezione ${idx + 1}`).toLowerCase().replace(/[^\w]+/g, '-')
+  // id stabile anche con titoli localizzati
+  const baseTitle = typeof sec?.title === 'string'
+    ? sec.title
+    : (sec?.title?.it || sec?.title?.en || `Sezione ${idx + 1}`)
+  const base = String(baseTitle).toLowerCase().replace(/[^\w]+/g, '-')
   return `sec-${idx}-${base}`
 }
 
 const catOptions = computed(() => {
+  // accende la reattività alla lingua
+  const _ = lang.value
   return (props.sections || []).map((sec, idx) => ({
-    label: sec?.title || `Sezione ${idx + 1}`,
+    label: tr(sec?.title) || `Sezione ${idx + 1}`,
     value: sectionId(sec, idx)
   }))
 })
@@ -437,7 +478,7 @@ async function downloadPdf(){
   }
 
   const stamp = new Date(); const pad = n => String(n).padStart(2,'0')
-  const nameSafe = (props.title || 'menu').toLowerCase().replace(/[^\w]+/g, '-')
+  const nameSafe = String(titleText.value || 'menu').toLowerCase().replace(/[^\w]+/g, '-')
   const fname = `${nameSafe}-${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`
   const opt = {
     margin: [12,10,12,10],
@@ -470,8 +511,8 @@ async function downloadPdf(){
       const y = pageH - bottom - h
       pdf.addImage(footerImg, 'PNG', x, y, usableW, h, undefined, 'FAST')
     } else {
-      const line1 = (props.coverCharge != null) ? `${props.coverLabel}: ${formatMoneyInt(props.coverCharge)}` : ''
-      const line2 = props.footerText || ''
+      const line1 = (props.coverCharge != null) ? `${coverLabelText.value}: ${formatMoneyInt(props.coverCharge)}` : ''
+      const line2 = footerTextText.value || ''
       pdf.setFontSize(9)
       const y = pageH - bottom + 2
       if (line1) pdf.text(line1, left, y - 6)

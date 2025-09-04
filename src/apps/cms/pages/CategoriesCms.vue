@@ -593,8 +593,44 @@ const snapshot = ref({ parentOf: new Map(), orders: new Map() })
 
 const orphans = ref([]) // categorie fuori albero
 
+// NEW: set degli ID di categorie già root in altri business (usato per filtrare le "orfane")
+const otherRootIds = ref(new Set())
+
 let idToNode = new Map()
 let idToParentId = new Map()
+
+/* ---------- helpers: accoppiamento root ⇄ business ---------- */
+// Tenta di (ri)accoppiare le categorie root al business corrente lato backend
+async function ensureRootsForBusiness () {
+  if (!businessId.value) return
+  try {
+    await api.post(`${API}/cms/categories/roots/ensure`, null, {
+      params: { businessId: businessId.value }
+    })
+  } catch(e) {
+    // fallback su endpoint alternativo se esiste
+    console.log('I18trg',e)
+    try {
+      await api.post(`${API}/cms/business/${businessId.value}/ensure-category-roots`)
+    } catch (e) {
+      console.log('nessun endpoint', e)
+    }
+  }
+}
+
+// Recupera gli ID delle categorie che sono root in altri business
+async function fetchOtherRootIds () {
+  try {
+    const { data: json } = await api.get(`${API}/cms/categories/root-owners`, {
+      params: { excludeBusinessId: businessId.value }
+    })
+    const ids = (json?.data || []).map(x => x.categoryId || x._id)
+    otherRootIds.value = new Set(ids)
+  } catch (e) {
+    console.log('nessun filtro', e)
+    otherRootIds.value = new Set() // fallback: nessun filtro
+  }
+}
 
 /* ---------- load ---------- */
 async function loadTree() {
@@ -610,11 +646,26 @@ async function loadTree() {
   error.value = null
   try {
     const { data: json } = await api.get(`${API}/cms/categories`, {
-      params: { includeHidden: 1, businessId: businessId.value }
+      params: {
+        includeHidden: 1,
+        businessId: businessId.value,
+        includeRootOwners: 1 // se supportato dal backend
+      }
     })
     if (!json.ok) throw new Error(json.error || 'Errore caricamento categorie')
     rawTree.value = json.data || []
-    orphans.value = json.orphans || []
+
+    // Popola otherRootIds da payload, altrimenti chiama endpoint dedicato
+    if (Array.isArray(json.otherRootCategoryIds)) {
+      otherRootIds.value = new Set(json.otherRootCategoryIds)
+    } else {
+      await fetchOtherRootIds()
+    }
+
+    // Filtra le orfane: non mostrare quelle che sono già root in altri business
+    const allOrphans = json.orphans || []
+    orphans.value = allOrphans.filter(o => !otherRootIds.value.has(o._id))
+
     rebuildIndexes()
 
     // QTree chiuso all'apertura
@@ -854,8 +905,8 @@ function normalizeHex(v) {
 function validHexOrFallback(v) { return normalizeHex(v) || '#cccccc' }
 const rHexColor = v => (normalizeHex(v) !== null || !v) ? true : 'Inserisci un colore HEX valido (#RRGGBB)'
 const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
-function slugify(s='') { return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)+/g,'') }
-function autoSlug() { if (!form.value.slug || form.value.slug.length < 2) form.value.slug = slugify(form.value.title) }
+function slugifyLocal(s='') { return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)+/g,'') }
+function autoSlug() { if (!form.value.slug || form.value.slug.length < 2) form.value.slug = slugifyLocal(form.value.title) }
 
 /* ---------- orphans split + stile chip ---------- */
 const orphansSplit = computed(() => ({
@@ -917,7 +968,7 @@ const deleteWarningHtml = computed(() => {
 function askDelete(id) {
   const src = idToNode.get(id)
   if (!src) {
-    // se non è nell'albero, può essere un'orfana
+    // potrebbe essere un'orfana
     deleteTarget.value = { id, label: '' }
     showDeleteConfirm.value = true
     return
@@ -1067,6 +1118,15 @@ async function submitEditor() {
   }
 }
 
+/* ---------- reload helper quando cambia business ---------- */
+async function reloadForBusinessChange () {
+  selectedId.value = null
+  search.value = ''
+  dragMode.value = false
+  await ensureRootsForBusiness()  // riallinea accoppiamento root ⇄ business
+  await loadTree()
+}
+
 /* ---------- boot & reactivity ---------- */
 onMounted(async () => {
   if (!usersStore.currentUser && usersStore.token) {
@@ -1075,26 +1135,22 @@ onMounted(async () => {
   if (!businessStore.businesses?.length) {
     try { await businessStore.fetchBusinesses() } catch(e) { console.error('Errore locale in Categorie', e) }
   }
+  await ensureRootsForBusiness() // NEW: accoppiamento all'avvio
   await loadTree()
 })
+
 watch(() => usersStore.selectedBusinessId, async () => {
   if (!canSeeAllBusinesses.value) return
-  selectedId.value = null
-  search.value = ''
-  dragMode.value = false
-  await loadTree()
+  await reloadForBusinessChange()
 })
-watch(businessId, async () => {
-  dragMode.value = false
-  await loadTree()
-})
+watch(businessId, reloadForBusinessChange)
 </script>
 
 <style scoped>
 .hero { background: linear-gradient(135deg, #6a5acd, #7b68ee, #00bcd4); }
 .hero-input :deep(.q-field__native),
 .hero-input :deep(.q-field__prefix),
-.hero-input :deep(.q-field__suffix),
+hero-input :deep(.q-field__suffix),
 .hero-input :deep(.q-field__input) { color: #fff !important; }
 .hero-input :deep(.q-field__control) {
   background: rgba(255,255,255,0.12);

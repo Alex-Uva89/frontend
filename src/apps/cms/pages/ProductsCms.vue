@@ -858,57 +858,64 @@ const printTitle = computed(() => businessName.value || 'Menù')
 
 const printSections = computed(() => {
   const secs = []
-  const cats = visibleCategories.value // stampa le foglie (rispetta eventuale filtro categoria)
+  const cats = visibleCategories.value
+
+  const nameI18n = (obj) => ({
+    it: (obj?.translations?.name?.it || obj?.name || '').toString().trim(),
+    en: (obj?.translations?.name?.en || obj?.name || '').toString().trim()
+  })
+  const joinNamesI18n = (arr) => ({
+    it: arr.map(a => nameI18n(a).it).filter(Boolean).join(', '),
+    en: arr.map(a => nameI18n(a).en).filter(Boolean).join(', ')
+  })
 
   for (const cat of cats) {
     const products = listsByCat.value[cat._id] || []
+
     const items = products.map(p => {
-      // marks: solo allergeni con icona/emoji/url
+      // marks: allergeni con titolo i18n
       const marks = allergenList(p).map(a => ({
         url: a.iconUrl || null,
         icon: (!a.iconUrl && a.icon) ? a.icon : null,
-        emoji: '', // aggiungi qui se ne hai
-        title: pickAttrName(a)
+        emoji: '',
+        title: nameI18n(a) // <-- { it, en }
       }))
 
-      // meta lines: vitigno e produttore se presenti
-      const grapes = kindList(p, 'vitigno').map(pickAttrName).filter(Boolean)
-      const producers = kindList(p, 'produttore').map(pickAttrName).filter(Boolean)
+      // meta lines (Vitigno / Produttore) i18n
+      const grapes = kindList(p, 'vitigno')
+      const producers = kindList(p, 'produttore')
+      const g = joinNamesI18n(grapes)
+      const pr = joinNamesI18n(producers)
       const metaLines = []
-      if (grapes.length) metaLines.push(`Vitigno: ${grapes.join(', ')}`)
-      if (producers.length) metaLines.push(`Produttore: ${producers.join(', ')}`)
+      if (grapes.length) metaLines.push({ it: `Vitigno: ${g.it}`,    en: `Grapes: ${g.en}` })
+      if (producers.length) metaLines.push({ it: `Produttore: ${pr.it}`, en: `Producer: ${pr.en}` })
 
-      // prezzi (vino: calice+bottiglia; altrimenti prezzo singolo)
-      const g = getGlassPrice(p)
-      const b = getBottlePrice(p)
+      // prezzi
+      const gp = getGlassPrice(p)
+      const bp = getBottlePrice(p)
       const prices = {}
-      if (isPositive(g) && isPositive(b)) {
-        prices.glass = g; prices.bottle = b
-      } else if (isNumber(p.price)) {
-        prices.price = p.price
+      if (isPositive(gp) && isPositive(bp)) { prices.glass = gp; prices.bottle = bp }
+      else if (isNumber(p.price)) { prices.price = p.price }
+
+      // label prodotto i18n
+      const label = {
+        it: (p?.translations?.name?.it || p.name || '').toString().trim(),
+        en: (p?.translations?.name?.en || p.name || '').toString().trim()
       }
 
-      // label preferendo la traduzione
-      const label =
-        (p?.translations?.name?.[menuLang.value] || '').toString().trim() || p.name || ''
-
-      return {
-        id: p._id,
-        label,
-        active: p.active !== false,
-        marks,
-        metaLines,
-        prices
-      }
+      return { id: p._id, label, active: p.active !== false, marks, metaLines, prices }
     })
 
     if (items.length) {
-      secs.push({ id: cat._id, title: cat.title, items })
+      // se hai traduzioni per le categorie, mettile qui:
+      const title = { it: cat.title, en: cat.title }
+      secs.push({ id: cat._id, title, items })
     }
   }
 
   return secs
 })
+
 
 
 /* ========== Ricarico prima di aprire la stampa ========== */
