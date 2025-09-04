@@ -1,4 +1,3 @@
-<!-- /frontend/src/apps/cms/pages/ProductsCms.vue -->
 <template>
   <q-page class="q-pa-md">
     <!-- ====== HERO ====== -->
@@ -50,7 +49,6 @@
             <template #prepend><q-icon name="search" class="text-white" /></template>
           </q-input>
 
-
           <!-- ====== HERO ACTIONS ====== -->
           <div class="col-12 col-md-auto row no-wrap items-center q-gutter-xs hero-actions">
             <q-btn
@@ -68,8 +66,6 @@
             />
           </div>
         </div>
-
-
 
         <div v-if="search" class="row items-center q-gutter-sm q-mt-xs">
           <q-chip dense color="amber-4" text-color="black" icon="info">Filtro attivo: drag & drop disabilitato</q-chip>
@@ -324,6 +320,24 @@
                 <q-input v-model="editor.form.t_name_en" label="English (en)" dense outlined />
               </div>
             </div>
+
+            <div class="text-subtitle1 q-mt-lg q-mb-sm">Traduzioni descrizione</div>
+            <div class="row q-col-gutter-md">
+              <div class="col-12 col-md-6">
+                <q-input
+                  v-model="editor.form.t_desc_it"
+                  type="textarea" autogrow dense outlined
+                  label="Italiano (it)"
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input
+                  v-model="editor.form.t_desc_en"
+                  type="textarea" autogrow dense outlined
+                  label="English (en)"
+                />
+              </div>
+            </div>
           </div>
 
           <!-- ATTRIBUTI -->
@@ -339,7 +353,6 @@
                   multiple use-chips dense outlined clearable
                   label="Allergeni"
                 >
-                  <!-- opzioni con avatar -->
                   <template #option="scope">
                     <q-item v-bind="scope.itemProps">
                       <q-item-section avatar>
@@ -352,7 +365,6 @@
                       <q-item-section>{{ scope.opt.label }}</q-item-section>
                     </q-item>
                   </template>
-                  <!-- chip selezionati con avatar -->
                   <template #selected-item="scope">
                     <q-chip square dense removable
                             @remove="scope.removeAtIndex(scope.index)"
@@ -598,7 +610,6 @@
       :coverCharge="null"
     />
 
-
     <SecurityCodeDialog
       v-model="deleteDialogOpen"
       title="Elimina prodotto"
@@ -608,7 +619,6 @@
       :length="6"
       @confirmed="onDeleteConfirmed"
     />
-
   </q-page>
 </template>
 
@@ -626,7 +636,6 @@ import AddProductComponent from 'src/components/common/csm/AddProductComponent.v
 
 // Confirm Delete Dialog
 import SecurityCodeDialog from 'src/components/common/SecurityCodeConfirmDialog.vue'
-
 
 // App
 import { api } from 'boot/axios'
@@ -719,8 +728,9 @@ const editor = ref({
     name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
     active: true, description: '', notes: '',
     t_name_it: '', t_name_en: '',
+    t_desc_it: '', t_desc_en: '',          // << campi traduzione descrizione
     attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: [],
-    images: [] // << NEW: array [{assetId,url,alt}]
+    images: [] // array [{assetId,url,alt}]
   }
 })
 
@@ -834,7 +844,6 @@ const deleteConfirmMessage = computed(() =>
   `Confermi l'eliminazione definitiva di <b>${escapeHtml(pendingDeleteName.value || 'prodotto')}</b>?<br/>Questa azione non è reversibile.`
 )
 
-
 function confirmDelete (id, name = '') {
   if (!canDeleteProducts.value) return
   pendingDeleteId.value = id
@@ -849,8 +858,6 @@ function onDeleteConfirmed () {
   pendingDeleteName.value = ''
   if (id) doDelete(id)
 }
-
-
 
 /* ========== PRINT ========== */
 
@@ -915,8 +922,6 @@ const printSections = computed(() => {
 
   return secs
 })
-
-
 
 /* ========== Ricarico prima di aprire la stampa ========== */
 async function openPrint () {
@@ -1077,7 +1082,7 @@ const attributeOptions = computed(() => (printAttributes.value || []).map(a => (
   id: a._id,
   label: pickAttrName(a),
   icon: a.icon || '',
-  iconUrl: a.iconUrl || '',  // << preferisci questa se presente
+  iconUrl: a.iconUrl || '',
   color: a.color || '',
   kind: kindToken(a)
 })))
@@ -1214,6 +1219,7 @@ function openEdit (id) {
       name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
       active: true, description: '', notes: '',
       t_name_it: '', t_name_en: '',
+      t_desc_it: '', t_desc_en: '',        // << presenti al reset
       attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: [],
       images: [] // << NEW
     }
@@ -1253,6 +1259,8 @@ async function loadOneForEdit (id) {
       notes: p.notes || '',
       t_name_it: (p?.translations?.name?.it || ''),
       t_name_en: (p?.translations?.name?.en || ''),
+      t_desc_it: (p?.translations?.description?.it || ''),
+      t_desc_en: (p?.translations?.description?.en || ''),
       attrAllergenIds: allergens,
       attrGrapeIds: grapes,
       attrProducerIds: producers,
@@ -1307,6 +1315,10 @@ async function saveEdit () {
         name: {
           it: trimOrNull(editor.value.form.t_name_it),
           en: trimOrNull(editor.value.form.t_name_en)
+        },
+        description: {                               // << traduzioni descrizione
+          it: trimOrNull(editor.value.form.t_desc_it),
+          en: trimOrNull(editor.value.form.t_desc_en)
         }
       },
       images: (editor.value.form.images || [])
@@ -1336,7 +1348,7 @@ async function saveEdit () {
       priceGlass: payload.priceGlass,
       priceBottle: payload.priceBottle,
       translations: payload.translations,
-      imageUrl: (editor.value.form.images?.[0]?.url || null) // <<< NEW per thumb lista
+      imageUrl: (editor.value.form.images?.[0]?.url || null) // per thumb lista
     })
 
     // aggiorno stato editor per prossime modifiche
@@ -1556,6 +1568,4 @@ const rRequired = v => (v && String(v).trim().length > 0) || 'Obbligatorio'
     }
   }
 }
-
-
 </style>
