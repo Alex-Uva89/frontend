@@ -375,7 +375,6 @@ function sectionId (sec, idx) {
 
 const catOptions = computed(() => {
   // accende la reattività alla lingua
-  const _ = lang.value
   return (props.sections || []).map((sec, idx) => ({
     label: tr(sec?.title) || `Sezione ${idx + 1}`,
     value: sectionId(sec, idx)
