@@ -116,7 +116,7 @@
             <div class="page-body">
               <div v-for="(sec) in visibleSections" :key="sec.id" class="category-block">
                 <div class="cat-header" :class="{'tt-up': uppercaseSections}">
-                  {{ tr(sec.title) }}
+                  {{ catTitle(sec) }}
                 </div>
 
                 <!-- Header colonne (icone) SOLO se la sezione ha varianti vero bicchiere/bottiglia -->
@@ -265,7 +265,7 @@ import html2canvas from 'html2canvas'
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title:      { type: [String, Object],  default: 'Menù' }, // accetta anche { it, en }
-  sections:   { // [{ id, title, items:[{ id, label, active?, marks?, metaLines?, prices? }] }]
+  sections:   { // [{ id?, slug?, title, translations?, items:[{ id, label, active?, marks?, metaLines?, prices? }] }]
     type: Array, default: () => []
   },
   // Footer (accetta anche { it, en })
@@ -306,6 +306,17 @@ function tr (val, fallback = '') {
   }
   return fallback || String(val)
 }
+
+/* >>> Categoria: risolvi titolo anche da translations.title.{it,en} <<< */
+function catTitle (sec) {
+  const t = sec?.translations?.title
+  if (t && (t[lang.value] || t.it || t.en)) {
+    return t[lang.value] || t.it || t.en
+  }
+  return tr(sec?.title, '')
+}
+
+/* helper per meta righe item (supporta {it,en}) */
 function metaLinesFor (it) {
   const arr = Array.isArray(it?.metaLines) ? it.metaLines : []
   return arr.map(m => tr(m)).filter(Boolean)
@@ -385,18 +396,29 @@ const styleVars = computed(() => {
 /* ===== Filtro categorie ===== */
 const selectedCats = ref([])
 
+/* Usa titolo grezzo (IT/EN) o traduzione per generare un id stabile */
 function sectionId (sec, idx) {
   if (sec?.id) return String(sec.id)
-  const baseTitle = typeof sec?.title === 'string'
-    ? sec.title
-    : (sec?.title?.it || sec?.title?.en || `Sezione ${idx + 1}`)
+  if (sec?.slug) return `sec-${idx}-${String(sec.slug)}`
+  const baseTitle =
+    (typeof sec?.title === 'string' && sec.title) ||
+    sec?.title?.it || sec?.title?.en ||
+    sec?.translations?.title?.it || sec?.translations?.title?.en ||
+    `Sezione ${idx + 1}`
   const base = String(baseTitle).toLowerCase().replace(/[^\w]+/g, '-')
   return `sec-${idx}-${base}`
 }
 
+/* label filtro categorie nella lingua corrente */
+function catTitleFrom (sec) {
+  const t = sec?.translations?.title
+  if (t && (t[lang.value] || t.it || t.en)) return t[lang.value] || t.it || t.en
+  return tr(sec?.title) || ''
+}
+
 const catOptions = computed(() => {
   return (props.sections || []).map((sec, idx) => ({
-    label: tr(sec?.title) || `Sezione ${idx + 1}`,
+    label: catTitleFrom(sec) || `Sezione ${idx + 1}`,
     value: sectionId(sec, idx)
   }))
 })
@@ -415,7 +437,14 @@ const visibleSections = computed(() => {
       ? sec.items.filter(it => it?.active !== false)
       : sec.items.slice()
     if (!items.length) return
-    out.push({ id: sid, title: sec.title || '', items })
+    // Propaga anche translations (e slug se presente) per header e id
+    out.push({
+      id: sid,
+      title: sec.title || '',
+      translations: sec.translations || null,
+      slug: sec.slug || '',
+      items
+    })
   })
   return out
 })
@@ -455,7 +484,7 @@ async function recalcSpacer(){
 watch([
   visibleSections, onlyActive, includePrices, includeMarks,
   fontChoice, baseSize, titleScale, catScale, columns, titleAlign, uppercaseSections, accent,
-  selectedCats, compactMode
+  selectedCats, compactMode, lang
 ], () => nextTick(recalcSpacer), { deep:true })
 onMounted(()=>{ if (preset.value !== 'custom') applyPreset(preset.value); recalcSpacer(); window.addEventListener('resize', recalcSpacer) })
 onUnmounted(()=> window.removeEventListener('resize', recalcSpacer))
@@ -516,8 +545,7 @@ async function downloadPdf(){
       windowWidth: rootEl.scrollWidth
     },
     jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress:true, putOnlyUsedFonts:true },
-    pagebreak: { mode:['css','legacy'] } // niente avoid globale sulle sezioni
-    // se vuoi proteggere i titoli: pagebreak: { mode:['css','legacy'], avoid:['.cat-header'] }
+    pagebreak: { mode:['css','legacy'] }
   }
 
   await html2pdf().set(opt).from(rootEl).toPdf().get('pdf').then((pdf)=>{

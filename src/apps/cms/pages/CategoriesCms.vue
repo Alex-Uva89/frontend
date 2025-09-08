@@ -376,6 +376,7 @@
 
         <q-separator />
 
+        <!-- FORM -->
         <q-card-section class="q-gutter-md">
           <q-input v-model="form.title" label="Nome *" dense outlined :rules="[rRequired]" @update:model-value="autoSlug()" />
           <q-input v-model="form.slug" label="Slug *" dense outlined :rules="[rRequired]" />
@@ -401,7 +402,27 @@
             </div>
           </div>
 
-          <q-input v-model="form.description" type="textarea" autogrow label="Descrizione" dense outlined />
+          <!-- Traduzioni titolo -->
+          <q-expansion-item icon="translate" label="Traduzioni titolo" expand-separator>
+            <div class="row q-col-gutter-md q-pt-sm">
+              <div class="col-6">
+                <q-input
+                  v-model="form.translations.title.it"
+                  dense outlined
+                  label="Titolo (IT)"
+                  placeholder="Nome in italiano"
+                />
+              </div>
+              <div class="col-6">
+                <q-input
+                  v-model="form.translations.title.en"
+                  dense outlined
+                  label="Titolo (EN)"
+                  placeholder="Name in English"
+                />
+              </div>
+            </div>
+          </q-expansion-item>
 
           <!-- Toggle root per business corrente -->
           <div class="row items-center q-mt-sm" v-if="businessId">
@@ -577,21 +598,21 @@ const businessName = computed(() => {
 /* ---------- state ---------- */
 const loading = ref(false)
 const saving = ref(false)
-const reordering = ref(false)     // overlay loading per ordinamento
+const reordering = ref(false)
 const error = ref(null)
 const search = ref('')
 
-const dragMode = ref(false)       // modalità ordinamento
+const dragMode = ref(false)
 const hasFilter = computed(() => (search.value || '').trim().length > 0)
 
-const rawTree = ref([])           // struttura dal backend (array root con children)
+const rawTree = ref([])
 const selectedId = ref(null)
 const expandedKeys = ref([])
 
-const dragData = ref([])          // dati per Draggable
+const dragData = ref([])
 const snapshot = ref({ parentOf: new Map(), orders: new Map() })
 
-const orphans = ref([]) // categorie fuori albero
+const orphans = ref([])
 
 // NEW: set degli ID di categorie già root in altri business (usato per filtrare le "orfane")
 const otherRootIds = ref(new Set())
@@ -600,20 +621,18 @@ let idToNode = new Map()
 let idToParentId = new Map()
 
 /* ---------- helpers: accoppiamento root ⇄ business ---------- */
-// Tenta di (ri)accoppiare le categorie root al business corrente lato backend
 async function ensureRootsForBusiness () {
   if (!businessId.value) return
   try {
     await api.post(`${API}/cms/categories/roots/ensure`, null, {
       params: { businessId: businessId.value }
     })
-  } catch(e) {
-    // fallback su endpoint alternativo se esiste
-    console.log('I18trg',e)
+  } catch (e) {
+    console.log(e)
     try {
       await api.post(`${API}/cms/business/${businessId.value}/ensure-category-roots`)
-    } catch (e) {
-      console.log('nessun endpoint', e)
+    } catch (e2) {
+      console.log('nessun endpoint ensure-roots', e2)
     }
   }
 }
@@ -627,8 +646,8 @@ async function fetchOtherRootIds () {
     const ids = (json?.data || []).map(x => x.categoryId || x._id)
     otherRootIds.value = new Set(ids)
   } catch (e) {
-    console.log('nessun filtro', e)
-    otherRootIds.value = new Set() // fallback: nessun filtro
+    console.log('nessun filtro root-owners', e)
+    otherRootIds.value = new Set()
   }
 }
 
@@ -649,7 +668,7 @@ async function loadTree() {
       params: {
         includeHidden: 1,
         businessId: businessId.value,
-        includeRootOwners: 1 // se supportato dal backend
+        includeRootOwners: 1
       }
     })
     if (!json.ok) throw new Error(json.error || 'Errore caricamento categorie')
@@ -698,12 +717,12 @@ const treeNodes = computed(() => toTreeNodes(rawTree.value))
 function toTreeNodes(list) {
   return (list || []).map(n => ({
     id: n._id,
-    label: n.title,
+    label: n.title, // volendo: n.translations?.title?.[currentLang] || n.title
     slug: n.slug,
     hidden: !!n.hidden,
     icon: n.icon || null,
     color: n.color || null,
-    description: n.description || null,
+    translations: n.translations || {},
     children: toTreeNodes(n.children || [])
   }))
 }
@@ -718,7 +737,7 @@ function toDragNodes(list) {
     hidden: !!n.hidden,
     icon: n.icon || null,
     color: n.color || null,
-    description: n.description || null,
+    translations: n.translations || {},
     children: toDragNodes(n.children || [])
   }))
 }
@@ -749,7 +768,6 @@ function onHeaderClick (prop) {
 /* ---------- Modalità ORDINA ---------- */
 function toggleDragMode () {
   if (dragMode.value) {
-    // chiudo: ricarico struttura per riflettere eventuali salvataggi
     loadTree()
     dragMode.value = false
   } else {
@@ -814,9 +832,7 @@ async function onTreeChange () {
     snapshot.value = next
     $q.notify({ type: 'positive', message: 'Struttura aggiornata' })
     await loadTree()
-    // resta in drag mode finché l’utente non preme "Fine"
     dragMode.value = true
-    // ricostruisco i dati della vista drag dalla nuova struttura
     dragData.value = toDragNodes(rawTree.value)
     snapshot.value = makeSnapshot(dragData.value)
   } catch (e) {
@@ -830,7 +846,14 @@ async function onTreeChange () {
 /* ---------- editor ---------- */
 const editor = ref({ show: false, mode: 'edit', id: null })
 const form = ref({
-  title: '', slug: '', order: 0, hidden: false, icon: '', color: '', description: '', parents: []
+  title: '',
+  slug: '',
+  order: 0,
+  hidden: false,
+  icon: '',
+  color: '',
+  parents: [],
+  translations: { title: { it: '', en: '' } }
 })
 
 function openEditFromTreeNode(id) {
@@ -845,8 +868,13 @@ function openEditFromTreeNode(id) {
     hidden: !!src?.hidden,
     icon: src?.icon || '',
     color: src?.color || '',
-    description: src?.description || '',
-    parents: src ? [idToParentId.get(src._id)].filter(Boolean) : []
+    parents: src ? [idToParentId.get(src._id)].filter(Boolean) : [],
+    translations: {
+      title: {
+        it: src?.translations?.title?.it || '',
+        en: src?.translations?.title?.en || ''
+      }
+    }
   }
 }
 
@@ -859,15 +887,29 @@ function openEditFromOrphan(orph) {
     hidden: false,
     icon: orph?.icon || '',
     color: orph?.color || '',
-    description: '',
-    parents: [] // parte senza genitori
+    parents: [],
+    translations: {
+      title: {
+        it: orph?.translations?.title?.it || '',
+        en: orph?.translations?.title?.en || ''
+      }
+    }
   }
 }
 
 /* crea nuove */
 function openCreateRoot() {
   editor.value = { show: true, mode: 'create', id: null }
-  form.value = { title: '', slug: '', order: 0, hidden: false, icon: '', color: '', description: '', parents: [] }
+  form.value = {
+    title: '',
+    slug: '',
+    order: 0,
+    hidden: false,
+    icon: '',
+    color: '',
+    parents: [],
+    translations: { title: { it: '', en: '' } }
+  }
 }
 function openCreateChildFromSelection() {
   if (!selectedId.value) return
@@ -875,7 +917,16 @@ function openCreateChildFromSelection() {
 }
 function openCreateChildFromNode(parentId) {
   editor.value = { show: true, mode: 'create', id: null }
-  form.value = { title: '', slug: '', order: 0, hidden: false, icon: '', color: '', description: '', parents: [parentId] }
+  form.value = {
+    title: '',
+    slug: '',
+    order: 0,
+    hidden: false,
+    icon: '',
+    color: '',
+    parents: [parentId],
+    translations: { title: { it: '', en: '' } }
+  }
 }
 
 /* ---------- Toggle "root per business corrente" ---------- */
@@ -941,7 +992,7 @@ const parentOptions = computed(() => {
     block.add(editor.value.id)
     const start = idToNode.get(editor.value.id)
     const collect = (n) => { block.add(n._id); (n.children || []).forEach(collect) }
-    if (start) collect(start) // se l’orfana non è nell’albero, blocchiamo solo se stessa
+    if (start) collect(start)
   }
   return opts.map(o => ({ ...o, disable: block.has(o.id) }))
 })
@@ -952,7 +1003,6 @@ const deleteTarget = ref({ id: null, label: '' })
 const showChildrenBlock = ref(false)
 const childrenOfDelete = ref([])
 
-/* nuovo: dialog per prodotti che bloccano la delete */
 const showProductsBlock = ref(false)
 const productsBlocking = ref([])
 
@@ -968,7 +1018,6 @@ const deleteWarningHtml = computed(() => {
 function askDelete(id) {
   const src = idToNode.get(id)
   if (!src) {
-    // potrebbe essere un'orfana
     deleteTarget.value = { id, label: '' }
     showDeleteConfirm.value = true
     return
@@ -1020,7 +1069,6 @@ async function doDelete(id) {
     const status = e?.response?.status
     const payload = e?.response?.data
     if (status === 409 && payload?.children?.length) {
-      // blocco per sottocategorie
       childrenOfDelete.value = payload.children.map(c => ({
         id: c._id,
         title: c.title,
@@ -1030,7 +1078,6 @@ async function doDelete(id) {
       }))
       showChildrenBlock.value = true
     } else if (status === 409 && payload?.products?.length) {
-      // blocco per prodotti collegati
       productsBlocking.value = payload.products.map(p => ({
         _id: p._id,
         name: p.name,
@@ -1043,6 +1090,21 @@ async function doDelete(id) {
   } finally {
     saving.value = false
   }
+}
+
+/* ---------- translations helpers ---------- */
+function normalizeTranslations(t) {
+  if (!t || typeof t !== 'object') return undefined
+  const clean = (obj = {}) =>
+    Object.fromEntries(
+      Object.entries(obj)
+        .map(([k, v]) => [k, String(v ?? '').trim()])
+        .filter(([, v]) => v.length > 0)
+    )
+  const out = {}
+  const title = clean(t.title || {})
+  if (Object.keys(title).length) out.title = title
+  return Object.keys(out).length ? out : undefined
 }
 
 /* ---------- save singola categoria ---------- */
@@ -1058,6 +1120,7 @@ async function submitEditor() {
 
   const colorToSend = normalizeHex(form.value.color)
   const isRoot = !(form.value.parents && form.value.parents.length)
+  const translations = normalizeTranslations(form.value.translations)
 
   saving.value = true
   try {
@@ -1075,8 +1138,8 @@ async function submitEditor() {
           hidden: !!form.value.hidden,
           icon: form.value.icon || null,
           color: colorToSend,
-          description: form.value.description || null,
-          parents: form.value.parents || []
+          parents: form.value.parents || [],
+          ...(translations ? { translations } : {})
         },
         { params: { businessId: businessId.value } }
       )
@@ -1102,8 +1165,8 @@ async function submitEditor() {
           hidden: !!form.value.hidden,
           icon: form.value.icon || null,
           color: colorToSend,
-          description: form.value.description || null,
-          parents: form.value.parents
+          parents: form.value.parents,
+          ...(translations !== undefined ? { translations } : {})
         },
         { params: { businessId: businessId.value } }
       )
@@ -1123,7 +1186,7 @@ async function reloadForBusinessChange () {
   selectedId.value = null
   search.value = ''
   dragMode.value = false
-  await ensureRootsForBusiness()  // riallinea accoppiamento root ⇄ business
+  await ensureRootsForBusiness()
   await loadTree()
 }
 
@@ -1135,7 +1198,7 @@ onMounted(async () => {
   if (!businessStore.businesses?.length) {
     try { await businessStore.fetchBusinesses() } catch(e) { console.error('Errore locale in Categorie', e) }
   }
-  await ensureRootsForBusiness() // NEW: accoppiamento all'avvio
+  await ensureRootsForBusiness()
   await loadTree()
 })
 

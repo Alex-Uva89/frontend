@@ -1,5 +1,6 @@
 import { crmRoutes } from 'src/apps/crm/routes'
 import { cmsRoutes } from 'src/apps/cms/routes'
+import { siteRoutes } from 'src/apps/site/routes'
 
 const routes = [
   // Pubblico: Login
@@ -61,6 +62,13 @@ const routes = [
     component: () => import('src/apps/cms/layout/CMSLayout.vue'),
     meta: { requiresAuth: true, app: 'cms' },
     children: cmsRoutes
+  },
+ // SITE (layout dedicato redirect a dashboard)
+  {
+    path: '/site',
+    component: () => import('src/apps/site/layout/SiteLayout.vue'),
+    meta: { requiresAuth: true, app: 'site' },
+    children: siteRoutes
   },
 
   // 404

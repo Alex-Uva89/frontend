@@ -222,6 +222,11 @@ function handleOpen(app) {
     return router.push('/cms')
   }
 
+  // 👉 SITE
+  if (slug === 'site' || pathOrUrl.replace(/\/+$/, '') === '/site') {
+    return router.push({ name: 'site.index' })
+  }
+
   const isAbsoluteUrl = /^https?:\/\//i.test(pathOrUrl)
   if ((app.isExternal || isAbsoluteUrl) && pathOrUrl) {
     window.open(pathOrUrl, '_blank', 'noopener')

@@ -863,6 +863,15 @@ function onDeleteConfirmed () {
 
 const printTitle = computed(() => businessName.value || 'Menù')
 
+/* ====== CAT I18N: helper per usare traduzioni categoria se presenti ====== */
+function catTitleI18nById (catId) {
+  const c = Cmap.value.get(catId)
+  return {
+    it: (c?.translations?.title?.it || c?.title || '').toString().trim(),
+    en: (c?.translations?.title?.en || c?.title || '').toString().trim()
+  }
+}
+
 const printSections = computed(() => {
   const secs = []
   const cats = visibleCategories.value
@@ -914,8 +923,8 @@ const printSections = computed(() => {
     })
 
     if (items.length) {
-      // se hai traduzioni per le categorie, mettile qui:
-      const title = { it: cat.title, en: cat.title }
+      // titolo sezione: usa traduzioni categoria, fallback a base
+      const title = catTitleI18nById(cat._id)
       secs.push({ id: cat._id, title, items })
     }
   }
@@ -995,16 +1004,27 @@ const Cmap = computed(() => {
 const parentOf = computed(() => buildParentMap(categoriesTree.value))
 
 const catById = computed(() => Cmap.value)
+
+/* preferisci traduzione italiana se presente quando componi label di percorso/select */
+function titleForCategoryNode (n) {
+  return (n?.translations?.title?.it || n?.title || '')
+}
+
 function categoryPathLabel (id) {
   const parts = []; let cur = id
-  while (cur) { const n = catById.value.get(cur); if (!n) break; parts.push(n.title); cur = parentOf.value.get(cur) }
+  while (cur) {
+    const n = catById.value.get(cur); if (!n) break
+    parts.push(titleForCategoryNode(n))
+    cur = parentOf.value.get(cur)
+  }
   return parts.reverse().join(' / ')
 }
 
 const categoryOptions = computed(() => {
   const out = []
   const walk = (n, path) => {
-    const label = path ? `${path} / ${n.title}` : n.title
+    const selfLabel = titleForCategoryNode(n)
+    const label = path ? `${path} / ${selfLabel}` : selfLabel
     out.push({ id: n._id, label, order: n.order ?? 0 })
     sortKids(n.children).forEach(c => walk(c, label))
   }
@@ -1031,7 +1051,7 @@ const visibleCategories = computed(() => {
   const leafIds = targetId ? leafIdsUnder(targetId) : leafIdsUnder(null)
   return leafIds.map(id => ({
     _id: id,
-    title: catById.value.get(id)?.title || '',
+    title: titleForCategoryNode(catById.value.get(id)) || '',
     fullPath: categoryPathLabel(id)
   }))
 })
