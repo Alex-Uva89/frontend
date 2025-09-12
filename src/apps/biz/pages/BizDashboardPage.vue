@@ -1,16 +1,13 @@
 <template>
   <BusinessDashboardLayout
     :tabs="tabs"
-    initial-tab="orders"
-    :fetch-on-tabs="['orders']"
   />
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import BusinessDashboardLayout from 'src/components/common/BusinessDashboardLayout.vue'
-import OrderTool from '@tool/OrderTool.vue'
-// import TurnsInfo from '@common/tools/TurnsInfo.vue'
+import FloorEditorTool from 'src/components/common/biz/FloorRooms.vue'
 
 import { useOrderStore } from 'stores/orderStore'
 import { useUsersStore } from 'src/stores/usersStore'
@@ -33,7 +30,7 @@ const ordersTabProps = computed(() => {
 })
 
 const tabs = computed(() => [
-  { name: 'orders', label: 'Ordini', icon: 'list_alt', component: OrderTool, props: () => ordersTabProps.value },
+  { name: 'orders', label: 'Mappa Locale', icon: 'map', component: FloorEditorTool, props: () => ordersTabProps.value },
   // { name: 'turns',  label: 'Turni',  icon: 'calendar_month', component: TurnsInfo, props: () => ordersTabProps.value }
 ])
 </script>

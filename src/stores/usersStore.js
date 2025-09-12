@@ -117,17 +117,21 @@ export const useUsersStore = defineStore('users', () => {
     return permissions.every(p => currentUser.value.permissions.includes(p))
   }
 
-  // ---------------------- CREATE (usa /auth/register) ----------------------
-  async function createUser (payload) {
-    const API = import.meta.env.VITE_API_URL
-    const headers = { 'Content-Type': 'application/json' }
-    // opzionale: la tua /auth/register oggi è pubblica; se la rendi protetta, authFetchJson metterà l’Authorization
-    return authFetchJson(`${API}/auth/register`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload || {})
-    })
+  // ---------------------- CREATE (POST /users) ----------------------
+async function createUser (payload) {
+  const API = import.meta.env.VITE_API_URL
+  const bearer = token.value || (STORAGE && STORAGE.getItem(TOKEN_KEY))
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(bearer ? { Authorization: `Bearer ${bearer}` } : {})
   }
+  return authFetchJson(`${API}/users`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload || {})
+  })
+}
+
 
   // ---------------------- UPDATE ----------------------
   async function updateUser (id, patch) {

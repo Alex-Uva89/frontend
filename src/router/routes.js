@@ -1,6 +1,8 @@
 import { crmRoutes } from 'src/apps/crm/routes'
 import { cmsRoutes } from 'src/apps/cms/routes'
 import { siteRoutes } from 'src/apps/site/routes'
+import { bizRoutes } from 'src/apps/biz/routes'
+
 
 const routes = [
   // Pubblico: Login
@@ -69,6 +71,40 @@ const routes = [
     component: () => import('src/apps/site/layout/SiteLayout.vue'),
     meta: { requiresAuth: true, app: 'site' },
     children: siteRoutes
+  },
+
+  // BIZ (gestionale Locali)
+  {
+    path: '/biz',
+    component: () => import('src/apps/biz/layout/BizLayout.vue'),
+    meta: { requiresAuth: true, app: 'biz' },
+    children: bizRoutes,
+    beforeEnter: (to, from, next) => {
+      if (to.path.replace(/\/+$/, '') === '/biz') {
+        try {
+          const { useUsersStore } = require('src/stores/usersStore')
+          const store = useUsersStore()
+          const role = store?.currentUser?.role
+            ? String(store.currentUser.role).toLowerCase()
+            : null
+
+          const redirectMap = {
+            staff: 'biz.staff',
+            manager: 'biz.manager',
+            owner: 'biz.owner',
+            dev: 'biz.dev',
+            hr: 'biz.hr',
+            supervisor: 'biz.supervisor'
+          }
+
+          return next({ name: redirectMap[role] || 'biz.dashboard' })
+        } catch (e) {
+          console.warn(e)
+          return next({ name: 'biz.dashboard' })
+        }
+      }
+      next()
+    }
   },
 
   // 404

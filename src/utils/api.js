@@ -12,17 +12,35 @@ export function authFetch (input, init = {}) {
   return fetch(input, { ...init, headers })
 }
 
-export async function authFetchJson (input, init = {}) {
-  const res = await authFetch(input, init)
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`
+// sostituisci la tua funzione con questa:
+export async function authFetchJson(url, opts = {}) {
+  const res = await fetch(url, {
+    method: opts.method || 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(opts.headers || {}),
+      ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
+    },
+    body: opts.body
+  })
+
+  const text = await res.text()
+  let data = null
+
+  if (text) {
     try {
-      const j = await res.json()
-      if (j?.error) msg = j.error
-    } catch (e) {
-      console.warn(e)
+      data = JSON.parse(text)
+    } catch {
+      // risposta non-JSON (tipico dei 404 HTML)
+      const short = text.slice(0, 200)
+      throw new Error(`HTTP ${res.status} ${res.statusText} – risposta non JSON: ${short}`)
     }
+  }
+
+  if (!res.ok) {
+    const msg = data?.error || data?.message || `HTTP ${res.status}`
     throw new Error(msg)
   }
-  return res.json()
+
+  return data
 }
