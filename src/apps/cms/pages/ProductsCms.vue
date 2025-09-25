@@ -1381,7 +1381,10 @@ async function saveEdit () {
         },
         description: {                               // << traduzioni descrizione
           it: trimOrNull(editor.value.form.t_desc_it),
-          en: trimOrNull(editor.value.form.t_desc_en)
+          en: trimOrNull(editor.value.form.t_desc_en),
+          fr: trimOrNull(editor.value.form.t_desc_fr),
+          es: trimOrNull(editor.value.form.t_desc_es),
+          pt: trimOrNull(editor.value.form.t_desc_pt),
         }
       },
       images: (editor.value.form.images || [])
