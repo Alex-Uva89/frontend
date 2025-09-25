@@ -74,6 +74,15 @@
             <div class="col-12 col-md-6">
               <q-input v-model="form.t_name_en" dense outlined label="Traduzione nome — English (en)" />
             </div>
+            <div class="col-12 col-md-6">
+              <q-input v-model="form.t_name_fr" dense outlined label="Traduzione nome — Francais (fr)" />
+            </div>
+            <div class="col-12 col-md-6">
+              <q-input v-model="form.t_name_es" dense outlined label="Traduzione nome — Spanish (es)" />
+            </div>
+            <div class="col-12 col-md-6">
+              <q-input v-model="form.t_name_pt" dense outlined label="Traduzione nome — Portoguese (pt)" />
+            </div>
           </div>
         </q-card-section>
 
@@ -136,6 +145,9 @@ const form = ref({
   notes: '',
   t_name_it: '',
   t_name_en: '',
+  t_name_fr: '',
+  t_name_es: '',
+  t_name_pt: '',
   categoryId: null
 })
 
@@ -170,6 +182,9 @@ function resetForm () {
     notes: '',
     t_name_it: '',
     t_name_en: '',
+    t_name_fr: '',
+    t_name_es: '',
+    t_name_pt: '',
     categoryId: props.defaultCategoryId || null
   }
 }
@@ -198,7 +213,10 @@ async function save () {
       translations: {
         name: {
           it: trimOrNull(form.value.t_name_it),
-          en: trimOrNull(form.value.t_name_en)
+          en: trimOrNull(form.value.t_name_en),
+          fr: trimOrNull(form.value.t_name_fr),
+          es: trimOrNull(form.value.t_name_es),
+          pt: trimOrNull(form.value.t_name_pt),
         }
       },
       // Associa ad una categoria esistente (array di ID)

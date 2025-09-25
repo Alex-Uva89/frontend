@@ -319,6 +319,15 @@
               <div class="col-12 col-md-6">
                 <q-input v-model="editor.form.t_name_en" label="English (en)" dense outlined />
               </div>
+              <div class="col-12 col-md-6">
+                <q-input v-model="editor.form.t_name_fr" label="Francese (fr)" dense outlined />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input v-model="editor.form.t_name_es" label="Spagnolo (es)" dense outlined />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input v-model="editor.form.t_name_pt" label="Portoghese (pt)" dense outlined />
+              </div>
             </div>
 
             <div class="text-subtitle1 q-mt-lg q-mb-sm">Traduzioni descrizione</div>
@@ -335,6 +344,27 @@
                   v-model="editor.form.t_desc_en"
                   type="textarea" autogrow dense outlined
                   label="English (en)"
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input
+                  v-model="editor.form.t_desc_fr"
+                  type="textarea" autogrow dense outlined
+                  label="Francese (fr)"
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input
+                  v-model="editor.form.t_desc_es"
+                  type="textarea" autogrow dense outlined
+                  label="Spagnolo (es)"
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input
+                  v-model="editor.form.t_desc_pt"
+                  type="textarea" autogrow dense outlined
+                  label="Portoghese (pt)"
                 />
               </div>
             </div>
@@ -727,8 +757,8 @@ const editor = ref({
   form: {
     name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
     active: true, description: '', notes: '',
-    t_name_it: '', t_name_en: '',
-    t_desc_it: '', t_desc_en: '',          // << campi traduzione descrizione
+    t_name_it: '', t_name_en: '', t_name_fr: '', t_name_es: '',t_name_pt: '',
+    t_desc_it: '', t_desc_en: '',t_desc_fr: '', t_desc_es: '',t_desc_pt: '',
     attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: [],
     images: [] // array [{assetId,url,alt}]
   }
@@ -1239,7 +1269,11 @@ function openEdit (id) {
       name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
       active: true, description: '', notes: '',
       t_name_it: '', t_name_en: '',
-      t_desc_it: '', t_desc_en: '',        // << presenti al reset
+      t_name_fr: '', t_name_es: '',
+      t_name_pt: '',
+      t_desc_it: '', t_desc_en: '',
+      t_desc_fr: '', t_desc_es: '',
+      t_desc_pt: '',
       attrAllergenIds: [], attrGrapeIds: [], attrProducerIds: [], attrOtherIds: [],
       images: [] // << NEW
     }
@@ -1279,8 +1313,14 @@ async function loadOneForEdit (id) {
       notes: p.notes || '',
       t_name_it: (p?.translations?.name?.it || ''),
       t_name_en: (p?.translations?.name?.en || ''),
+      t_name_fr: (p?.translations?.name?.fr || ''),
+      t_name_es: (p?.translations?.name?.es || ''),
+      t_name_pt: (p?.translations?.name?.pt || ''),
       t_desc_it: (p?.translations?.description?.it || ''),
       t_desc_en: (p?.translations?.description?.en || ''),
+      t_desc_fr: (p?.translations?.description?.fr || ''),
+      t_desc_es: (p?.translations?.description?.es || ''),
+      t_desc_pt: (p?.translations?.description?.pt || ''),
       attrAllergenIds: allergens,
       attrGrapeIds: grapes,
       attrProducerIds: producers,
@@ -1334,7 +1374,10 @@ async function saveEdit () {
       translations: {
         name: {
           it: trimOrNull(editor.value.form.t_name_it),
-          en: trimOrNull(editor.value.form.t_name_en)
+          en: trimOrNull(editor.value.form.t_name_en),
+          fr: trimOrNull(editor.value.form.t_name_fr),
+          es: trimOrNull(editor.value.form.t_name_es),
+          pt: trimOrNull(editor.value.form.t_name_pt)
         },
         description: {                               // << traduzioni descrizione
           it: trimOrNull(editor.value.form.t_desc_it),

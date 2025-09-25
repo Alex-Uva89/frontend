@@ -1,31 +1,55 @@
+<!-- Dentro il tuo componente padre (quello che hai incollato) -->
 <template>
   <div class="q-pa-md">
-    <!-- Header: select & create -->
+    <!-- Header -->
     <div class="row items-center q-gutter-sm q-mb-sm">
+      <!-- Stanza -->
       <q-select
         v-model="currentRoomId"
-        :options="rooms.roomOptions"
-        label="Seleziona stanza"
-        dense outlined style="min-width: 240px"
+        :options="rooms.roomOptionsIdName"
+        option-value="id" option-label="name"
+        emit-value map-options
+        label="Seleziona stanza" dense outlined style="min-width: 240px"
       />
+
       <q-input
         v-if="rooms.currentRoom"
         v-model="roomName"
         dense outlined label="Rinomina stanza"
         style="min-width: 240px"
       />
+
       <q-btn color="primary" icon="add" label="Crea stanza" dense @click="openDialog" />
+
       <q-space />
-      <q-btn v-if="rooms.currentRoom" flat color="negative" icon="delete" label="Elimina stanza" dense @click="removeCurrent" />
+
+      <!-- ⬇️ NUOVA SELECT & BOTTONE "Aggiungi tavolo" -->
+      <q-select
+        v-model="newTableShape"
+        :options="shapeOptions"
+        option-value="value" option-label="label"
+        emit-value map-options
+        label="Forma tavolo" dense outlined style="min-width: 180px"
+      />
+      <q-btn
+        :disable="!rooms.currentRoom"
+        color="secondary" icon="event_seat"
+        label="Aggiungi tavolo"
+        dense @click="openTableDialog"
+      />
+
+      <q-btn
+        v-if="rooms.currentRoom"
+        flat color="negative" icon="delete" label="Elimina stanza" dense @click="removeCurrent"
+      />
     </div>
 
-    <!-- Stage: mostra solo la stanza selezionata -->
+    <!-- Stage -->
     <div ref="stageWrap" class="stage-wrap" @wheel.prevent="onWheel">
       <v-stage :config="stageCfg" @mousedown="onStageMouseDown">
         <v-layer>
           <template v-if="rooms.currentRoom">
             <v-line :config="roomLineCfg(rooms.currentRoom)" />
-            <!-- opzionale: punti visivi -->
             <v-circle
               v-for="(p, i) in rooms.currentRoom.points"
               :key="'vpt-' + i"
@@ -33,11 +57,59 @@
             />
           </template>
         </v-layer>
+
+        <!-- ⬇️ LAYER TAVOLI -->
+        <v-layer v-if="rooms.currentRoom && rooms.currentRoom.tables?.length">
+          <template v-for="t in rooms.currentRoom.tables" :key="t.id">
+            <v-circle
+              v-if="t.shape === 'round'"
+              :config="{
+                x: t.pos.x, y: t.pos.y, radius: t.size.r || 40,
+                fill: t.color || '#607D8B', opacity: t.status === 'disabled' ? 0.4 : 0.9
+              }"
+            />
+            <v-rect
+              v-else-if="t.shape === 'square'"
+              :config="{
+                x: t.pos.x - (t.size.side||80)/2, y: t.pos.y - (t.size.side||80)/2,
+                width: t.size.side||80, height: t.size.side||80, rotation: t.rotation||0,
+                cornerRadius: 8, fill: t.color || '#607D8B', opacity: t.status === 'disabled' ? 0.4 : 0.9
+              }"
+            />
+            <v-rect
+              v-else-if="t.shape === 'rect'"
+              :config="{
+                x: t.pos.x - (t.size.w||100)/2, y: t.pos.y - (t.size.h||60)/2,
+                width: t.size.w||100, height: t.size.h||60, rotation: t.rotation||0,
+                cornerRadius: 8, fill: t.color || '#607D8B', opacity: t.status === 'disabled' ? 0.4 : 0.9
+              }"
+            />
+            <v-regular-polygon
+              v-else-if="t.shape === 'polygon'"
+              :config="{
+                x: t.pos.x, y: t.pos.y, sides: t.size.sides || 5, radius: t.size.r || 40,
+                rotation: t.rotation||0, fill: t.color || '#607D8B', opacity: t.status === 'disabled' ? 0.4 : 0.9
+              }"
+            />
+            <!-- Etichetta -->
+            <v-text
+              :config="{
+                x: t.pos.x, y: (t.pos.y + (t.shape==='rect' ? (t.size.h||60)/2 + 14 : (t.shape==='square' ? (t.size.side||80)/2 + 14 : (t.size.r||40) + 14))),
+                text: t.name + ' (' + t.seats + ')',
+                fontSize: 14, fill: '#37474F', align: 'center'
+              }"
+              :offsetX="(t.name.length * 7) / 2"
+            />
+          </template>
+        </v-layer>
       </v-stage>
     </div>
 
-    <!-- Dialog -->
+    <!-- Dialog stanza -->
     <RoomShapeDialog v-model="dialog" @save="onSaveRoom" />
+
+    <!-- Dialog tavolo -->
+    <TableEditorDialog v-model="tableDialog" :value="null" @save="onSaveTable" />
   </div>
 </template>
 
@@ -45,9 +117,37 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoomsStore } from 'src/stores/biz/rooms'
 import RoomShapeDialog from 'src/components/common/biz/RoomShapeDialog.vue'
+import TableEditorDialog from 'src/components/common/biz/TableEditorDialog.vue'
 
 const rooms = useRoomsStore()
 const dialog = ref(false)
+
+// ⬇️ nuovo stato per tavoli
+const newTableShape = ref('round')
+const tableDialog = ref(false)
+
+const shapeOptions = [
+  { label: 'Rotondo', value: 'round' },
+  { label: 'Quadrato', value: 'square' },
+  { label: 'Rettangolare', value: 'rect' },
+  { label: 'Poligono regolare', value: 'polygon' }
+]
+
+function openTableDialog () {
+  if (!rooms.currentRoom) return
+  // il dialog ha default sensati; se vuoi pre-impostare la forma:
+  // lo passiamo via provide/inject o store? Qui settiamo un default globale:
+  // userai "newTableShape" applicandolo nel save.
+  tableDialog.value = true
+}
+function onSaveTable (payload) {
+  if (!rooms.currentRoom) return
+  // forza la forma scelta dalla select rapida (selezione header)
+  const tableData = { ...payload, shape: newTableShape.value }
+  // posizione di default: centro stanza (approssimato)
+  tableData.pos ||= { x: 200, y: 200 }
+  rooms.addTable(rooms.currentRoom.id, tableData)
+}
 
 const stageWrap = ref(null)
 const stageState = ref({ scale: 1, x: 0, y: 0 })
@@ -55,7 +155,6 @@ const isPanning = ref(false)
 
 onMounted(() => {
   rooms.load()
-  // se non c'è nulla, apri subito la dialog per creare la prima stanza
   if (!rooms.currentRoomId) dialog.value = true
 })
 
@@ -66,15 +165,12 @@ const currentRoomId = computed({
 })
 const roomName = computed({
   get: () => rooms.currentRoom?.name || '',
-  set: v => {
-    if (rooms.currentRoom) rooms.renameRoom(rooms.currentRoom.id, v)
-  }
+  set: v => { if (rooms.currentRoom) rooms.renameRoom(rooms.currentRoom.id, v) }
 })
 
 function openDialog () { dialog.value = true }
 function onSaveRoom ({ name, points }) {
   const r = rooms.addRoom({ name, points })
-  // reset viewport to see the whole room
   fitToRoom(r)
 }
 function removeCurrent () {
@@ -99,23 +195,16 @@ function onWheel (e) {
   const scaleBy = 1.05
   const old = stageState.value.scale
   const pt = s.getPointerPosition()
-  const mousePointTo = {
-    x: (pt.x - stageState.value.x) / old,
-    y: (pt.y - stageState.value.y) / old
-  }
+  const mousePointTo = { x: (pt.x - stageState.value.x) / old, y: (pt.y - stageState.value.y) / old }
   const dir = e.evt.deltaY > 0 ? -1 : 1
   const next = dir > 0 ? old * scaleBy : old / scaleBy
   const nx = pt.x - mousePointTo.x * next
   const ny = pt.y - mousePointTo.y * next
   stageState.value = { scale: clamp(next, 0.2, 4), x: nx, y: ny }
 }
-function onStageMouseDown (e) {
-  console.log(e)
-  // pan con SPACE gestito globalmente
-}
+function onStageMouseDown (e) { console.log(e) }
 function clamp (v, min, max) { return Math.max(min, Math.min(max, v)) }
 
-// draw cfg
 function roomLineCfg (room) {
   return {
     points: flattenPoints(room.points),
@@ -127,23 +216,13 @@ function roomLineCfg (room) {
     fill: 'rgba(0,121,107,0.12)'
   }
 }
-function flattenPoints (arr) {
-  const res = []
-  for (const p of arr) res.push(p.x, p.y)
-  return res
-}
+function flattenPoints (arr) { const res = []; for (const p of arr) res.push(p.x, p.y); return res }
 
-// fit view to room
 function fitToRoom (room) {
   const pts = room.points
   if (!pts || pts.length === 0) return
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const p of pts) {
-    if (p.x < minX) minX = p.x
-    if (p.y < minY) minY = p.y
-    if (p.x > maxX) maxX = p.x
-    if (p.y > maxY) maxY = p.y
-  }
+  for (const p of pts) { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y }
   const w = Math.max(1, maxX - minX)
   const h = Math.max(1, maxY - minY)
   const pad = 40
@@ -157,7 +236,6 @@ function fitToRoom (room) {
   stageState.value = { scale, x, y }
 }
 
-// aggiorna fit quando cambio stanza
 watch(() => rooms.currentRoomId, (id) => {
   const room = rooms.rooms.find(r => r.id === id)
   if (room) fitToRoom(room)

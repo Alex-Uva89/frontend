@@ -21,7 +21,13 @@ export const useRoomsStore = defineStore('rooms', {
     },
     roomOptions (state) {
       return state.rooms.map(r => ({ label: r.name || r.id, value: r.id }))
-    }
+    },
+    roomOptionsIdName (state) {
+      return state.rooms.map(r => ({
+        id: r.id,
+        name: r.name || r.id
+      }))
+    },
   },
 
   actions: {
@@ -34,11 +40,13 @@ export const useRoomsStore = defineStore('rooms', {
       return room
     },
     setCurrentRoom (id) {
-      if (this.rooms.find(r => r.id === id)) {
-        this.currentRoomId = id
+      const sid = id != null ? String(id) : null
+      if (this.rooms.find(r => r.id === sid)) {
+        this.currentRoomId = sid
         this.save()
       }
     },
+
     renameRoom (id, name) {
       const r = this.rooms.find(x => x.id === id)
       if (r) { r.name = name || r.name; this.save() }
@@ -53,6 +61,49 @@ export const useRoomsStore = defineStore('rooms', {
         this.save()
       }
     },
+    // ------------------------------------------------------------
+    //                    TABLE
+    //-------------------------------------------------------------
+    addTable (roomId, table) {
+      const r = this.rooms.find(x => x.id === roomId)
+      if (!r) return null
+      if (!Array.isArray(r.tables)) r.tables = []
+      const t = {
+        id: uid(),
+        name: table?.name || `Tavolo ${r.tables.length + 1}`,
+        shape: table?.shape || 'round', // round | square | rect | polygon
+        seats: Number(table?.seats || 4),
+        highChairs: Number(table?.highChairs || 0),
+        hasHighChairs: !!table?.hasHighChairs, // flag rapido
+        pos: table?.pos || { x: 100, y: 100 },
+        size: table?.size || { r: 40, w: 80, h: 80, side: 80, sides: 4 }, // default per forme
+        rotation: Number(table?.rotation || 0),
+        status: table?.status || 'available', // available | reserved | busy | disabled
+        notes: table?.notes || '',
+        color: table?.color || '#455A64',
+        tags: Array.isArray(table?.tags) ? table.tags : []
+      }
+      r.tables.push(t)
+      this.save()
+      return t
+    },
+    updateTable (roomId, tableId, patch) {
+      const r = this.rooms.find(x => x.id === roomId)
+      if (!r || !Array.isArray(r.tables)) return
+      const t = r.tables.find(x => x.id === tableId)
+      if (!t) return
+      Object.assign(t, patch || {})
+      this.save()
+    },
+    removeTable (roomId, tableId) {
+      const r = this.rooms.find(x => x.id === roomId)
+      if (!r || !Array.isArray(r.tables)) return
+      const i = r.tables.findIndex(x => x.id === tableId)
+      if (i !== -1) { r.tables.splice(i, 1); this.save() }
+    },
+    // ------------------------------------------------------------
+    //                    END TABLE
+    //-------------------------------------------------------------
     save () {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         rooms: this.rooms,
@@ -74,6 +125,7 @@ export const useRoomsStore = defineStore('rooms', {
       this.rooms = []
       this.currentRoomId = null
       this.save()
-    }
+    },
+
   }
 })
