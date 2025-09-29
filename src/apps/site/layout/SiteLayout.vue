@@ -20,12 +20,7 @@
 
         <q-item :to="{ name: 'site.pages' }" clickable v-ripple>
           <q-item-section avatar><q-icon name="article" /></q-item-section>
-          <q-item-section>Pagine</q-item-section>
-        </q-item>
-
-        <q-item :to="{ name: 'site.menu' }" clickable v-ripple>
-          <q-item-section avatar><q-icon name="menu" /></q-item-section>
-          <q-item-section>Menu</q-item-section>
+          <q-item-section>Testi pagine</q-item-section>
         </q-item>
 
         <q-item :to="{ name: 'site.media' }" clickable v-ripple>
