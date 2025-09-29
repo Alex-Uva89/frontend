@@ -16,16 +16,6 @@
         map-options
       />
       <q-btn dense flat icon="refresh" @click="load" :loading="loading" title="Ricarica" />
-      <q-btn
-        dense
-        color="primary"
-        class="q-ml-sm"
-        :loading="saving"
-        :disable="!isDirty || loading"
-        @click="onSave"
-      >
-        Salva su Sanity
-      </q-btn>
     </div>
 
     <!-- Error banner -->
