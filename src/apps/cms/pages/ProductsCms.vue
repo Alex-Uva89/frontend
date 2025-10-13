@@ -171,29 +171,44 @@
                           <span class="meta-value">{{ listToLabel(kindList(prod,'produttore')) || '—' }}</span>
                         </div>
 
-                        <!-- SKU + Prezzi -->
-                        <div class="row items-center no-wrap q-mt-xs">
-                          <div class="text-caption text-grey-7 caption-ellipsis">
-                            <template v-if="prod.sku">
-                              {{ prod.sku }}
-                              <span class="q-mx-xs" v-if="hasAnyPrice(prod)">·</span>
-                            </template>
+                                              <!-- SKU + Prezzi -->
+                      <div class="row items-center no-wrap q-mt-xs">
+                        <div class="text-caption text-grey-7 caption-ellipsis">
+                          <template v-if="prod.sku">
+                            {{ prod.sku }}
+                            <span class="q-mx-xs" v-if="hasAnyPrice(prod)">·</span>
+                          </template>
 
-                            <template v-if="hasWinePrices(prod)">
-                              <span v-if="isNumber(getGlassPrice(prod))">
-                                {{ formatMoney(getGlassPrice(prod)) }}
-                              </span>
-                              <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
-                                <span class="q-mx-xs" v-if="isNumber(getGlassPrice(prod)) && isNumber(getBottlePrice(prod))">·</span>
-                                {{ formatMoney(getBottlePrice(prod)) }}
-                              </span>
-                            </template>
-                            <template v-else>
-                              <span v-if="isNumber(prod.price)">{{ formatMoney(prod.price) }}</span>
-                              <span v-else>prezzo n/d</span>
-                            </template>
-                          </div>
+                          <!-- 1) Speciali Croccante/Contemporanea -->
+                          <template v-if="hasSpecialPrices(prod)">
+                            <span v-if="isNumber(getSpecial1(prod))">
+                              Croccante: {{ formatMoney(getSpecial1(prod)) }}
+                            </span>
+                            <span v-if="isNumber(getSpecial2(prod))" class="q-ml-xs">
+                              <span class="q-mx-xs">·</span>
+                              Contemporanea: {{ formatMoney(getSpecial2(prod)) }}
+                            </span>
+                          </template>
+
+                          <!-- 2) Coppia calice/bottiglia -->
+                          <template v-else-if="hasWinePrices(prod)">
+                            <span v-if="isNumber(getGlassPrice(prod))">
+                              {{ formatMoney(getGlassPrice(prod)) }}
+                            </span>
+                            <span v-if="isNumber(getBottlePrice(prod))" class="q-ml-xs">
+                              <span class="q-mx-xs" v-if="isNumber(getGlassPrice(prod)) && isNumber(getBottlePrice(prod))">·</span>
+                              {{ formatMoney(getBottlePrice(prod)) }}
+                            </span>
+                          </template>
+
+                          <!-- 3) Prezzo singolo -->
+                          <template v-else>
+                            <span v-if="isNumber(prod.price)">{{ formatMoney(prod.price) }}</span>
+                            <span v-else>prezzo n/d</span>
+                          </template>
                         </div>
+                      </div>
+
                       </div>
                     </div>
                   </div>
@@ -240,6 +255,14 @@
 
             <div class="col-12 col-md-4">
               <q-input v-model.number="editor.form.price" type="number" step="0.01" label="Prezzo" dense outlined />
+            </div>
+            <div class="col-6 col-md-4">
+              <q-input v-model.number="editor.form.priceSpecial1" type="number" step="0.01"
+                      label="Prezzo speciale 1 (Croccante)" dense outlined />
+            </div>
+            <div class="col-6 col-md-4">
+              <q-input v-model.number="editor.form.priceSpecial2" type="number" step="0.01"
+                      label="Prezzo speciale 2 (Contemporanea)" dense outlined />
             </div>
             <div class="col-6 col-md-4">
               <q-input v-model.number="editor.form.priceGlass" type="number" step="0.01" label="Prezzo calice" dense outlined />
@@ -755,7 +778,7 @@ const editor = ref({
   originalAttrIds: [],   // per "Attuali"
   unknownAttrIds: [],    // non presenti nel catalogo, preservati
   form: {
-    name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
+    name: '', sku: '', price: null, priceSpecial1:null, priceSpecial2: null, priceGlass: null, priceBottle: null,
     active: true, description: '', notes: '',
     t_name_it: '', t_name_en: '', t_name_fr: '', t_name_es: '',t_name_pt: '',
     t_desc_it: '', t_desc_en: '',t_desc_fr: '', t_desc_es: '',t_desc_pt: '',
@@ -939,9 +962,18 @@ const printSections = computed(() => {
       // prezzi
       const gp = getGlassPrice(p)
       const bp = getBottlePrice(p)
+      const sp1 = getSpecial1(p)
+      const sp2 = getSpecial2(p)
       const prices = {}
-      if (isPositive(gp) && isPositive(bp)) { prices.glass = gp; prices.bottle = bp }
-      else if (isNumber(p.price)) { prices.price = p.price }
+      if (isPositive(sp1) && isPositive(sp2)) {
+        prices.special1 = sp1
+        prices.special2 = sp2
+      } else if (isPositive(gp) && isPositive(bp)) {
+        prices.glass = gp
+        prices.bottle = bp
+      } else if (isNumber(p.price)) {
+        prices.price = p.price
+      }
 
       // label prodotto i18n
       const label = {
@@ -995,10 +1027,14 @@ async function loadProducts () {
   const rows = (json.data || []).map(p => {
     const glass  = (typeof p.priceGlass  !== 'undefined') ? p.priceGlass  : (p?.prices?.glass  ?? null)
     const bottle = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
+    const special1 = (typeof p.priceSpecial1 !== 'undefined') ? p.priceSpecial1 : null
+    const special2 = (typeof p.priceSpecial2 !== 'undefined') ? p.priceSpecial2 : null
     return {
       ...p,
       _priceGlass: toMoney(glass),
       _priceBottle: toMoney(bottle),
+      _priceSpecial1: toMoney(special1),
+      _priceSpecial2: toMoney(special2),
       price: toMoney(p.price)
     }
   })
@@ -1207,8 +1243,25 @@ function hasWinePrices (p) {
   const g = getGlassPrice(p); const b = getBottlePrice(p)
   return isPositive(g) && isPositive(b)
 }
-function hasAnyPrice (p) { return hasWinePrices(p) || isPositive(p.price) }
+function hasAnyPrice (p) { return hasWinePrices(p) || hasSpecialPrices(p) || isPositive(p.price) }
 function formatMoney (n) { return isNumber(n) ? n.toFixed(2) : '' }
+
+
+function getSpecial1 (p) {
+  if (isPositive(p?._priceSpecial1)) return p._priceSpecial1
+  if (isPositive(p?.priceSpecial1))  return p.priceSpecial1
+  return null
+}
+function getSpecial2 (p) {
+  if (isPositive(p?._priceSpecial2)) return p._priceSpecial2
+  if (isPositive(p?.priceSpecial2))  return p.priceSpecial2
+  return null
+}
+function hasSpecialPrices (p) {
+  const s1 = getSpecial1(p); const s2 = getSpecial2(p)
+  return isPositive(s1) && isPositive(s2)
+}
+
 
 /* ================== DnD & SALVATAGGIO ================== */
 const disableDrag = computed(() => !canUpdateProducts.value || !!search.value || savingOrder.value)
@@ -1266,7 +1319,7 @@ function openEdit (id) {
     open: true, saving: false, id,
     originalAttrIds: [], unknownAttrIds: [],
     form: {
-      name: '', sku: '', price: null, priceGlass: null, priceBottle: null,
+      name: '', sku: '', price: null, priceSpecial1:null, priceSpecial2:null, priceGlass: null, priceBottle: null,
       active: true, description: '', notes: '',
       t_name_it: '', t_name_en: '',
       t_name_fr: '', t_name_es: '',
@@ -1306,6 +1359,8 @@ async function loadOneForEdit (id) {
       name: p.name || '',
       sku: p.sku || '',
       price: toMoney(p.price),
+      priceSpecial1: toMoney(p?.priceSpecial1),
+      priceSpecial2: toMoney(p?.priceSpecial2),
       priceGlass: toMoney(p?.priceGlass ?? p?.prices?.glass),
       priceBottle: toMoney(p?.priceBottle ?? p?.prices?.bottle),
       active: p.active !== false,
@@ -1365,6 +1420,8 @@ async function saveEdit () {
       name: editor.value.form.name,
       sku: editor.value.form.sku || '',
       price: editor.value.form.price ?? null,
+      priceSpecial1: editor.value.form.priceSpecial1 ?? null,
+      priceSpecial2: editor.value.form.priceSpecial2 ?? null,
       priceGlass: editor.value.form.priceGlass ?? null,
       priceBottle: editor.value.form.priceBottle ?? null,
       active: !!editor.value.form.active,
@@ -1411,6 +1468,8 @@ async function saveEdit () {
       name: payload.name,
       sku: payload.sku,
       price: toMoney(payload.price),
+      priceSpecial1: payload.priceSpecial1,
+      priceSpecial2: payload.priceSpecial2,
       priceGlass: payload.priceGlass,
       priceBottle: payload.priceBottle,
       translations: payload.translations,

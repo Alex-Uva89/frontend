@@ -28,6 +28,11 @@
           <q-item-section>Media</q-item-section>
         </q-item>
 
+        <q-item :to="{ name: 'site.menu' }" clickable v-ripple>
+          <q-item-section avatar><q-icon name="storefront" /></q-item-section>
+          <q-item-section>Locali</q-item-section>
+        </q-item>
+
         <q-item :to="{ name: 'site.settings' }" clickable v-ripple>
           <q-item-section avatar><q-icon name="settings" /></q-item-section>
           <q-item-section>Impostazioni</q-item-section>
