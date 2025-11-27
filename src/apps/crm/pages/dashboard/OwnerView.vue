@@ -39,10 +39,10 @@ const orderToolProps = computed(() => ({
 const tabs = [
   { name: 'orders',      label: 'crea ordini',      icon: 'add_shopping_cart',     component: OrderTool,    props: () => orderToolProps.value },
   { name: 'orders_view', label: 'Lista della spesa',icon: 'local_grocery_store',   component: OrdersView,   props: { orders: orderStore.orders } },
+  { name: 'stats',       label: 'Costi',      icon: 'analytics',             component: StatisticsSection },
   { name: 'warehouse',   label: 'Magazzino',        icon: 'warehouse',             component: ListReference },
   { name: 'businesses',  label: 'Locali',           icon: 'store',                 component: OwnerBusiness },
   { name: 'staff',       label: 'Dipendenti',       icon: 'people',                component: StaffList },
   { name: 'company',     label: 'Info Azienda',     icon: 'business',              component: CompanyInfo },
-  { name: 'stats',       label: 'Statistiche',      icon: 'analytics',             component: StatisticsSection }
 ]
 </script>

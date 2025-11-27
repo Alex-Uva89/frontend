@@ -1,82 +1,176 @@
 <template>
-  <div>
-    <!-- Statistiche Rapide -->
-    <q-card class="shadow-2 q-mb-md">
-      <q-card-section class="bg-teal-1">
-        <div class="text-h6 text-teal-8">
-          Statistiche Rapide
-        </div>
-      </q-card-section>
+  <div class="q-pa-md">
 
-      <q-separator />
+    <!-- Ricerca -->
+    <q-input
+      v-model="search"
+      label="Cerca prodotto"
+      filled
+      debounce="300"
+      class="q-mb-md"
+      clearable
+    />
 
-      <q-card-section>
-        <div class="row q-col-gutter-md">
-          <div
-            v-for="stat in quickStats"
-            :key="stat.title"
-            class="col-6 col-sm-4"
-          >
-            <q-card bordered flat class="text-center q-pa-sm">
-              <q-icon :name="stat.icon" size="md" :color="stat.color" />
-              <div class="text-h6 q-mt-xs">{{ stat.value }}</div>
-              <div class="text-caption text-grey-7">{{ stat.title }}</div>
-            </q-card>
+    <q-card class="q-pa-md shadow-2">
+
+      <div class="text-h5 text-teal-8 q-mb-sm">
+        Costi Prodotti
+      </div>
+
+      <q-separator class="q-my-md" />
+
+      <!-- Lista prodotti -->
+      <div
+        v-for="p in filteredProducts"
+        :key="p._id"
+        class="q-mb-xl"
+      >
+
+        <!-- Header prodotto -->
+        <div class="row items-center justify-between">
+          <div>
+            <div class="text-h6">{{ p.name }}</div>
+            <div class="text-caption text-grey-7">ID: {{ p._id }}</div>
+          </div>
+
+          <div class="text-h6 text-teal-8">
+            Totale costo ingredienti:
+            {{ formatCurrency(calculateProductCost(p)) }}
           </div>
         </div>
-      </q-card-section>
-    </q-card>
 
-    <!-- Grafico -->
-    <q-card class="shadow-2">
-      <q-card-section class="bg-teal-1">
-        <div class="text-h6 text-teal-8">
-          Andamento Mensile
+        <q-separator class="q-my-md" />
+
+        <!-- Se ha ingredienti -->
+        <q-list bordered separator v-if="p.ingredients?.length">
+
+          <q-item
+            v-for="ing in p.ingredients"
+            :key="ing._key"
+          >
+            <q-item-section>
+
+              <div class="row justify-between">
+                <div>
+                  <div class="text-body1">
+                    {{ ing.reference?.name }}
+                  </div>
+
+                  <div class="text-caption text-grey-7">
+                    Quantità: {{ ing.quantity }} {{ normalizeUnit(ing.unit) }}
+                  </div>
+
+                  <div class="text-caption text-grey-7">
+                    Prezzo unitario: {{ formatCurrency(ing.reference?.price) }}
+                    / {{ ing.reference?.unit?.[0] || 'kg' }}
+                  </div>
+                </div>
+
+                <!-- Costo calcolato -->
+                <div class="text-body1 text-weight-bold text-teal-8">
+                  {{ formatCurrency(calculateIngredientCost(ing)) }}
+                </div>
+              </div>
+
+            </q-item-section>
+          </q-item>
+
+        </q-list>
+
+        <!-- Nessun ingrediente -->
+        <div v-else class="text-negative">
+          Nessun ingrediente associato
         </div>
-      </q-card-section>
 
-      <q-separator />
+        <q-separator class="q-my-lg" />
+      </div>
 
-      <q-card-section>
-        <MyChart />
-      </q-card-section>
     </q-card>
+
   </div>
 </template>
 
 <script setup>
-import MyChart from 'src/components/common/MyChart.vue'
-import { useBusinessStore } from 'src/stores/businessStore'
-import { useUsersStore } from 'src/stores/usersStore'
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useProductStore } from 'src/stores/productStore'
 
-const businessStore = useBusinessStore()
-const usersStore = useUsersStore()
+const productStore = useProductStore()
 
-const quickStats = computed(() => [
-  {
-    title: 'Locali',
-    icon: 'store',
-    value: businessStore.businesses.length,
-    color: 'teal'
-  },
-  {
-    title: 'Dipendenti',
-    icon: 'groups',
-    value: usersStore.users.length - 1,
-    color: 'blue'
-  },
-  {
-    title: 'Ordini Oggi',
-    icon: 'receipt',
-    value: '24',
-    color: 'green'
-  },
-  {
-    title: 'Fatturato',
-    icon: 'euro',
-    value: '1.245€',
-    color: 'orange'
-  }
-])
+const search = ref('')
+
+/* ============================================
+   CARICA PRODOTTI (lista già con ingredienti)
+============================================= */
+onMounted(async () => {
+  await productStore.fetchProducts() // LIST_QUERY ora include ingredients con reference
+})
+
+/* ============================================
+   FILTRO DI RICERCA
+============================================= */
+const filteredProducts = computed(() => {
+  const q = search.value.toLowerCase()
+  return productStore.products.filter(p =>
+    p.name?.toLowerCase().includes(q)
+  )
+})
+
+/* ============================================
+   NORMALIZZAZIONE UNITÀ
+============================================= */
+function normalizeUnit(u) {
+  if (Array.isArray(u)) return u[0]
+  return u || 'kg'
+}
+
+/* ============================================
+   CALCOLO COSTO INGREDIENTE
+============================================= */
+function calculateIngredientCost(ing) {
+  if (!ing.reference?.price) return 0
+
+  const pricePerKg = ing.reference.price
+  const qty = ing.quantity
+  const unit = normalizeUnit(ing.unit)
+
+  // kg
+  if (unit === 'kg') return pricePerKg * qty
+
+  // grammi
+  if (unit === 'g') return pricePerKg * (qty / 1000)
+
+  // milligrammi
+  if (unit === 'mg') return pricePerKg * (qty / 1_000_000)
+
+  // litri
+  if (unit === 'l') return pricePerKg * qty
+
+  // millilitri
+  if (unit === 'ml') return pricePerKg * (qty / 1000)
+
+  // pezzi
+  if (unit === 'pz') return pricePerKg * qty
+
+  // fallback
+  return pricePerKg * qty
+}
+
+/* ============================================
+   COSTO TOTALE PRODOTTO
+============================================= */
+function calculateProductCost(product) {
+  return (product.ingredients || [])
+    .map(i => calculateIngredientCost(i))
+    .reduce((a, b) => a + b, 0)
+}
+
+/* ============================================
+   FORMATTATORE €
+============================================= */
+function formatCurrency(value) {
+  return new Intl.NumberFormat('it-IT', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(value || 0)
+}
 </script>
