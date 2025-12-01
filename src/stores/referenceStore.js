@@ -23,47 +23,38 @@ export const useReferenceStore = defineStore('reference', () => {
     total: 0
   })
 
-  async function fetchReferences (overrides = {}) {
-    loading.value = true
-    error.value = null
+  async function fetchReferences(overrides = {}, full = false) {
+  loading.value = true
+  error.value = null
 
-    // merge criteri
-    const c = { ...criteria, ...overrides }
-    Object.assign(criteria, c)
+  const c = { ...criteria, ...overrides }
+  Object.assign(criteria, c)
 
-    const params = {
-      q: c.q || undefined,
-      categoryId: c.categoryId || undefined,
-      supplierId: c.supplierId || undefined,
-      units: (c.units && c.units.length) ? c.units.join(',') : undefined,
-      tags: (c.tags && c.tags.length) ? c.tags.join(',') : undefined,
-      status: c.status || undefined,
-      hasPrice: c.hasPrice ?? undefined,
-      hasNotes: c.hasNotes ?? undefined,
-      sort: c.sort || undefined,
-      page: c.page,
-      pageSize: c.pageSize
-    }
-
-    try {
-      const { data } = await api.get('references/', { params })
-      // accetta sia {items,total} che un array semplice
-      if (Array.isArray(data)) {
-        references.value = data
-        criteria.total = data.length
-      } else {
-        references.value = data.items || []
-        criteria.total = data.total ?? references.value.length
+  const params = full
+    ? { sort: c.sort, page: 1, pageSize: 5000 } // carica tutto
+    : {
+        q: c.q || undefined,
+        categoryId: c.categoryId || undefined,
+        supplierId: c.supplierId || undefined,
+        units: (c.units?.length ? c.units.join(',') : undefined),
+        tags: (c.tags?.length ? c.tags.join(',') : undefined),
+        status: c.status || undefined,
+        hasPrice: c.hasPrice ?? undefined,
+        hasNotes: c.hasNotes ?? undefined,
+        sort: c.sort || undefined,
+        page: c.page,
+        pageSize: c.pageSize
       }
-      return references.value
-    } catch (e) {
-      console.error('Error fetching references:', e)
-      error.value = e
-      throw e
-    } finally {
-      loading.value = false
-    }
+
+  try {
+    const { data } = await api.get('references/', { params })
+    references.value = data.items || []
+    criteria.total = data.total || references.value.length
+  } finally {
+    loading.value = false
   }
+}
+
 
   async function createReference (payload, opts = {}) {
     const { data } = await api.post('references/', {

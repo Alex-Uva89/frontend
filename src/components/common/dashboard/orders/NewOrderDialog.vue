@@ -314,7 +314,7 @@ async function handleReferenceCreated(draft) {
     const createdName = (created?.name || draft?.name || '').trim().toLowerCase()
 
     // 3. Aggiorna la lista reference dal backend
-    await referenceStore.fetchReferences()
+    await referenceStore.fetchReferences({}, true)
 
     const list = referenceStore.references || []
     let pick = null
