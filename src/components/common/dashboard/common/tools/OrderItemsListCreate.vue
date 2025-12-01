@@ -428,6 +428,8 @@ async function confirmDeleteOrder() {
 onMounted(async () => {
   await referenceStore.fetchReferences()
 })
+
+
 </script>
 
 <style scoped>

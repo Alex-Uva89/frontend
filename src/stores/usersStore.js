@@ -103,6 +103,8 @@ export const useUsersStore = defineStore('users', () => {
     if (router) router.push('/')
   }
 
+
+
   // Check permissions (ruolo lato FE se ti serve)
   function hasRole (role) {
     if (!userRole.value) return false

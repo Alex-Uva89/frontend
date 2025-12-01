@@ -142,7 +142,7 @@
         </div>
 
         <div>
-          <q-btn flat label="Annulla" v-close-popup />
+          <q-btn flat label="Annulla" @click="closeDialog" />
           <q-btn color="primary" label="Crea ordine" @click="createOrder" />
         </div>
       </q-card-actions>
@@ -367,6 +367,10 @@ async function handleReferenceCreated(draft) {
   }
 }
 
+
+function closeDialog() {
+  modelValue.value = false
+}
 
 /* Submit ordine */
 onMounted(() => {

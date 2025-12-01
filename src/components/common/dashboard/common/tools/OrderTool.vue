@@ -59,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import OrderItemsList from '@tool/OrderItemsListCreate.vue'
 import NewOrderDialog from 'src/components/common/dashboard/orders/NewOrderDialog.vue'
 import { useUsersStore } from 'src/stores/usersStore'
@@ -120,38 +120,38 @@ const ready = computed(() => !!currentBusinessId.value)
    - quando usersStore carica l’utente, forza lo store al suo business (non Owner)
    - mantieni allineato businessStore.currentBusinessId
 */
-watch(
-  () => props.businessId,
-  (val) => {
-    if (!isOwner.value && val) {
-      // non Owner segue il parent
-      businessStore.setCurrentBusinessId(val)
-    }
-  },
-  { immediate: true }
-)
+// watch(
+//   () => props.businessId,
+//   (val) => {
+//     if (!isOwner.value && val) {
+//       // non Owner segue il parent
+//       businessStore.setCurrentBusinessId(val)
+//     }
+//   },
+//   { immediate: true }
+// )
 
-watch(
-  () => userBusinessId.value,
-  (uid) => {
-    if (!isOwner.value && uid) {
-      // forza lo store al business dell’utente
-      businessStore.setCurrentBusinessId(uid)
-    }
-  },
-  { immediate: true }
-)
+// watch(
+//   () => userBusinessId.value,
+//   (uid) => {
+//     if (!isOwner.value && uid) {
+//       // forza lo store al business dell’utente
+//       businessStore.setCurrentBusinessId(uid)
+//     }
+//   },
+//   { immediate: true }
+// )
 
-watch(
-  () => currentBusinessId.value,
-  (id) => {
-    if (id && businessStore.currentBusinessId !== id) {
-      businessStore.setCurrentBusinessId(id)
-      emit('business-changed', id)
-    }
-  },
-  { immediate: true }
-)
+// watch(
+//   () => currentBusinessId.value,
+//   (id) => {
+//     if (id && businessStore.currentBusinessId !== id) {
+//       businessStore.setCurrentBusinessId(id)
+//       emit('business-changed', id)
+//     }
+//   },
+//   { immediate: true }
+// )
 
 function onSelectBusiness (val) {
   selectedBusinessId.value = val
@@ -195,32 +195,33 @@ function openNewOrderDialog () {
 }
 
 onMounted(async () => {
-  // carica i business se arrivo direttamente qui
   if (!businessStore.businesses?.length) {
     await businessStore.fetchBusinesses()
   }
-  // Inizializzazione coerente:
-  if (isOwner.value) {
-    // Owner → se non selezionato, prova store → primo → prop → user
-    if (!selectedBusinessId.value) {
-      selectedBusinessId.value =
-        businessStore.currentBusinessId ||
-        businessStore.businesses?.[0]?._id ||
-        props.businessId ||
-        userBusinessId.value ||
-        null
-    }
-    if (selectedBusinessId.value) {
-      businessStore.setCurrentBusinessId(selectedBusinessId.value)
-      emit('business-changed', selectedBusinessId.value)
-    }
-  } else {
-    // Non Owner → imposta sempre al business dell’utente (fallback: prop)
-    const id = userBusinessId.value || props.businessId || null
-    if (id) {
+
+  // Non Owner → segue SEMPRE il business dell'utente
+  if (!isOwner.value) {
+    const id = userBusinessId.value || props.businessId || businessStore.currentBusinessId
+    if (id && id !== businessStore.currentBusinessId) {
       businessStore.setCurrentBusinessId(id)
-      emit('business-changed', id)
+      emit("business-changed", id)
     }
+    return
+  }
+
+  // Owner
+  let id =
+    selectedBusinessId.value ||
+    businessStore.currentBusinessId ||
+    props.businessId ||
+    userBusinessId.value ||
+    businessStore.businesses?.[0]?._id ||
+    null
+
+  if (id && id !== businessStore.currentBusinessId) {
+    businessStore.setCurrentBusinessId(id)
+    emit("business-changed", id)
   }
 })
+
 </script>
