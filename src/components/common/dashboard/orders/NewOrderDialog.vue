@@ -300,60 +300,63 @@ function openNewReference (idx) {
  * - accetta ritorni {reference}, {data} o oggetto diretto
  * - poi refetch, poi ricerca per _id o per name/supplier/category
  */
-async function handleReferenceCreated (draft) {
+async function handleReferenceCreated(draft) {
   try {
+    // 1. Crea la referenza nel backend
     const raw = await referenceStore.createReference(draft, {
       initWarehouse: true,
       businessId: props.businessId
     })
 
-    // normalizza il ritorno
+    // 2. Normalizza il ritorno
     const created = raw?.reference || raw?.data || raw || null
+    const createdId = created?._id || created?.id || null
+    const createdName = (created?.name || draft?.name || '').trim().toLowerCase()
 
-    // ricarico la lista per avere l'_id certo
+    // 3. Aggiorna la lista reference dal backend
     await referenceStore.fetchReferences()
 
-    // trova la nuova referenza
+    const list = referenceStore.references || []
     let pick = null
-    const lc = s => (s || '').trim().toLowerCase()
-    const createdId = created?._id || created?.id || null
-    const createdName = lc(created?.name || draft?.name)
-    const createdSupplierId =
-      created?.supplier?._id || created?.supplier?._ref || draft?.supplier?._ref || null
-    const createdCategoryId =
-      created?.category?._id || created?.category?._ref || draft?.category?._ref || null
 
-    // 1) per id
+    // ---------------------------
+    // MATCH 1 — per ID (quasi sempre affidabile)
+    // ---------------------------
     if (createdId) {
-      pick = (referenceStore.references || []).find(r => r._id === createdId) || null
+      pick = list.find(r => r._id === createdId)
     }
 
-    // 2) name + supplier + category
+    // ---------------------------
+    // MATCH 2 — per nome (case-insensitive)
+    // Utile se Sanity ha rigenerato l'id
+    // ---------------------------
     if (!pick && createdName) {
-      pick = (referenceStore.references || []).find(r =>
-        lc(r?.name) === createdName &&
-        ((r?.supplier?._id || r?.supplier?._ref || null) === createdSupplierId || !createdSupplierId) &&
-        ((r?.category?._id || r?.category?._ref || null) === createdCategoryId || !createdCategoryId)
-      ) || null
+      pick = list.find(r => r.name?.trim().toLowerCase() === createdName)
     }
 
-    // 3) solo name
-    if (!pick && createdName) {
-      pick = (referenceStore.references || []).find(r => lc(r?.name) === createdName) || null
-    }
+    // ---------------------------
+    // FALLBACK — se ancora niente, pick = null
+    // ---------------------------
 
-    // assegna alla riga di partenza se trovata
     const idx = creatingForRowIdx.value ?? 0
     const row = items.value[idx]
-    row.referenceId = pick?._id || null
-    onReferenceChanged(idx)
 
-    $q.notify({
-      type: pick?._id ? 'positive' : 'warning',
-      message: pick?._id
-        ? `Referenza "${pick.name}" creata`
-        : 'Referenza creata ma non identificata con certezza nella lista'
-    })
+    if (pick) {
+      row.referenceId = pick._id
+      onReferenceChanged(idx)
+
+      $q.notify({
+        type: 'positive',
+        message: `Referenza "${pick.name}" creata e aggiunta all’ordine`
+      })
+    } else {
+      row.referenceId = null
+
+      $q.notify({
+        type: 'warning',
+        message: 'Referenza creata, ma non trovata nella lista dopo il refresh'
+      })
+    }
   } catch (err) {
     if (err?.response?.status === 409) {
       $q.notify({ type: 'warning', message: 'Questa referenza esiste già' })
@@ -366,6 +369,7 @@ async function handleReferenceCreated (draft) {
     creatingForRowIdx.value = null
   }
 }
+
 
 /* Submit ordine */
 onMounted(() => {
