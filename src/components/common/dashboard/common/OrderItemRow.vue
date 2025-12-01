@@ -2,14 +2,14 @@
   <div class="order-item-row">
     <!-- Riga principale -->
     <div
-      class="row items-center q-pa-sm bg-grey-2 rounded-borders"
+    class="row items-center q-pa-sm bg-grey-2 rounded-borders"
       :class="[{ 'cursor-pointer': !isCompleted }, { 'opacity-60': isCompleted }]"
       @click="onRowClick"
     >
       <div class="col-xs-12 col-sm-6">
         <div class="row items-center">
           <q-icon
-            name="expand_more"
+          name="expand_more"
             size="sm"
             :class="[{ 'rotate-180': expanded }, 'q-mr-sm', 'transition-rotate']"
           />
@@ -46,6 +46,14 @@
               {{ formatPrice((product.quantity || 0) * (safeRef?.price || 0)) }}
             </span>
           </div>
+          <q-btn
+            round
+            outline
+            color="negative"
+            class="text-right delete"
+            icon="close"
+            @click.stop="confirmDelete"
+          />
         </div>
       </div>
     </div>
