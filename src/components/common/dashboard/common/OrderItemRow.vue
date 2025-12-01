@@ -46,14 +46,6 @@
               {{ formatPrice((product.quantity || 0) * (safeRef?.price || 0)) }}
             </span>
           </div>
-          <q-btn
-            round
-            outline
-            color="negative"
-            class="text-right delete"
-            icon="close"
-            @click.stop="confirmDelete"
-          />
         </div>
       </div>
     </div>
