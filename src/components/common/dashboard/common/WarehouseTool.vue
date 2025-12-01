@@ -413,7 +413,7 @@ function confirmDelete (row) {
       if (typeof referenceStore.deleteReference === 'function') {
         await referenceStore.deleteReference(row._id)
       } else {
-        await api.delete(`references/${row._id}`)
+        await api.delete(`references/${row._id}?cascade=1`)
       }
       $q.notify({ type: 'positive', message: 'Referenza eliminata' })
       await fetchPage({ preservePage: true })
