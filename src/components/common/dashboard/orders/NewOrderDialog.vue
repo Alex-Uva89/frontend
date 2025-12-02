@@ -23,7 +23,10 @@
 
               <q-select
                 v-model="row.referenceId"
-                :options="filteredReferences(idx)"
+                :options="refOptions"
+                use-input
+                input-debounce="150"
+                @filter="filterReferences"
                 option-label="name"
                 option-value="_id"
                 label="Prodotto"
@@ -34,6 +37,7 @@
                 @update:model-value="onReferenceChanged(idx)"
                 :ref="el => setProdRef(idx, el)"
               />
+
             </div>
 
             <!-- Fornitore (per riga; non modifica DB, solo ordine) -->
@@ -256,10 +260,25 @@ const canAddRow = computed(() => {
   const total = (referenceStore.references || []).length || 0
   return selectedCount.value < total
 })
-function filteredReferences (idx) {
-  const currentId = items.value[idx]?.referenceId
-  const taken = selectedRefIds.value
-  return (referenceStore.references || []).filter(r => r._id === currentId || !taken.has(r._id))
+const refOptions = ref([])
+
+function filterReferences (val, update) {
+  const all = referenceStore.references || []
+
+  if (!val) {
+    update(() => {
+      refOptions.value = all
+    })
+    return
+  }
+
+  const needle = val.toLowerCase()
+
+  update(() => {
+    refOptions.value = all.filter(r =>
+      r.name.toLowerCase().includes(needle)
+    )
+  })
 }
 
 /* Cambio prodotto su riga */
