@@ -374,8 +374,16 @@ function closeDialog() {
 
 /* Submit ordine */
 onMounted(() => {
-  referenceStore.fetchReferences()
+  referenceStore.fetchReferences({
+  all: true,
+  status: 'all', // importantissimo
+  page: 1,
+  pageSize: 5000
+})
+
   supplierStore.fetchSuppliers()
+  console.log(referenceStore.references.length)
+console.log(referenceStore.references.filter(r => r.status === 'active').length)
 })
 
 async function createOrder () {

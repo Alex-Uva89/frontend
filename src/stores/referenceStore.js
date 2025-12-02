@@ -24,14 +24,14 @@ export const useReferenceStore = defineStore('reference', () => {
   })
 
   async function fetchReferences (overrides = {}) {
-    loading.value = true
-    error.value = null
+  loading.value = true
+  error.value = null
 
-    // merge criteri
-    const c = { ...criteria, ...overrides }
-    Object.assign(criteria, c)
+  // merge criteri
+  const c = { ...criteria, ...overrides }
+  Object.assign(criteria, c)
 
-    const params = {
+  const params = {
       q: c.q || undefined,
       categoryId: c.categoryId || undefined,
       supplierId: c.supplierId || undefined,
@@ -42,12 +42,13 @@ export const useReferenceStore = defineStore('reference', () => {
       hasNotes: c.hasNotes ?? undefined,
       sort: c.sort || undefined,
       page: c.page,
-      pageSize: c.pageSize
+      // 👉 se overrides.all === true → ignora la paginazione e tira giù tutto
+      pageSize: overrides.all ? 5000 : c.pageSize
     }
 
     try {
       const { data } = await api.get('references/', { params })
-      // accetta sia {items,total} che un array semplice
+
       if (Array.isArray(data)) {
         references.value = data
         criteria.total = data.length
@@ -55,6 +56,7 @@ export const useReferenceStore = defineStore('reference', () => {
         references.value = data.items || []
         criteria.total = data.total ?? references.value.length
       }
+
       return references.value
     } catch (e) {
       console.error('Error fetching references:', e)
@@ -64,6 +66,7 @@ export const useReferenceStore = defineStore('reference', () => {
       loading.value = false
     }
   }
+
 
   async function createReference (payload, opts = {}) {
     const { data } = await api.post('references/', {
