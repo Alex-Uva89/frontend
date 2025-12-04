@@ -42,7 +42,7 @@
             </q-item-section>
           </template>
 
-          <template v-for="(order) in orders" :key="order._id">
+          <template v-for="order in orders" :key="order._id">
             <q-card flat bordered class="q-mb-md" v-if="order.items && order.items.length > 0">
               <!--------------------
                 INTESTAZIONE ORDINE
@@ -83,7 +83,10 @@
                      CATEGORIE DEL FORNITORE
                   ---------------------------->
                   <q-card-section>
-                    <template v-for="(products, categoryName) in categories" :key="categoryName">
+                    <template
+                      v-for="(products, categoryName) in categories"
+                      :key="categoryName"
+                    >
                       <div class="q-ml-sm q-mt-md">
                         <div class="text-subtitle1 text-weight-medium q-mb-sm">
                           <q-icon name="category" color="green" class="q-mr-sm"/>
@@ -93,22 +96,49 @@
                         <!---------------------------
                           PRODOTTI DELLA CATEGORIA
                         ---------------------------->
-                        <div v-for="product in products" :key="product._key" class="q-pa-sm row items-center">
-                          <div class="col-6">
+                        <div
+                          v-for="product in products"
+                          :key="product._key"
+                          class="q-pa-sm row items-center"
+                        >
+
+                          <!-- NOME + NOTE -->
+                          <div class="col-5">
                             {{ product.reference?.name || 'Referenza sconosciuta' }}
+
                             <span class="text-grey-7">
-                             - aggiunto da {{ product.addedBy.firstName }} {{ product.addedBy.lastName }}
+                              - aggiunto da {{ product.addedBy.firstName }} {{ product.addedBy.lastName }}
                             </span>
+
                             <div v-if="product.notes" class="text-caption text-grey-7">
                               {{ product.notes }}
                             </div>
                           </div>
-                          <div class="col-3 text-right">
+
+                          <!-- QUANTITÀ -->
+                          <div class="col-2 text-right">
                             {{ product.quantity }}{{ product.unit || 'pz' }}
                           </div>
+
+                          <!-- TOTALE -->
                           <div class="col-3 text-right text-weight-bold">
                             {{ (product.quantity * (product.reference?.price || 0)).toFixed(2) }} €
                           </div>
+
+                          <!-- BOTTONE MODIFICA -->
+                          <div class="col-2 flex justify-end">
+                            <q-btn
+                              flat
+                              round
+                              color="primary"
+                              icon="edit"
+                              size="sm"
+                              @click="openEditDialog(order._id, product)"
+                            >
+                              <q-tooltip>Modifica prodotto</q-tooltip>
+                            </q-btn>
+                          </div>
+
                         </div>
                       </div>
                     </template>
@@ -134,12 +164,18 @@
     <div class="flex justify-end" v-if="filteredItems.length > 0">
       <q-btn push class="bg-teal-1" @click="printOrder(filteredItems)">
         <q-icon name="print" class="q-mr-sm"></q-icon>
-        <small>
-          Stampa Ordine
-        </small>
+        <small>Stampa Ordine</small>
       </q-btn>
     </div>
 
+    <!-- DIALOG MODIFICA PRODOTTO -->
+    <EditProductDialog
+      v-if="showEditDialog && selectedProduct"
+      v-model:showDialog="showEditDialog"
+      :product="selectedProduct"
+      :orderId="selectedOrderId"
+      @saved="refreshAfterEdit"
+    />
   </div>
 </template>
 
@@ -148,8 +184,26 @@ import { ref, computed, onMounted } from 'vue'
 import WeekTabs from 'src/components/common/WeekTabs.vue'
 import { useOrderStore } from 'stores/orderStore'
 
+import EditProductDialog from '@common/EditProductDialog.vue'
+
 const orderStore = useOrderStore()
 const selectedDate = ref(new Date().toISOString().split('T')[0])
+
+// dialog state
+const showEditDialog = ref(false)
+const selectedOrderId = ref(null)
+const selectedProduct = ref(null)
+
+function openEditDialog(orderId, product) {
+  selectedOrderId.value = orderId
+  selectedProduct.value = product
+  showEditDialog.value = true
+}
+
+function refreshAfterEdit() {
+  // forza refresh reactive
+  orderStore.orders = [...orderStore.orders]
+}
 
 onMounted(async () => {
   await orderStore.fetchAllOrder()
@@ -191,16 +245,12 @@ function groupByBusiness(orders) {
 function groupBySupplierAndCategory(products) {
   const grouped = {}
   products.forEach(product => {
-    // console.log(product)
     const supplierName = product.reference?.supplier?.name || 'Senza fornitore'
     const categoryName = product.reference?.category?.name || 'Senza categoria'
 
-    if (!grouped[supplierName]) {
-      grouped[supplierName] = {}
-    }
-    if (!grouped[supplierName][categoryName]) {
-      grouped[supplierName][categoryName] = []
-    }
+    if (!grouped[supplierName]) grouped[supplierName] = {}
+    if (!grouped[supplierName][categoryName]) grouped[supplierName][categoryName] = []
+
     grouped[supplierName][categoryName].push(product)
   })
   return grouped
@@ -212,21 +262,15 @@ function formatOrderDate(dateString) {
   return new Date(dateString).toLocaleDateString('it-IT', options)
 }
 
-////////////////////////////////////////////////////////////////////////////////////////
-//                                      TOTALI                                        //
-////////////////////////////////////////////////////////////////////////////////////////
-
-// totale di un singolo prodotto
+// TOTALI
 function calculateProductTotal(product) {
   return (product.quantity * (product.reference?.price || 0))
 }
 
-// totale di un ordine
 function calculateOrderTotal(items) {
   return items.reduce((total, product) => total + calculateProductTotal(product), 0)
 }
 
-// totale di un fornitore
 function calculateSupplierTotal(categories) {
   let total = 0
   for (const category in categories) {
@@ -235,12 +279,10 @@ function calculateSupplierTotal(categories) {
   return total
 }
 
-// totale per un locale (business)
 function calculateBusinessTotal(orders) {
   return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
 }
 
-// totale globale
 function calculateGlobalTotal(orders) {
   return orders.reduce((total, order) => total + calculateOrderTotal(order.items), 0)
 }

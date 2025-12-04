@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Notify } from 'quasar'
 import { authFetchJson } from 'src/utils/api'
+import { useSupplierStore } from './supplierStore'
 
 export const useOrderStore = defineStore('orderStore', () => {
   const orders = ref([])
@@ -127,22 +128,44 @@ export const useOrderStore = defineStore('orderStore', () => {
   const updateOrderItem = async (orderId, productKey, updatedData) => {
     loading.value = true
     error.value = null
+
     try {
+      // 1) PATCH al backend
       await authFetchJson(`${API}/orders/${orderId}/items/${productKey}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData)
       })
+
+      // 2) Aggiorno lo stato locale
       const orderIndex = orders.value.findIndex(o => o._id === orderId)
       if (orderIndex !== -1) {
         const itemIndex = orders.value[orderIndex].items.findIndex(i => i._key === productKey)
         if (itemIndex !== -1) {
-          orders.value[orderIndex].items[itemIndex] = {
-            ...orders.value[orderIndex].items[itemIndex],
+          const oldItem = orders.value[orderIndex].items[itemIndex]
+          const newItem = {
+            ...oldItem,
             ...updatedData
           }
+
+          // ⭐ Se è stato cambiato il fornitore, aggiorno anche l'oggetto supplier
+          if ('supplierId' in updatedData) {
+            const supplierStore = useSupplierStore()   // <-- QUI CON LE PARENTESI
+
+            if (updatedData.supplierId) {
+              const s = supplierStore.suppliers.find(
+                sup => sup._id === updatedData.supplierId
+              )
+              newItem.supplier = s || { _id: updatedData.supplierId }
+            } else {
+              newItem.supplier = null
+            }
+          }
+
+          orders.value[orderIndex].items[itemIndex] = newItem
         }
       }
+
       return true
     } catch (err) {
       error.value = 'Errore durante l\'aggiornamento della referenza'
@@ -152,6 +175,26 @@ export const useOrderStore = defineStore('orderStore', () => {
       loading.value = false
     }
   }
+
+  const updateReferenceSupplier = async (referenceId, supplierId) => {
+    try {
+      const body = supplierId
+        ? { supplier: { _ref: supplierId, _type: "reference" } }
+        : { supplier: null }
+
+      const updated = await authFetchJson(`${API}/references/${referenceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+
+      return updated
+    } catch (err) {
+      console.error("Errore update reference supplier:", err)
+      return null
+    }
+  }
+
 
   const deleteOrder = async (orderId) => {
     loading.value = true
@@ -256,11 +299,12 @@ export const useOrderStore = defineStore('orderStore', () => {
     fetchAllOrder,
     createOrder,
     addReferenceToOrder,
+    updateReferenceSupplier,
     deleteOrderItem,
     updateOrderItem,
     deleteOrder,
     lockOrder,
     unlockOrder,
-    setBusinessId
+    setBusinessId,
   }
 })
