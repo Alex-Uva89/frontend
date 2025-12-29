@@ -1,3 +1,4 @@
+// src/stores/productStore.js
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { api } from 'boot/axios'
@@ -35,6 +36,7 @@ export const useProductStore = defineStore('products', () => {
 
     try {
       const { data } = await api.get('/cms/products', { params })
+      // data.data usa LIST_QUERY → ingredients con reference popolata
       products.value = data.data || []
       criteria.total = products.value.length
       return products.value
@@ -47,30 +49,31 @@ export const useProductStore = defineStore('products', () => {
     }
   }
 
+  /* ============================
+     FETCH ALL DETAILS (opzionale)
+  ============================ */
   async function fetchAllProductDetails () {
-  loading.value = true
-  error.value = null
+    loading.value = true
+    error.value = null
 
-  try {
-    // prende lista base
-    await fetchProducts()
+    try {
+      await fetchProducts()
 
-    const detailed = []
-    for (const p of products.value) {
-      const full = await fetchProduct(p._id)
-      detailed.push(full)
+      const detailed = []
+      for (const p of products.value) {
+        const full = await fetchProduct(p._id)
+        detailed.push(full)
+      }
+
+      products.value = detailed
+      return detailed
+    } catch (e) {
+      error.value = e
+      throw e
+    } finally {
+      loading.value = false
     }
-
-    products.value = detailed
-    return detailed
-  } catch (e) {
-    error.value = e
-    throw e
-  } finally {
-    loading.value = false
   }
-}
-
 
   /* ============================
      FETCH BY CATEGORY
@@ -87,6 +90,7 @@ export const useProductStore = defineStore('products', () => {
 
       const { data } = await api.get('/cms/products/by-category', { params })
 
+      // data.data qui è già proiettato da BY_CATEGORY_QUERY (con ingredients→reference->)
       products.value = data.data || []
       criteria.total = products.value.length
 
@@ -112,6 +116,7 @@ export const useProductStore = defineStore('products', () => {
 
     try {
       const { data } = await api.get(`/cms/products/${id}`)
+      // data.data usa ONE_QUERY → ingredients con reference popolata
       product.value = data.data
       return product.value
     } catch (e) {
@@ -139,19 +144,29 @@ export const useProductStore = defineStore('products', () => {
 
   /* ============================
      UPDATE
+     ⚠️ IMPORTANTE: dopo la PUT, rifacciamo GET /cms/products/:id
+     per avere il prodotto con la proiezione completa (ONE_QUERY)
   ============================ */
   async function updateProduct (id, payload) {
-    const { data } = await api.put(`/cms/products/${id}`, payload)
-    const updated = data.data
+    // 1) scrivi su Sanity
+    await api.put(`/cms/products/${id}`, payload)
 
-    // aggiorna lista se presente
+    // 2) ricarica il prodotto con ONE_QUERY
+    const { data } = await api.get(`/cms/products/${id}`)
+    const full = data.data
+
+    // 3) aggiorna lista
     const idx = products.value.findIndex(p => p._id === id)
-    if (idx !== -1) products.value[idx] = updated
+    if (idx !== -1) {
+      products.value[idx] = full
+    }
 
-    // aggiorna dettaglio
-    if (product.value?._id === id) product.value = updated
+    // 4) aggiorna dettaglio
+    if (product.value?._id === id) {
+      product.value = full
+    }
 
-    return updated
+    return full
   }
 
   /* ============================
