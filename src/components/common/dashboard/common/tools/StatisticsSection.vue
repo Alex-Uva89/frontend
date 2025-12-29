@@ -199,7 +199,7 @@
                 <div class="row q-col-gutter-sm items-center">
                   <div class="col-12 col-sm-5">
                     <q-select
-                      v-model="newIngredient.reference"
+                      v-model="draftFor(p).reference"
                       :options="referenceOptions"
                       option-value="_id"
                       option-label="name"
@@ -212,7 +212,7 @@
 
                   <div class="col-6 col-sm-3">
                     <q-input
-                      v-model.number="newIngredient.quantity"
+                      v-model.number="draftFor(p).quantity"
                       type="number"
                       label="Quantità"
                       dense
@@ -221,7 +221,7 @@
 
                   <div class="col-6 col-sm-2">
                     <q-select
-                      v-model="newIngredient.unit"
+                      v-model="draftFor(p).unit"
                       :options="unitOptions"
                       label="Unità"
                       dense
@@ -236,7 +236,7 @@
                       label="Aggiungi"
                       class="full-width-sm"
                       @click="addIngredientToProduct(p)"
-                      :disable="!newIngredient.reference || !newIngredient.quantity"
+                      :disable="!draftFor(p).reference || !draftFor(p).quantity"
                     />
                   </div>
                 </div>
@@ -256,7 +256,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useProductStore } from 'src/stores/productStore'
 import { api } from 'boot/axios'
 
@@ -270,12 +270,20 @@ const referenceOptions = ref([])
 const loadingReferences = ref(false)
 const referencesLoaded = ref(false)
 
-// bozza nuovo ingrediente (condivisa)
-const newIngredient = ref({
-  reference: null,
-  quantity: null,
-  unit: 'g'
-})
+// draft per-prodotto: { [productId]: { reference, quantity, unit } }
+const draftsByProductId = reactive({})
+
+function draftFor (product) {
+  const id = product._id || product.id || product.slug || 'no-id'
+  if (!draftsByProductId[id]) {
+    draftsByProductId[id] = {
+      reference: null,
+      quantity: null,
+      unit: 'g'
+    }
+  }
+  return draftsByProductId[id]
+}
 
 const unitOptions = [
   { label: 'kg', value: 'kg' },
@@ -294,7 +302,7 @@ const loadingPage = computed(() => productStore.loading || loadingReferences.val
 ============================================= */
 onMounted(async () => {
   await productStore.fetchProducts()
-  await ensureReferencesLoaded() // ⬅️ carica subito le referenze
+  await ensureReferencesLoaded()
 })
 
 /* ============================================
@@ -399,7 +407,9 @@ function genKey () {
 }
 
 function addIngredientToProduct (product) {
-  if (!newIngredient.value.reference || !newIngredient.value.quantity) return
+  const draft = draftFor(product)
+
+  if (!draft.reference || !draft.quantity) return
 
   if (!product.ingredients) {
     product.ingredients = []
@@ -407,12 +417,13 @@ function addIngredientToProduct (product) {
 
   product.ingredients.push({
     _key: genKey(),
-    reference: newIngredient.value.reference,
-    quantity: newIngredient.value.quantity,
-    unit: newIngredient.value.unit
+    reference: draft.reference,
+    quantity: draft.quantity,
+    unit: draft.unit
   })
 
-  newIngredient.value = {
+  // reset SOLO il draft di questo prodotto
+  draftsByProductId[product._id] = {
     reference: null,
     quantity: null,
     unit: 'g'
