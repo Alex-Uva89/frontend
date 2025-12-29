@@ -112,31 +112,58 @@
     <q-dialog v-model="addReferenceDialog.visible">
       <q-card style="width: 90vw;">
         <q-card-section>
-          palla
-          <div class="text-h6">Aggiungi referenza</div>
+          <div class="text-h6">Aggiungi referenza all'ordine</div>
+          <div class="text-body2 text-grey-7 q-mt-xs">
+            Seleziona una <strong>referenza esistente</strong> dal magazzino oppure
+            <strong>crea una nuova referenza</strong> e aggiungila a questo ordine.
+          </div>
         </q-card-section>
 
         <q-card-section>
-          <div class="row items-end q-col-gutter-sm">
-            <div class="col">
-              <q-select
-                v-model="addReferenceDialog.selectedReference"
-                :options="referenceOptions"
-                option-label="name"
-                option-value="_id"
-                label="Seleziona referenza"
-                emit-value
-                map-options
-              />
-            </div>
-            <div class="col-auto">
-              <q-btn unelevated square color="teal-5" icon="add_box" @click.stop="openNewReferenceDialog">
-                <q-tooltip>Crea nuova referenza</q-tooltip>
-              </q-btn>
+          <!-- Categoria + Referenza -->
+          <div class="q-gutter-md">
+            <q-select
+              v-model="addReferenceDialog.categoryId"
+              :options="categoryStore.categories"
+              option-label="name"
+              option-value="_id"
+              label="Categoria"
+              emit-value
+              map-options
+              outlined
+              :loading="categoryStore.loading"
+              clearable
+            />
+
+            <div class="row items-end q-col-gutter-sm">
+              <div class="col">
+                <q-select
+                  v-model="addReferenceDialog.selectedReference"
+                  :options="referenceOptions"
+                  option-label="name"
+                  option-value="_id"
+                  label="Referenza esistente"
+                  emit-value
+                  map-options
+                  :disable="!addReferenceDialog.categoryId"
+                />
+              </div>
+              <div class="col-auto">
+                <q-btn
+                  unelevated
+                  square
+                  color="teal-5"
+                  icon="add_box"
+                  @click.stop="openNewReferenceDialog"
+                >
+                  <q-tooltip>Crea nuova referenza e aggiungila</q-tooltip>
+                </q-btn>
+              </div>
             </div>
           </div>
 
-          <div class="row q-col-gutter-sm">
+          <!-- Quantità + Unità -->
+          <div class="row q-col-gutter-sm q-mt-md">
             <div class="col">
               <q-input
                 v-model.number="addReferenceDialog.quantity"
@@ -164,6 +191,7 @@
             </div>
           </div>
 
+          <!-- Note -->
           <q-input
             v-model="addReferenceDialog.notes"
             type="textarea"
@@ -222,11 +250,13 @@ import { useOrderStore } from 'stores/orderStore'
 import { useReferenceStore } from 'src/stores/referenceStore'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useBusinessStore } from 'src/stores/businessStore'
+import { useCategoryStore } from 'src/stores/categoryStore'
 
 const orderStore = useOrderStore()
 const referenceStore = useReferenceStore()
 const usersStore = useUsersStore()
 const businessStore = useBusinessStore()
+const categoryStore = useCategoryStore()
 
 /* ✅ Business dell'utente e selezione */
 const userBusinessId = computed(() => usersStore.currentUser?.business?._id || null)
@@ -243,27 +273,77 @@ const isReadOnly = (o) => !!(o?.locked || o?.status !== 'pending')
 const newRefDialog = ref({ visible: false })
 function openNewReferenceDialog () { newRefDialog.value.visible = true }
 
-async function handleNewRefCreated (createdRef) {
-  const order = orderStore.orders.find(o => o._id === addReferenceDialog.value.orderId)
-  const usedIds = (order?.items || [])
+/**
+ * Helper per ID già usati in un ordine
+ */
+function getUsedIdsForOrder (orderId) {
+  const order = orderStore.orders.find(o => o._id === orderId)
+  return (order?.items || [])
     .map(i => (i.reference?._id || i.item?._id))
     .filter(Boolean)
+}
 
-  // lista aggiornata (createReference ha già aggiornato lo store)
-  referenceOptions.value = (referenceStore.references || []).filter(r => !usedIds.includes(r._id))
+/**
+ * Calcola le opzioni di referenza filtrate per:
+ * - categoria selezionata
+ * - non già presenti nell'ordine
+ */
+function computeReferenceOptions (orderId, categoryId) {
+  const usedIds = getUsedIdsForOrder(orderId)
+  const all = referenceStore.references || []
 
-  if (createdRef && createdRef._id && !usedIds.includes(createdRef._id)) {
-    addReferenceDialog.value.selectedReference = createdRef._id
+  return all.filter(r => {
+    if (usedIds.includes(r._id)) return false
+    const catId = r?.category?._id || r?.category?._ref || null
+    if (categoryId && catId !== categoryId) return false
+    return true
+  })
+}
+
+async function handleNewRefCreated (createdRef) {
+  const orderId = addReferenceDialog.value.orderId
+  if (!orderId) return
+
+  const all = referenceStore.references || []
+
+  // provo a recuperare la referenza effettiva dalla lista
+  const createdId = createdRef?._id || createdRef?.id || null
+  let pick = createdId ? all.find(r => r._id === createdId) : null
+
+  if (!pick && createdRef?.name) {
+    const createdName = createdRef.name.trim().toLowerCase()
+    pick = all.find(r => (r.name || '').trim().toLowerCase() === createdName)
+  }
+
+  if (!pick) {
+    // fallback: solo refresh opzioni
+    referenceOptions.value = computeReferenceOptions(orderId, addReferenceDialog.value.categoryId)
+    addReferenceDialog.value.selectedReference = null
+    return
+  }
+
+  const usedIds = getUsedIdsForOrder(orderId)
+  const catId = pick.category?._id || pick.category?._ref || null
+
+  // imposto categoria coerente con la referenza creata
+  addReferenceDialog.value.categoryId = catId
+
+  // ricalcolo opzioni con la nuova categoria
+  referenceOptions.value = computeReferenceOptions(orderId, catId)
+
+  // seleziono la referenza se non è già usata
+  if (!usedIds.includes(pick._id)) {
+    addReferenceDialog.value.selectedReference = pick._id
   } else {
     addReferenceDialog.value.selectedReference = null
   }
 }
 
-
 /* Aggiungi referenza all'ordine */
 const addReferenceDialog = ref({
   visible: false,
   orderId: null,
+  categoryId: null,
   selectedReference: null,
   quantity: 1,
   unit: null,
@@ -281,25 +361,33 @@ watch(
   }
 )
 
+/* quando cambia categoria, aggiorno le opzioni referenze */
+watch(
+  () => addReferenceDialog.value.categoryId,
+  (categoryId) => {
+    const orderId = addReferenceDialog.value.orderId
+    if (!orderId) return
+    referenceOptions.value = computeReferenceOptions(orderId, categoryId)
+    addReferenceDialog.value.selectedReference = null
+  }
+)
+
 const unitOptions = ['kg','g','hg','L','ml','confezione','cassa','cartone','busta','vaschetta']
 
-function openAddReferenceDialog(orderId) {
-  const order = orderStore.orders.find(o => o._id === orderId)
-  const usedIds = (order?.items || [])
-    .map(item => (item.reference?._id || item.item?._id))
-    .filter(Boolean)
-
-  referenceOptions.value = (referenceStore.references || []).filter(ref => !usedIds.includes(ref._id))
-
+function openAddReferenceDialog (orderId) {
   addReferenceDialog.value.orderId = orderId
   addReferenceDialog.value.visible = true
+  addReferenceDialog.value.categoryId = null
   addReferenceDialog.value.selectedReference = null
   addReferenceDialog.value.quantity = 1
   addReferenceDialog.value.unit = null
   addReferenceDialog.value.notes = ''
+
+  // di default nessuna categoria: referenceOptions vuoto
+  referenceOptions.value = []
 }
 
-async function confirmAddReference() {
+async function confirmAddReference () {
   if (!addReferenceDialog.value.selectedReference) return
   await orderStore.addReferenceToOrder(
     addReferenceDialog.value.orderId,
@@ -344,7 +432,7 @@ const filteredItems = computed(() => {
   })
 })
 
-function groupBySupplierAndCategory(products) {
+function groupBySupplierAndCategory (products) {
   const grouped = {}
   ;(products || []).forEach(product => {
     const ref = product?.reference || product?.item || null
@@ -357,7 +445,7 @@ function groupBySupplierAndCategory(products) {
   return grouped
 }
 
-function formatDay(dt) {
+function formatDay (dt) {
   try {
     const d = new Date(dt)
     return d.toISOString().split('T')[0]
@@ -366,7 +454,7 @@ function formatDay(dt) {
   }
 }
 
-async function reloadOrders() { await orderStore.fetchOrders() }
+async function reloadOrders () { await orderStore.fetchOrders() }
 
 /* Patch ottimistico */
 function patchLocalOrder (orderId, patch) {
@@ -383,7 +471,7 @@ const lockMailDialogMessage =
   '<strong>Non sarà più possibile riaprire l’ordine</strong> e sarà possibile creare un nuovo ordine solo <strong>dopo le ore 20:00</strong>.<br>' +
   'Per confermare, copia il codice di sicurezza qui sotto.';
 
-async function confirmLockAndSend() {
+async function confirmLockAndSend () {
   const orderId = lockMailDialog.value.orderId
   lockMailDialog.value.visible = false
 
@@ -411,11 +499,11 @@ async function confirmLockAndSend() {
 
 /* Elimina ordine */
 const deleteOrderDialog = ref({ visible: false, orderId: null })
-function openDeleteOrder(orderId) {
+function openDeleteOrder (orderId) {
   deleteOrderDialog.value.orderId = orderId
   deleteOrderDialog.value.visible = true
 }
-async function confirmDeleteOrder() {
+async function confirmDeleteOrder () {
   const orderId = deleteOrderDialog.value.orderId
   deleteOrderDialog.value.visible = false
   await orderStore.deleteOrder(orderId)
@@ -423,10 +511,9 @@ async function confirmDeleteOrder() {
 }
 
 onMounted(async () => {
-  await referenceStore.fetchReferences()
+  await referenceStore.fetchReferences({ all: true, status: 'all', page: 1, pageSize: 5000 })
+  await categoryStore.fetchCategories()
 })
-
-
 </script>
 
 <style scoped>

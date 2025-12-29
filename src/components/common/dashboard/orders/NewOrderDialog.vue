@@ -15,18 +15,35 @@
             :class="{ 'row-dimmed': idx !== enabledIdx }"
             :aria-disabled="idx !== enabledIdx ? 'true' : 'false'"
           >
-            <!-- Nome prodotto -->
+            <!-- Nome prodotto + Categoria -->
             <div class="cell cell--name">
-              <q-badge class="q-mb-md q-pa-sm">
+              <q-badge class="q-mb-sm q-pa-sm">
                 Prodotto n°{{ idx + 1 }}
               </q-badge>
 
+              <!-- 1) CATEGORIA -->
+              <q-select
+                v-model="row.categoryId"
+                :options="categoryStore.categories"
+                option-label="name"
+                option-value="_id"
+                label="Categoria merceologica"
+                emit-value
+                map-options
+                dense
+                outlined
+                :loading="categoryStore.loading"
+                clearable
+                class="q-mb-sm"
+                @update:model-value="onCategoryChanged(idx)"
+              />
+
+              <!-- 2) PRODOTTO (filtrato per categoria) -->
               <q-select
                 v-model="row.referenceId"
-                :options="refOptions"
+                :options="productOptions(idx)"
                 use-input
                 input-debounce="150"
-                @filter="filterReferences"
                 option-label="name"
                 option-value="_id"
                 label="Prodotto"
@@ -34,10 +51,10 @@
                 map-options
                 dense
                 outlined
+                :disable="!row.categoryId"
                 @update:model-value="onReferenceChanged(idx)"
                 :ref="el => setProdRef(idx, el)"
               />
-
             </div>
 
             <!-- Fornitore (per riga; non modifica DB, solo ordine) -->
@@ -170,6 +187,7 @@ import { useReferenceStore } from 'src/stores/referenceStore'
 import { useUsersStore } from 'src/stores/usersStore'
 import { useOrderStore } from 'src/stores/orderStore'
 import { useSupplierStore } from 'src/stores/supplierStore'
+import { useCategoryStore } from 'src/stores/categoryStore'
 
 import NewReferenceDialog from 'src/components/common/dashboard/references/NewReferenceDialog.vue'
 
@@ -191,11 +209,20 @@ const referenceStore = useReferenceStore()
 const usersStore = useUsersStore()
 const orderStore = useOrderStore()
 const supplierStore = useSupplierStore()
+const categoryStore = useCategoryStore()
 
 /* Righe ordine */
 let nextId = 1
 const items = ref([
-  { id: nextId++, referenceId: null, quantity: 1, unit: null, price: null, supplierId: null }
+  {
+    id: nextId++,
+    categoryId: null,
+    referenceId: null,
+    quantity: 1,
+    unit: null,
+    price: null,
+    supplierId: null
+  }
 ])
 
 /* Solo l'ultima riga è abilitata */
@@ -213,6 +240,7 @@ function addRow () {
 
   items.value.push({
     id: nextId++,
+    categoryId: null,
     referenceId: null,
     quantity: 1,
     unit: null,
@@ -253,34 +281,44 @@ function unitsFor (idx) {
     .filter(Boolean)
 }
 
-/* Duplicati: set id selezionati e filtri opzioni */
-const selectedRefIds = computed(() =>
-  new Set(items.value.map(r => r.referenceId).filter(Boolean))
+/* Duplicati: set id selezionati e logica canAddRow */
+const selectedRefIds = computed(
+  () => new Set(items.value.map(r => r.referenceId).filter(Boolean))
 )
 const selectedCount = computed(() => selectedRefIds.value.size)
 const canAddRow = computed(() => {
   const total = (referenceStore.references || []).length || 0
   return selectedCount.value < total
 })
-const refOptions = ref([])
 
-function filterReferences (val, update) {
+/* Opzioni prodotto per riga (filtrate per categoria + niente duplicati) */
+function productOptions (idx) {
+  const row = items.value[idx]
+  const categoryId = row?.categoryId
+  if (!categoryId) return []
+
   const all = referenceStore.references || []
+  const selectedIds = selectedRefIds.value
 
-  if (!val) {
-    update(() => {
-      refOptions.value = all
-    })
-    return
-  }
+  return all.filter(r => {
+    const catId = r?.category?._id || r?.category?._ref || null
+    if (!catId || catId !== categoryId) return false
 
-  const needle = val.toLowerCase()
-
-  update(() => {
-    refOptions.value = all.filter(r =>
-      r.name.toLowerCase().includes(needle)
-    )
+    // non mostrare referenze già selezionate su altre righe
+    if (selectedIds.has(r._id) && r._id !== row.referenceId) return false
+    return true
   })
+}
+
+/* Cambio categoria su riga */
+function onCategoryChanged (idx) {
+  const row = items.value[idx]
+
+  // se cambio categoria, resetto il prodotto e i campi dipendenti
+  row.referenceId = null
+  row.unit = null
+  row.price = null
+  row.supplierId = null
 }
 
 /* Cambio prodotto su riga */
@@ -288,7 +326,9 @@ function onReferenceChanged (idx) {
   const row = items.value[idx]
 
   // blocca duplicati
-  const dup = items.value.some((r, i) => i !== idx && r.referenceId && r.referenceId === row.referenceId)
+  const dup = items.value.some(
+    (r, i) => i !== idx && r.referenceId && r.referenceId === row.referenceId
+  )
   if (dup) {
     $q.notify({ type: 'warning', message: 'Prodotto già presente nell’ordine' })
     row.referenceId = null
@@ -316,11 +356,7 @@ function openNewReference (idx) {
   showNewReferenceDialog.value = true
 }
 
-/**
- * Crea la referenza e selezionala nella riga:
- * - accetta ritorni {reference}, {data} o oggetto diretto
- * - poi refetch, poi ricerca per _id o per name/supplier/category
- */
+/* Gestione referenza creata dal dialog (già con businessId/initWarehouse) */
 async function handleReferenceCreated (created) {
   try {
     const createdRef = created?.reference || created || null
@@ -333,7 +369,12 @@ async function handleReferenceCreated (created) {
     const createdName = (createdRef.name || '').trim().toLowerCase()
 
     // assicuro lista aggiornata (in teoria già ok, ma safe)
-    await referenceStore.fetchReferences({ all: true, status: 'all', page: 1, pageSize: 5000 })
+    await referenceStore.fetchReferences({
+      all: true,
+      status: 'all',
+      page: 1,
+      pageSize: 5000
+    })
 
     const list = referenceStore.references || []
     let pick = null
@@ -342,13 +383,18 @@ async function handleReferenceCreated (created) {
       pick = list.find(r => r._id === createdId)
     }
     if (!pick && createdName) {
-      pick = list.find(r => (r.name || '').trim().toLowerCase() === createdName)
+      pick = list.find(
+        r => (r.name || '').trim().toLowerCase() === createdName
+      )
     }
 
     const idx = creatingForRowIdx.value ?? enabledIdx.value
     const row = items.value[idx]
 
     if (pick) {
+      // imposto categoria e prodotto coerenti
+      const catId = pick.category?._id || pick.category?._ref || null
+      row.categoryId = catId
       row.referenceId = pick._id
       onReferenceChanged(idx)
 
@@ -364,7 +410,10 @@ async function handleReferenceCreated (created) {
       })
     }
   } catch (err) {
-    $q.notify({ type: 'negative', message: 'Errore durante la gestione della nuova referenza' })
+    $q.notify({
+      type: 'negative',
+      message: 'Errore durante la gestione della nuova referenza'
+    })
     console.error(err)
   } finally {
     showNewReferenceDialog.value = false
@@ -372,24 +421,21 @@ async function handleReferenceCreated (created) {
   }
 }
 
-
-
-function closeDialog() {
+function closeDialog () {
   modelValue.value = false
 }
 
 /* Submit ordine */
 onMounted(() => {
   referenceStore.fetchReferences({
-  all: true,
-  status: 'all', // importantissimo
-  page: 1,
-  pageSize: 5000
-})
+    all: true,
+    status: 'all', // importantissimo
+    page: 1,
+    pageSize: 5000
+  })
 
+  categoryStore.fetchCategories()
   supplierStore.fetchSuppliers()
-  console.log(referenceStore.references.length)
-console.log(referenceStore.references.filter(r => r.status === 'active').length)
 })
 
 async function createOrder () {
@@ -402,10 +448,11 @@ async function createOrder () {
       price: (r.price ?? null) !== null ? Number(r.price) : null,
       supplierId: r.supplierId || null
     }))
-    .filter(r =>
-      r.referenceId &&
-      r.quantity > 0 &&
-      (!unitsForByRef(r.referenceId).length || r.unit)
+    .filter(
+      r =>
+        r.referenceId &&
+        r.quantity > 0 &&
+        (!unitsForByRef(r.referenceId).length || r.unit)
     )
 
   if (!sanitized.length) {
@@ -417,7 +464,10 @@ async function createOrder () {
   const ids = sanitized.map(r => r.referenceId)
   const unique = new Set(ids)
   if (unique.size !== ids.length) {
-    $q.notify({ type: 'warning', message: 'Ci sono prodotti duplicati: rimuovi i doppioni' })
+    $q.notify({
+      type: 'warning',
+      message: 'Ci sono prodotti duplicati: rimuovi i doppioni'
+    })
     return
   }
 
@@ -429,7 +479,9 @@ async function createOrder () {
     price: r.price,
     supplierId: r.supplierId,
     addedById: currentUser._id
-  }))
+  })
+
+  )
 
   const newOrder = await orderStore.createOrder(props.businessId, payloadItems)
   if (newOrder) {
