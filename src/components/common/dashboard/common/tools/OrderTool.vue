@@ -1,53 +1,73 @@
 <template>
   <div>
-    <!-- Select locale (solo Owner) -->
-    <div v-if="isOwner && businessStore.businesses?.length" class="q-mb-md">
-      <q-select
-        v-model="selectedBusinessId"
-        :options="businessOptions"
-        label="Seleziona locale"
-        outlined
-        dense
-        emit-value
-        map-options
-        @update:model-value="onSelectBusiness"
-      />
-    </div>
 
-    <!-- Pulsante nuova lista / urgente -->
-    <span>
-      <q-tooltip
-        v-if="tooltipMessage"
-        anchor="bottom middle"
-        self="top middle"
-        class="bg-orange text-white"
+    <!-- HEADER: select locale + pulsante ordine -->
+    <div class="row q-col-gutter-sm q-mb-md header-row">
+
+      <!-- Select locale (solo Owner) -->
+      <div
+        v-if="isOwner && businessStore.businesses?.length"
+        class="col-12 col-sm-6"
       >
-        {{ tooltipMessage }}
-      </q-tooltip>
+        <q-select
+          v-model="selectedBusinessId"
+          :options="businessOptions"
+          label="Seleziona locale"
+          outlined
+          dense
+          emit-value
+          map-options
+          @update:model-value="onSelectBusiness"
+        />
+      </div>
 
-      <q-btn
-        :unelevated="showUrgentButton"
-        :outline="!showUrgentButton"
-        :color="showUrgentButton ? 'negative' : 'primary'"
-        :icon="showUrgentButton ? 'priority_high' : 'add'"
-        :label="showUrgentButton ? 'Crea ordine urgente!' : 'Nuova lista ordine'"
-        :disable="disableButton"
-        @click="openNewOrderDialog"
-      />
-    </span>
+      <!-- Bottone nuova lista / urgente -->
+      <div
+        class="col-12"
+        :class="isOwner && businessStore.businesses?.length ? 'col-sm-6' : 'col-sm-12'"
+      >
+        <span class="full-width-on-mobile">
+          <q-tooltip
+            v-if="tooltipMessage"
+            anchor="bottom middle"
+            self="top middle"
+            class="bg-orange text-white"
+          >
+            {{ tooltipMessage }}
+          </q-tooltip>
 
-    <!-- Titolo -->
-    <div class="q-my-lg">
-      <div class="text-h4 text-bold q-my-lg">
-        Lista ordini - {{ currentBusinessName }}
+          <q-btn
+            class="order-main-btn"
+            :unelevated="showUrgentButton"
+            :outline="!showUrgentButton"
+            :color="showUrgentButton ? 'negative' : 'primary'"
+            :icon="showUrgentButton ? 'priority_high' : 'add'"
+            :label="showUrgentButton ? 'Crea ordine urgente!' : 'Nuova lista ordine'"
+            :disable="disableButton"
+            @click="openNewOrderDialog"
+          />
+        </span>
       </div>
     </div>
 
-    <q-inner-loading :showing="loading || !ready" />
+    <!-- Titolo -->
+    <div class="q-my-md">
+      <div class="title-text text-bold q-my-sm">
+        Lista ordini - {{ currentBusinessName }}
+      </div>
+      <div class="text-caption text-grey-7" v-if="isOwner">
+        Stai gestendo il locale: {{ currentBusinessName }}
+      </div>
+    </div>
 
-    <template v-if="ready && !loading">
-      <OrderItemsList />
-    </template>
+    <!-- Contenuto con loading overlay -->
+    <div class="relative-position">
+      <q-inner-loading :showing="loading || !ready" />
+
+      <template v-if="ready && !loading">
+        <OrderItemsList />
+      </template>
+    </div>
 
     <!-- Dialog nuovo ordine -->
     <NewOrderDialog
@@ -115,44 +135,6 @@ const currentBusinessName = computed(() => {
 /* Pronto a renderizzare i figli solo quando ho un business deciso */
 const ready = computed(() => !!currentBusinessId.value)
 
-/* Reazioni:
-   - se il parent cambia businessId e NON sei Owner, segui il parent
-   - quando usersStore carica l’utente, forza lo store al suo business (non Owner)
-   - mantieni allineato businessStore.currentBusinessId
-*/
-// watch(
-//   () => props.businessId,
-//   (val) => {
-//     if (!isOwner.value && val) {
-//       // non Owner segue il parent
-//       businessStore.setCurrentBusinessId(val)
-//     }
-//   },
-//   { immediate: true }
-// )
-
-// watch(
-//   () => userBusinessId.value,
-//   (uid) => {
-//     if (!isOwner.value && uid) {
-//       // forza lo store al business dell’utente
-//       businessStore.setCurrentBusinessId(uid)
-//     }
-//   },
-//   { immediate: true }
-// )
-
-// watch(
-//   () => currentBusinessId.value,
-//   (id) => {
-//     if (id && businessStore.currentBusinessId !== id) {
-//       businessStore.setCurrentBusinessId(id)
-//       emit('business-changed', id)
-//     }
-//   },
-//   { immediate: true }
-// )
-
 function onSelectBusiness (val) {
   selectedBusinessId.value = val
   businessStore.setCurrentBusinessId(val)
@@ -168,7 +150,11 @@ const ordersToday = computed(() =>
     if (ob && currentBusinessId.value && ob !== currentBusinessId.value) return false
     const d = o?.orderDate || o?._createdAt
     if (!d) return false
-    try { return new Date(d).toISOString().startsWith(todayStr.value) } catch { return false }
+    try {
+      return new Date(d).toISOString().startsWith(todayStr.value)
+    } catch {
+      return false
+    }
   })
 )
 
@@ -185,7 +171,9 @@ const showUrgentButton = computed(() =>
 const disableButton = computed(() => hasPendingToday.value)
 const tooltipMessage = computed(() => {
   if (hasPendingToday.value) return 'Esiste già un ordine aperto per oggi'
-  if (showUrgentButton.value) return 'Hai già chiuso un ordine oggi. Puoi crearne uno urgente finché non sono le 20:00'
+  if (showUrgentButton.value) {
+    return 'Hai già chiuso un ordine oggi. Puoi crearne uno urgente finché non sono le 20:00'
+  }
   if (ordersToday.value.length > 0) return 'Esiste già un ordine per oggi'
   return ''
 })
@@ -204,7 +192,7 @@ onMounted(async () => {
     const id = userBusinessId.value || props.businessId || businessStore.currentBusinessId
     if (id && id !== businessStore.currentBusinessId) {
       businessStore.setCurrentBusinessId(id)
-      emit("business-changed", id)
+      emit('business-changed', id)
     }
     return
   }
@@ -220,8 +208,48 @@ onMounted(async () => {
 
   if (id && id !== businessStore.currentBusinessId) {
     businessStore.setCurrentBusinessId(id)
-    emit("business-changed", id)
+    emit('business-changed', id)
   }
 })
-
 </script>
+
+<style scoped>
+/* header: select + bottone affiancati su desktop, impilati su mobile */
+.header-row {
+  align-items: stretch;
+}
+
+/* Bottone principale: sempre ben cliccabile, full width su mobile */
+.order-main-btn {
+  width: 100%;
+}
+
+/* Titolo responsivo */
+.title-text {
+  line-height: 1.2;
+}
+
+@media (max-width: 599.98px) {
+  .title-text {
+    font-size: 1.4rem;
+    text-align: center;
+  }
+}
+
+@media (min-width: 600px) {
+  .title-text {
+    font-size: 1.8rem;
+  }
+}
+
+/* wrapper per bottone che da mobile occupa tutta la riga */
+.full-width-on-mobile {
+  display: block;
+}
+
+/* q-inner-loading overlay sul blocco lista ordini */
+.relative-position {
+  position: relative;
+  min-height: 80px;
+}
+</style>

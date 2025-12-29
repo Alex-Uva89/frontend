@@ -1,11 +1,30 @@
 <template>
-  <q-dialog v-model="modelValue" persistent>
-    <q-card style="min-width: 90vw">
-      <q-card-section class="text-h6">
-        Crea ordine
+  <q-dialog
+    v-model="modelValue"
+    persistent
+    :maximized="$q.screen.lt.sm"
+  >
+    <q-card class="order-dialog-card">
+
+      <!-- HEADER -->
+      <q-card-section class="row items-center justify-between q-pb-xs">
+        <div class="text-h6">
+          Crea ordine
+        </div>
+        <q-btn
+          v-if="$q.screen.lt.sm"
+          flat
+          round
+          dense
+          icon="close"
+          @click="closeDialog"
+        />
       </q-card-section>
 
-      <q-card-section>
+      <q-separator />
+
+      <q-card-section class="scroll-area">
+
         <!-- RIGHE DELL'ORDINE -->
         <div class="column q-gutter-md">
           <div
@@ -21,7 +40,7 @@
                 Prodotto n°{{ idx + 1 }}
               </q-badge>
 
-              <!-- 1) CATEGORIA -->
+              <!-- CATEGORIA -->
               <q-select
                 v-model="row.categoryId"
                 :options="categoryStore.categories"
@@ -38,7 +57,7 @@
                 @update:model-value="onCategoryChanged(idx)"
               />
 
-              <!-- 2) PRODOTTO (filtrato per categoria) -->
+              <!-- PRODOTTO (filtrato per categoria) -->
               <q-select
                 v-model="row.referenceId"
                 :options="productOptions(idx)"
@@ -57,7 +76,7 @@
               />
             </div>
 
-            <!-- Fornitore (per riga; non modifica DB, solo ordine) -->
+            <!-- Fornitore -->
             <div class="cell cell--supplier">
               <q-select
                 v-model="row.supplierId"
@@ -88,7 +107,7 @@
             </div>
 
             <!-- Unità -->
-            <div class="cell cell--unit flex justify-center">
+            <div class="cell cell--unit">
               <q-select
                 v-if="unitsFor(idx).length > 1"
                 v-model="row.unit"
@@ -98,16 +117,25 @@
                 label="Unità"
                 :disable="!row.referenceId"
               />
-              <q-chip v-else-if="unitsFor(idx).length === 1" outline>
+              <q-chip
+                v-else-if="unitsFor(idx).length === 1"
+                outline
+                class="q-my-xs"
+              >
                 {{ unitsFor(idx)[0] }}
               </q-chip>
-              <q-badge v-else dense outline class="q-pa-md text-teal">
-                <div>unità della referenza</div>
+              <q-badge
+                v-else
+                dense
+                outline
+                class="q-pa-md text-teal q-mt-xs"
+              >
+                <div>Unità da referenza</div>
               </q-badge>
             </div>
 
-            <!-- Elimina riga -->
-            <div class="cell cell--remove">
+            <!-- Azioni riga -->
+            <div class="cell cell--actions">
               <q-btn
                 flat
                 round
@@ -117,15 +145,15 @@
                 :disable="items.length === 1"
                 aria-label="Rimuovi riga"
               >
-                <q-tooltip class="bg-red-5" style="font-size: 1rem;">Rimuovi riga</q-tooltip>
+                <q-tooltip class="bg-red-5" style="font-size: 1rem;">
+                  Rimuovi riga
+                </q-tooltip>
               </q-btn>
-            </div>
 
-            <!-- Aggiungi riga -->
-            <div class="cell cell--add">
               <q-btn
                 color="primary"
                 icon="add"
+                round
                 @click="addRow"
                 aria-label="Aggiungi riga"
                 :disable="!canAddRow"
@@ -137,21 +165,27 @@
             </div>
 
             <!-- Separatore riga -->
-            <q-separator class="cell cell--hr q-my-sm" color="primary" style="height: 5px;" />
+            <q-separator class="cell cell--hr q-my-sm" color="primary" style="height: 4px;" />
           </div>
         </div>
 
         <!-- Totale ordine -->
-        <div class="row justify-end q-mt-md q-gutter-md text-weight-medium">
+        <div class="row justify-end q-mt-md q-gutter-md text-weight-medium text-right">
           <div class="col-auto">Prodotti: {{ items.length }}</div>
-          <div class="col-auto">Totale ordine: {{ formatMoney(grandTotal) }} €</div>
+          <div class="col-auto">
+            Totale ordine:
+            <span class="text-primary">
+              {{ formatMoney(grandTotal) }} €
+            </span>
+          </div>
         </div>
       </q-card-section>
 
       <q-separator />
 
-      <q-card-actions class="flex justify-between">
-        <div class="q-my-md">
+      <!-- FOOTER -->
+      <q-card-actions class="order-dialog-actions">
+        <div class="left-actions">
           <q-btn
             outline
             color="primary"
@@ -162,9 +196,19 @@
           />
         </div>
 
-        <div>
-          <q-btn flat label="Annulla" @click="closeDialog" />
-          <q-btn color="primary" label="Crea ordine" @click="createOrder" />
+        <div class="right-actions">
+          <q-btn
+            flat
+            label="Annulla"
+            @click="closeDialog"
+            :class="{ 'full-width': $q.screen.lt.sm }"
+          />
+          <q-btn
+            color="primary"
+            label="Crea ordine"
+            @click="createOrder"
+            :class="{ 'full-width': $q.screen.lt.sm }"
+          />
         </div>
       </q-card-actions>
     </q-card>
@@ -277,7 +321,7 @@ function unitsFor (idx) {
   if (!obj?.unit) return []
   const arr = Array.isArray(obj.unit) ? obj.unit : [obj.unit]
   return arr
-    .map(u => typeof u === 'string' ? u.split(' ')[0] : u)
+    .map(u => (typeof u === 'string' ? u.split(' ')[0] : u))
     .filter(Boolean)
 }
 
@@ -304,7 +348,6 @@ function productOptions (idx) {
     const catId = r?.category?._id || r?.category?._ref || null
     if (!catId || catId !== categoryId) return false
 
-    // non mostrare referenze già selezionate su altre righe
     if (selectedIds.has(r._id) && r._id !== row.referenceId) return false
     return true
   })
@@ -313,8 +356,6 @@ function productOptions (idx) {
 /* Cambio categoria su riga */
 function onCategoryChanged (idx) {
   const row = items.value[idx]
-
-  // se cambio categoria, resetto il prodotto e i campi dipendenti
   row.referenceId = null
   row.unit = null
   row.price = null
@@ -325,7 +366,6 @@ function onCategoryChanged (idx) {
 function onReferenceChanged (idx) {
   const row = items.value[idx]
 
-  // blocca duplicati
   const dup = items.value.some(
     (r, i) => i !== idx && r.referenceId && r.referenceId === row.referenceId
   )
@@ -338,7 +378,6 @@ function onReferenceChanged (idx) {
     return
   }
 
-  // set unit/prezzo/fornitore di default
   const list = unitsFor(idx)
   row.unit = list[0] || null
 
@@ -356,7 +395,7 @@ function openNewReference (idx) {
   showNewReferenceDialog.value = true
 }
 
-/* Gestione referenza creata dal dialog (già con businessId/initWarehouse) */
+/* Gestione referenza creata dal dialog */
 async function handleReferenceCreated (created) {
   try {
     const createdRef = created?.reference || created || null
@@ -368,7 +407,6 @@ async function handleReferenceCreated (created) {
     const createdId = createdRef._id || createdRef.id || null
     const createdName = (createdRef.name || '').trim().toLowerCase()
 
-    // assicuro lista aggiornata (in teoria già ok, ma safe)
     await referenceStore.fetchReferences({
       all: true,
       status: 'all',
@@ -392,7 +430,6 @@ async function handleReferenceCreated (created) {
     const row = items.value[idx]
 
     if (pick) {
-      // imposto categoria e prodotto coerenti
       const catId = pick.category?._id || pick.category?._ref || null
       row.categoryId = catId
       row.referenceId = pick._id
@@ -425,11 +462,11 @@ function closeDialog () {
   modelValue.value = false
 }
 
-/* Submit ordine */
+/* Init */
 onMounted(() => {
   referenceStore.fetchReferences({
     all: true,
-    status: 'all', // importantissimo
+    status: 'all',
     page: 1,
     pageSize: 5000
   })
@@ -438,8 +475,8 @@ onMounted(() => {
   supplierStore.fetchSuppliers()
 })
 
+/* Submit ordine */
 async function createOrder () {
-  // normalizza righe
   const sanitized = items.value
     .map(r => ({
       quantity: Number(r.quantity) || 0,
@@ -460,7 +497,6 @@ async function createOrder () {
     return
   }
 
-  // check duplicati
   const ids = sanitized.map(r => r.referenceId)
   const unique = new Set(ids)
   if (unique.size !== ids.length) {
@@ -479,9 +515,7 @@ async function createOrder () {
     price: r.price,
     supplierId: r.supplierId,
     addedById: currentUser._id
-  })
-
-  )
+  }))
 
   const newOrder = await orderStore.createOrder(props.businessId, payloadItems)
   if (newOrder) {
@@ -495,7 +529,9 @@ function unitsForByRef (refId) {
   const obj = refObjById(refId)
   if (!obj?.unit) return []
   const arr = Array.isArray(obj.unit) ? obj.unit : [obj.unit]
-  return arr.map(u => typeof u === 'string' ? u.split(' ')[0] : u).filter(Boolean)
+  return arr
+    .map(u => (typeof u === 'string' ? u.split(' ')[0] : u))
+    .filter(Boolean)
 }
 
 /* Totali + formattazione */
@@ -513,53 +549,113 @@ function formatMoney (val) {
 </script>
 
 <style scoped>
-.order-grid {
-  display: grid;
-  align-items: end;
-  gap: 8px;
+.order-dialog-card {
+  width: 90vw;
+  max-width: 1100px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* < 1280px: 2 righe + hr (6 colonne) */
-@media (max-width: 1279.98px) {
+/* full-screen mobile: già gestito da :maximized, qui solo padding/scroll */
+@media (max-width: 767.98px) {
+  .order-dialog-card {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
+
+.scroll-area {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+/* GRID RIGA ORDINE */
+
+/* MOBILE: layout colonna, super leggibile */
+@media (max-width: 767.98px) {
   .order-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "name"
+      "supplier"
+      "qty"
+      "unit"
+      "actions"
+      "hr";
+    padding: 8px 4px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.02);
+  }
+  .cell--name     { grid-area: name; }
+  .cell--supplier { grid-area: supplier; }
+  .cell--qty      { grid-area: qty; }
+  .cell--unit     { grid-area: unit; }
+  .cell--actions  {
+    grid-area: actions;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .cell--hr       { grid-area: hr; }
+
+  .cell :deep(.q-field) {
+    width: 100%;
+  }
+}
+
+/* TABLET / DESKTOP: griglia più densa */
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  .order-grid {
+    display: grid;
+    align-items: end;
+    gap: 8px;
     grid-template-columns: repeat(6, 1fr);
     grid-template-areas:
-      "name name supplier supplier supplier add"
-      "qty qty qty unit  unit remove"
-      "hr   hr     hr       hr       hr       hr";
+      "name name supplier supplier qty actions"
+      "hr   hr   hr       hr       hr  hr";
   }
   .cell--name     { grid-area: name; }
   .cell--supplier { grid-area: supplier; }
   .cell--qty      { grid-area: qty; }
-  .cell--unit     { grid-area: unit; }
-  .cell--price    { grid-area: price; }
-  .cell--total    { grid-area: total; }
-  .cell--remove   { grid-area: remove; display: flex; justify-content: center; }
-  .cell--add      { grid-area: add; display: flex; justify-content: center; }
+  .cell--unit     { grid-area: qty; } /* unit vicino a qty: possono condividere area o stare sotto */
+  .cell--actions  {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
   .cell--hr       { grid-area: hr; }
 }
 
-/* ≥ 1280px: una riga + hr sotto */
+/* ≥ 1280px: layout orizzontale completo */
 @media (min-width: 1280px) {
   .order-grid {
-    grid-template-columns: 3fr 2fr 1fr 1.5fr 1.5fr 1.5fr auto auto;
+    display: grid;
+    align-items: end;
+    gap: 8px;
+    grid-template-columns: 3fr 2fr 1fr 1.5fr auto;
     grid-template-areas:
-      "name name supplier supplier qty unit  remove add"
-      "hr   hr       hr  hr   hr    hr    hr     hr";
+      "name supplier qty unit actions"
+      "hr   hr       hr  hr   hr";
   }
   .cell--name     { grid-area: name; }
   .cell--supplier { grid-area: supplier; }
   .cell--qty      { grid-area: qty; }
   .cell--unit     { grid-area: unit; }
-  .cell--price    { grid-area: price; }
-  .cell--total    { grid-area: total; }
-  .cell--remove   { grid-area: remove; display: flex; justify-content: center; }
-  .cell--add      { grid-area: add; display: flex; justify-content: center; }
+  .cell--actions  {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
   .cell--hr       { grid-area: hr; }
 }
-
-/* Migliora resa dei campi dentro grid */
-.cell :deep(.q-field) { width: 100%; }
 
 /* Effetto: tutte le righe NON ultime sono disabilitate */
 .row-dimmed {
@@ -579,5 +675,35 @@ function formatMoney (val) {
 :deep(input[type="number"].no-spin::-webkit-inner-spin-button) {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* FOOTER layout */
+.order-dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-dialog-actions .left-actions,
+.order-dialog-actions .right-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 767.98px) {
+  .order-dialog-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .order-dialog-actions .left-actions,
+  .order-dialog-actions .right-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .order-dialog-actions .full-width {
+    width: 100%;
+  }
 }
 </style>
