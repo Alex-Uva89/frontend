@@ -207,7 +207,6 @@
                       dense
                       clearable
                       :loading="loadingReferences"
-                      @popup-show="ensureReferencesLoaded"
                     />
                   </div>
 
@@ -291,14 +290,15 @@ const unitOptions = [
 const loadingPage = computed(() => productStore.loading || loadingReferences.value)
 
 /* ============================================
-   CARICA SOLO I PRODOTTI ALL'INIZIO
+   CARICA PRODOTTI + REFERENCES ALL'INIZIO
 ============================================= */
 onMounted(async () => {
   await productStore.fetchProducts()
+  await ensureReferencesLoaded() // ⬅️ carica subito le referenze
 })
 
 /* ============================================
-   LAZY LOAD DELLE REFERENCES
+   CARICA REFERENCES UNA VOLTA SOLA
 ============================================= */
 async function ensureReferencesLoaded () {
   if (referencesLoaded.value || loadingReferences.value) return
@@ -314,7 +314,7 @@ async function ensureReferencesLoaded () {
       }
     })
 
-    referenceOptions.value = data.items || []
+    referenceOptions.value = Array.isArray(data.items) ? data.items : []
     referencesLoaded.value = true
   } catch (e) {
     console.error('Errore caricamento references:', e)
