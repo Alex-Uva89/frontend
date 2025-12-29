@@ -25,7 +25,7 @@
         <div
           v-for="n in 3"
           :key="n"
-          class="q-mb-xl"
+          class="q-mb-lg"
         >
           <div class="row items-center justify-between q-mb-sm">
             <div>
@@ -43,18 +43,18 @@
               :key="i"
               class="q-mb-md"
             >
-              <div class="row justify-between items-center q-col-gutter-md">
-                <div class="col-4">
+              <div class="row justify-between items-center q-col-gutter-sm">
+                <div class="col-12 col-sm-4 q-mb-xs q-mb-sm-sm">
                   <q-skeleton type="text" class="q-mb-xs" />
                   <q-skeleton type="text" width="80%" />
                 </div>
-                <div class="col-3">
+                <div class="col-6 col-sm-3">
                   <q-skeleton type="QInput" />
                 </div>
-                <div class="col-3">
+                <div class="col-6 col-sm-3">
                   <q-skeleton type="QInput" />
                 </div>
-                <div class="col-2">
+                <div class="col-12 col-sm-2 q-mt-xs q-mt-none-sm">
                   <q-skeleton type="text" />
                 </div>
               </div>
@@ -69,162 +69,181 @@
         <!-- VIRTUAL SCROLL SUI PRODOTTI -->
         <q-virtual-scroll
           :items="filteredProducts"
-          :virtual-scroll-item-size="220"
+          :virtual-scroll-item-size="260"
           v-slot="{ item: p, index }"
         >
-          <div
+          <q-card
             :key="p._id || index"
-            class="q-mb-xl"
+            flat
+            bordered
+            class="q-mb-lg product-card"
           >
+            <!-- HEADER PRODOTTO -->
+            <q-card-section class="q-pb-sm">
+              <div class="row q-col-gutter-sm items-start">
 
-            <!-- Header prodotto -->
-            <div class="row items-center justify-between q-mb-sm">
-              <div>
-                <div class="text-h6">{{ p.name }}</div>
-                <div class="text-caption text-grey-7">ID: {{ p._id }}</div>
-              </div>
-
-              <div class="column items-end">
-                <div class="text-h6 text-teal-8">
-                  Totale costo ingredienti:
-                  {{ formatCurrency(calculateProductCost(p)) }}
+                <div class="col-12 col-sm-7">
+                  <div class="text-subtitle1 text-weight-medium">
+                    {{ p.name }}
+                  </div>
+                  <div class="text-caption text-grey-7 ellipsis">
+                    ID: {{ p._id }}
+                  </div>
                 </div>
 
-                <q-btn
-                  size="sm"
-                  flat
-                  color="primary"
-                  label="Salva ingredienti"
-                  :loading="savingId === p._id"
-                  @click="saveIngredients(p)"
-                />
-              </div>
-            </div>
-
-            <q-separator class="q-my-md" />
-
-            <!-- Lista ingredienti esistenti -->
-            <q-list bordered separator v-if="p.ingredients?.length">
-
-              <q-item
-                v-for="(ing, idx) in p.ingredients"
-                :key="ing._key || ing.reference?._id || idx"
-              >
-                <q-item-section>
-
-                  <div class="row justify-between items-center q-col-gutter-md">
-
-                    <!-- Info ingrediente -->
-                    <div class="col-4">
-                      <div class="text-body1">
-                        {{ ing.reference?.name || 'Ingrediente senza nome' }}
-                      </div>
-
-                      <div class="text-caption text-grey-7">
-                        Prezzo unitario:
-                        {{ formatCurrency(ing.reference?.price) }}
-                        / {{ ing.reference?.unit?.[0] || 'kg' }}
-                      </div>
-                    </div>
-
-                    <!-- Quantità -->
-                    <div class="col-3">
-                      <q-input
-                        v-model.number="ing.quantity"
-                        type="number"
-                        label="Quantità"
-                        dense
-                      />
-                    </div>
-
-                    <!-- Unità -->
-                    <div class="col-3">
-                      <q-select
-                        v-model="ing.unit"
-                        :options="unitOptions"
-                        label="Unità"
-                        dense
-                        emit-value
-                        map-options
-                      />
-                    </div>
-
-                    <!-- Costo calcolato + rimozione -->
-                    <div class="col-2 text-right">
-                      <div class="text-body1 text-weight-bold text-teal-8">
-                        {{ formatCurrency(calculateIngredientCost(ing)) }}
-                      </div>
-
-                      <q-btn
-                        flat
-                        round
-                        size="sm"
-                        icon="delete"
-                        color="negative"
-                        @click="removeIngredient(p, idx)"
-                      />
-                    </div>
-
+                <div class="col-12 col-sm-5 text-right">
+                  <div class="text-body1 text-teal-8">
+                    Totale ingredienti:
+                    <span class="text-weight-bold">
+                      {{ formatCurrency(calculateProductCost(p)) }}
+                    </span>
                   </div>
 
-                </q-item-section>
-              </q-item>
+                  <q-btn
+                    class="q-mt-xs q-mt-sm-sm"
+                    size="sm"
+                    outline
+                    color="primary"
+                    label="Salva ingredienti"
+                    :loading="savingId === p._id"
+                    @click="saveIngredients(p)"
+                  />
+                </div>
 
-            </q-list>
+              </div>
+            </q-card-section>
 
-            <!-- Nessun ingrediente -->
-            <div v-else class="text-negative q-mb-md">
-              Nessun ingrediente associato
-            </div>
+            <q-separator />
 
-            <!-- Aggiungi nuovo ingrediente -->
-            <div class="row items-center q-mt-md q-col-gutter-md">
-              <div class="col-5">
-                <q-select
-                  v-model="newIngredient.reference"
-                  :options="referenceOptions"
-                  option-value="_id"
-                  option-label="name"
-                  label="Aggiungi ingrediente"
-                  dense
-                  clearable
-                  :loading="loadingReferences"
-                  @popup-show="ensureReferencesLoaded"
-                />
+            <!-- LISTA INGREDIENTI -->
+            <q-card-section class="q-pt-sm">
+              <q-list bordered separator v-if="p.ingredients?.length">
+                <q-item
+                  v-for="(ing, idx) in p.ingredients"
+                  :key="ing._key || ing.reference?._id || idx"
+                  class="q-py-sm"
+                >
+                  <q-item-section>
+                    <div class="row q-col-gutter-sm">
+
+                      <!-- Info ingrediente -->
+                      <div class="col-12 col-sm-4">
+                        <div class="text-body2 text-weight-medium">
+                          {{ ing.reference?.name || 'Ingrediente senza nome' }}
+                        </div>
+                        <div class="text-caption text-grey-7">
+                          Prezzo unitario:
+                          {{ formatCurrency(ing.reference?.price) }}
+                          / {{ ing.reference?.unit?.[0] || 'kg' }}
+                        </div>
+                      </div>
+
+                      <!-- Quantità -->
+                      <div class="col-6 col-sm-3">
+                        <q-input
+                          v-model.number="ing.quantity"
+                          type="number"
+                          label="Quantità"
+                          dense
+                          standout="bg-grey-1"
+                          input-class="text-right"
+                        />
+                      </div>
+
+                      <!-- Unità -->
+                      <div class="col-6 col-sm-3">
+                        <q-select
+                          v-model="ing.unit"
+                          :options="unitOptions"
+                          label="Unità"
+                          dense
+                          emit-value
+                          map-options
+                          standout="bg-grey-1"
+                        />
+                      </div>
+
+                      <!-- Costo + delete -->
+                      <div class="col-12 col-sm-2 text-right">
+                        <div class="text-body2 text-weight-bold text-teal-8">
+                          {{ formatCurrency(calculateIngredientCost(ing)) }}
+                        </div>
+
+                        <q-btn
+                          class="q-mt-xs"
+                          flat
+                          size="sm"
+                          icon="delete"
+                          color="negative"
+                          round
+                          @click="removeIngredient(p, idx)"
+                        />
+                      </div>
+
+                    </div>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+
+              <!-- Nessun ingrediente -->
+              <div v-else class="text-negative q-mb-md">
+                Nessun ingrediente associato
               </div>
 
-              <div class="col-3">
-                <q-input
-                  v-model.number="newIngredient.quantity"
-                  type="number"
-                  label="Quantità"
-                  dense
-                />
-              </div>
+              <!-- Aggiungi nuovo ingrediente -->
+              <div class="q-mt-md">
+                <div class="text-caption text-grey-7 q-mb-xs">
+                  Aggiungi ingrediente
+                </div>
 
-              <div class="col-2">
-                <q-select
-                  v-model="newIngredient.unit"
-                  :options="unitOptions"
-                  label="Unità"
-                  dense
-                  emit-value
-                  map-options
-                />
-              </div>
+                <div class="row q-col-gutter-sm items-center">
+                  <div class="col-12 col-sm-5">
+                    <q-select
+                      v-model="newIngredient.reference"
+                      :options="referenceOptions"
+                      option-value="_id"
+                      option-label="name"
+                      label="Ingrediente"
+                      dense
+                      clearable
+                      :loading="loadingReferences"
+                      @popup-show="ensureReferencesLoaded"
+                    />
+                  </div>
 
-              <div class="col-2">
-                <q-btn
-                  color="primary"
-                  label="Aggiungi"
-                  @click="addIngredientToProduct(p)"
-                  :disable="!newIngredient.reference || !newIngredient.quantity"
-                />
-              </div>
-            </div>
+                  <div class="col-6 col-sm-3">
+                    <q-input
+                      v-model.number="newIngredient.quantity"
+                      type="number"
+                      label="Quantità"
+                      dense
+                    />
+                  </div>
 
-            <q-separator class="q-my-lg" />
-          </div>
+                  <div class="col-6 col-sm-2">
+                    <q-select
+                      v-model="newIngredient.unit"
+                      :options="unitOptions"
+                      label="Unità"
+                      dense
+                      emit-value
+                      map-options
+                    />
+                  </div>
+
+                  <div class="col-12 col-sm-2 text-right">
+                    <q-btn
+                      color="primary"
+                      label="Aggiungi"
+                      class="full-width-sm"
+                      @click="addIngredientToProduct(p)"
+                      :disable="!newIngredient.reference || !newIngredient.quantity"
+                    />
+                  </div>
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
         </q-virtual-scroll>
 
         <div v-if="!filteredProducts.length" class="text-grey-7">
@@ -250,9 +269,9 @@ const savingId = ref(null)
 // lista ingredients base (referenceItem) da Sanity
 const referenceOptions = ref([])
 const loadingReferences = ref(false)
-const referencesLoaded = ref(false) // per evitare richieste duplicate
+const referencesLoaded = ref(false)
 
-// bozza nuovo ingrediente (condivisa, ma ok per uso interno tool)
+// bozza nuovo ingrediente (condivisa)
 const newIngredient = ref({
   reference: null,
   quantity: null,
@@ -309,13 +328,11 @@ async function ensureReferencesLoaded () {
    FILTRO DI RICERCA
 ============================================= */
 const filteredProducts = computed(() => {
-  // normalizzo sempre a stringa, tolgo spazi e porto in lowercase
   const q = (search.value ?? '')
     .toString()
     .trim()
     .toLowerCase()
 
-  // se vuota → ritorno tutti i prodotti
   if (!q) {
     return productStore.products
   }
@@ -325,11 +342,10 @@ const filteredProducts = computed(() => {
   )
 })
 
-
 /* ============================================
    NORMALIZZAZIONE UNITÀ
 ============================================= */
-function normalizeUnit(u) {
+function normalizeUnit (u) {
   if (Array.isArray(u)) return u[0]
   return u || 'kg'
 }
@@ -337,7 +353,7 @@ function normalizeUnit(u) {
 /* ============================================
    CALCOLO COSTO INGREDIENTE
 ============================================= */
-function calculateIngredientCost(ing) {
+function calculateIngredientCost (ing) {
   if (!ing.reference?.price) return 0
 
   const pricePerKg = ing.reference.price
@@ -357,7 +373,7 @@ function calculateIngredientCost(ing) {
 /* ============================================
    COSTO TOTALE PRODOTTO
 ============================================= */
-function calculateProductCost(product) {
+function calculateProductCost (product) {
   return (product.ingredients || [])
     .map(i => calculateIngredientCost(i))
     .reduce((a, b) => a + b, 0)
@@ -366,7 +382,7 @@ function calculateProductCost(product) {
 /* ============================================
    FORMATTATORE €
 ============================================= */
-function formatCurrency(value) {
+function formatCurrency (value) {
   return new Intl.NumberFormat('it-IT', {
     style: 'currency',
     currency: 'EUR'
@@ -382,7 +398,7 @@ function genKey () {
   return Math.random().toString(36).slice(2)
 }
 
-function addIngredientToProduct(product) {
+function addIngredientToProduct (product) {
   if (!newIngredient.value.reference || !newIngredient.value.quantity) return
 
   if (!product.ingredients) {
@@ -403,7 +419,7 @@ function addIngredientToProduct(product) {
   }
 }
 
-async function removeIngredient(product, index) {
+async function removeIngredient (product, index) {
   if (!product.ingredients) return
   product.ingredients.splice(index, 1)
   await saveIngredients(product)
@@ -413,7 +429,7 @@ async function removeIngredient(product, index) {
    SALVATAGGIO SU SANITY
 ============================================= */
 
-async function saveIngredients(product) {
+async function saveIngredients (product) {
   savingId.value = product._id
   try {
     const payloadIngredients = (product.ingredients || []).map(ing => ({
