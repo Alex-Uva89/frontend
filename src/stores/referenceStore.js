@@ -69,18 +69,67 @@ export const useReferenceStore = defineStore('reference', () => {
 
 
   async function createReference (payload, opts = {}) {
+  try {
     const { data } = await api.post('references/', {
       ...payload,
       ...(opts.initWarehouse ? { initWarehouse: true, businessId: opts.businessId } : {})
     })
 
     const created = data.reference || data
-    references.value = [...references.value, created].sort((a, b) =>
-      (a.name || '').localeCompare(b.name || '', 'it', { sensitivity: 'base' })
-    )
-    criteria.total = (criteria.total || 0) + 1
+
+    // aggiorna stato locale evitando duplicati
+    const existingIdx = references.value.findIndex(r => r._id === created._id)
+    if (existingIdx === -1) {
+      references.value = [...references.value, created].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', 'it', { sensitivity: 'base' })
+      )
+      criteria.total = (criteria.total || 0) + 1
+    } else {
+      references.value[existingIdx] = created
+    }
+
     return created
+  } catch (e) {
+    const status = e?.response?.status
+    const data = e?.response?.data
+
+    // caso speciale: backend dice che la referenza esiste già
+    if (status === 409 && data?.existingId) {
+      const existingId = data.existingId
+
+      // 1) ricarico tutte le referenze (anche non active, se hai lo status)
+      await fetchReferences({ all: true, status: 'all' })
+
+      // 2) cerco quella indicata dal backend
+      let existing = (references.value || []).find(r => r._id === existingId)
+
+      // 3) se non la trovo, creo almeno un oggetto minimale in memoria
+      if (!existing) {
+        existing = {
+          _id: existingId,
+          name: payload.name,
+          supplier: payload.supplier || null,
+          category: payload.category || null,
+          unit: payload.unit || [],
+          price: payload.price ?? null,
+          notes: payload.notes ?? ''
+        }
+
+        references.value = [...references.value, existing].sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '', 'it', { sensitivity: 'base' })
+        )
+        criteria.total = (criteria.total || 0) + 1
+      }
+
+      // dal punto di vista del frontend, trattiamo il 409 come "usa questa referenza"
+      return existing
+    }
+
+    console.error('Error creating reference:', e)
+    throw e
   }
+}
+
 
   // 👇 IMPORTANTE: esponi stato e azioni
   return {

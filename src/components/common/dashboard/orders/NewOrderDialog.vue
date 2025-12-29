@@ -156,6 +156,8 @@
   <!-- Dialog: nuova referenza -->
   <NewReferenceDialog
     v-model="showNewReferenceDialog"
+    :business-id="props.businessId"
+    :init-warehouse="true"
     @created="handleReferenceCreated"
   />
 </template>
@@ -319,42 +321,31 @@ function openNewReference (idx) {
  * - accetta ritorni {reference}, {data} o oggetto diretto
  * - poi refetch, poi ricerca per _id o per name/supplier/category
  */
-async function handleReferenceCreated(draft) {
+async function handleReferenceCreated (created) {
   try {
-    // 1. Crea la referenza nel backend
-    const raw = await referenceStore.createReference(draft, {
-      initWarehouse: true,
-      businessId: props.businessId
-    })
+    const createdRef = created?.reference || created || null
+    if (!createdRef) {
+      $q.notify({ type: 'negative', message: 'Errore: referenza non valida' })
+      return
+    }
 
-    // 2. Normalizza il ritorno
-    const created = raw?.reference || raw?.data || raw || null
-    const createdId = created?._id || created?.id || null
-    const createdName = (created?.name || draft?.name || '').trim().toLowerCase()
+    const createdId = createdRef._id || createdRef.id || null
+    const createdName = (createdRef.name || '').trim().toLowerCase()
+
+    // assicuro lista aggiornata (in teoria già ok, ma safe)
+    await referenceStore.fetchReferences({ all: true, status: 'all', page: 1, pageSize: 5000 })
 
     const list = referenceStore.references || []
     let pick = null
 
-    // ---------------------------
-    // MATCH 1 — per ID (quasi sempre affidabile)
-    // ---------------------------
     if (createdId) {
       pick = list.find(r => r._id === createdId)
     }
-
-    // ---------------------------
-    // MATCH 2 — per nome (case-insensitive)
-    // Utile se Sanity ha rigenerato l'id
-    // ---------------------------
     if (!pick && createdName) {
-      pick = list.find(r => r.name?.trim().toLowerCase() === createdName)
+      pick = list.find(r => (r.name || '').trim().toLowerCase() === createdName)
     }
 
-    // ---------------------------
-    // FALLBACK — se ancora niente, pick = null
-    // ---------------------------
-
-    const idx = creatingForRowIdx.value ?? 0
+    const idx = creatingForRowIdx.value ?? enabledIdx.value
     const row = items.value[idx]
 
     if (pick) {
@@ -363,28 +354,24 @@ async function handleReferenceCreated(draft) {
 
       $q.notify({
         type: 'positive',
-        message: `Referenza "${pick.name}" creata e aggiunta all’ordine`
+        message: `Referenza "${pick.name}" pronta nell'ordine`
       })
     } else {
       row.referenceId = null
-
       $q.notify({
         type: 'warning',
-        message: 'Referenza creata, ma non trovata nella lista dopo il refresh'
+        message: 'Referenza creata ma non trovata nella lista'
       })
     }
   } catch (err) {
-    if (err?.response?.status === 409) {
-      $q.notify({ type: 'warning', message: 'Questa referenza esiste già' })
-    } else {
-      $q.notify({ type: 'negative', message: 'Errore creazione referenza' })
-    }
+    $q.notify({ type: 'negative', message: 'Errore durante la gestione della nuova referenza' })
     console.error(err)
   } finally {
     showNewReferenceDialog.value = false
     creatingForRowIdx.value = null
   }
 }
+
 
 
 function closeDialog() {

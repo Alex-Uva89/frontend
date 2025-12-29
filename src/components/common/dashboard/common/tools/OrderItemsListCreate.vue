@@ -112,6 +112,7 @@
     <q-dialog v-model="addReferenceDialog.visible">
       <q-card style="width: 90vw;">
         <q-card-section>
+          palla
           <div class="text-h6">Aggiungi referenza</div>
         </q-card-section>
 
@@ -200,7 +201,12 @@
     />
 
     <!-- Dialog: nuova referenza -->
-    <NewReferenceDialog v-model="newRefDialog.visible" @created="handleNewRefCreated" />
+    <NewReferenceDialog
+      v-model="newRefDialog.visible"
+      :business-id="selectedBusinessId"
+      :init-warehouse="true"
+      @created="handleNewRefCreated"
+    />
   </div>
 </template>
 
@@ -238,30 +244,21 @@ const newRefDialog = ref({ visible: false })
 function openNewReferenceDialog () { newRefDialog.value.visible = true }
 
 async function handleNewRefCreated (createdRef) {
-  await referenceStore.fetchReferences()
   const order = orderStore.orders.find(o => o._id === addReferenceDialog.value.orderId)
   const usedIds = (order?.items || [])
     .map(i => (i.reference?._id || i.item?._id))
     .filter(Boolean)
+
+  // lista aggiornata (createReference ha già aggiornato lo store)
   referenceOptions.value = (referenceStore.references || []).filter(r => !usedIds.includes(r._id))
 
-  const lc = s => (s || '').trim().toLowerCase()
-  const createdName = lc(createdRef?.name)
-  const createdSupplierId = createdRef?.supplier?._ref || createdRef?.supplier?._id || null
-  const createdCategoryId = createdRef?.category?._ref || createdRef?.category?._id || null
-
-  let pick = referenceStore.references.find(r => r._id === createdRef?._id)
-  if (!pick && createdName) {
-    pick = referenceStore.references.find(r =>
-      lc(r?.name) === createdName &&
-      ((r?.supplier?._id || r?.supplier?._ref || null) === createdSupplierId || !createdSupplierId) &&
-      ((r?.category?._id || r?.category?._ref || null) === createdCategoryId || !createdCategoryId)
-    )
+  if (createdRef && createdRef._id && !usedIds.includes(createdRef._id)) {
+    addReferenceDialog.value.selectedReference = createdRef._id
+  } else {
+    addReferenceDialog.value.selectedReference = null
   }
-  if (!pick && createdName) pick = referenceStore.references.find(r => lc(r?.name) === createdName)
-
-  addReferenceDialog.value.selectedReference = (pick && !usedIds.includes(pick._id)) ? pick._id : null
 }
+
 
 /* Aggiungi referenza all'ordine */
 const addReferenceDialog = ref({

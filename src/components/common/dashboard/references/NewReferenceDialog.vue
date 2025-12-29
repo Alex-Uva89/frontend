@@ -18,7 +18,7 @@
           />
 
           <!-- Categoria -->
-          <div class="row items-cente">
+          <div class="row items-center">
             <div class="col">
               <q-select
                 v-model="selectedCategory"
@@ -121,11 +121,11 @@
   </q-dialog>
 
   <!-- Dialogs secondari -->
-  <new-category-dialog
+  <NewCategoryDialog
     v-model="showCategoryDialog"
     @created="handleCategoryCreated"
   />
-  <new-supplier-dialog
+  <NewSupplierDialog
     v-model="showSupplierDialog"
     @created="handleSupplierCreated"
   />
@@ -135,24 +135,46 @@
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { useCategoryStore } from 'src/stores/categoryStore'
 import { useSupplierStore } from 'src/stores/supplierStore'
+import { useReferenceStore } from 'src/stores/referenceStore'
 import NewCategoryDialog from '../categories/NewCategoryDialog.vue'
 import NewSupplierDialog from '../suppliers/NewSupplierDialog.vue'
 
 /* Props & emits */
-const props = defineProps({ modelValue: Boolean })
+const props = defineProps({
+  modelValue: {
+    type: Boolean,
+    default: false
+  },
+  businessId: {
+    type: String,
+    default: null
+  },
+  // se true, il backend inizializza anche il magazzino per questo business
+  initWarehouse: {
+    type: Boolean,
+    default: false
+  }
+})
 const emit = defineEmits(['update:modelValue', 'created'])
 
 /* v-model locale del dialog */
 const modelValue = ref(props.modelValue)
-watch(() => props.modelValue, (v) => {
-  modelValue.value = v
-  if (v) nextTick(resetForm)
-})
-watch(modelValue, (v) => emit('update:modelValue', v))
+watch(
+  () => props.modelValue,
+  (v) => {
+    modelValue.value = v
+    if (v) nextTick(resetForm)
+  }
+)
+watch(
+  modelValue,
+  (v) => emit('update:modelValue', v)
+)
 
 /* Store */
 const categoryStore = useCategoryStore()
 const supplierStore = useSupplierStore()
+const referenceStore = useReferenceStore()
 
 /* Stati dialog secondari */
 const showCategoryDialog = ref(false)
@@ -163,29 +185,26 @@ const formRef = ref(null)
 const saving = ref(false)
 
 const name = ref('')
-const selectedCategory = ref(null)     // _id string
-const units = ref([])                  // array di sigle (es. ['kg','l'])
-const selectedSupplier = ref(null)     // _id string
+const selectedCategory = ref(null)
+const units = ref([])
+const selectedSupplier = ref(null)
 const price = ref(null)
 const notes = ref('')
 
-/* Opzioni unità: { label, value } -> v-model (units) contiene solo le sigle */
+/* Opzioni unità */
 const unitOptions = [
-  // Peso
   { label: 'mg (milligrammo)', value: 'mg' },
   { label: 'g (grammo)', value: 'g' },
   { label: 'hg (etto)', value: 'hg' },
   { label: 'kg (chilogrammo)', value: 'kg' },
   { label: 'q (quintale)', value: 'q' },
   { label: 't (tonnellata)', value: 't' },
-  // Volume
   { label: 'ml (millilitro)', value: 'ml' },
   { label: 'cl (centilitro)', value: 'cl' },
   { label: 'dl (decilitro)', value: 'dl' },
   { label: 'l (litro)', value: 'l' },
   { label: 'hl (ettolitro)', value: 'hl' },
   { label: 'm³ (metro cubo)', value: 'm³' },
-  // Quantità / conteggio
   { label: 'pz (pezzo)', value: 'pz' },
   { label: 'cf (confezione)', value: 'cf' },
   { label: 'scat (scatola)', value: 'scat' },
@@ -195,7 +214,6 @@ const unitOptions = [
   { label: 'bancale (bancale)', value: 'bancale' },
   { label: 'rotolo (rotolo)', value: 'rotolo' },
   { label: 'fusto (fusto)', value: 'fusto' },
-  // Alimentare / agricolo
   { label: 'bottiglia (bottiglia)', value: 'bottiglia' },
   { label: 'lattina (lattina)', value: 'lattina' },
   { label: 'barattolo (barattolo)', value: 'barattolo' },
@@ -229,19 +247,19 @@ async function submit () {
     const ok = await formRef.value.validate()
     if (!ok) return
   }
-  onSubmit()
+  await onSubmit()
 }
 
-function onSubmit () {
+async function onSubmit () {
   saving.value = true
 
-  const newRef = {
+  const payload = {
     _type: 'referenceItem',
     name: name.value.trim(),
     category: selectedCategory.value
       ? { _type: 'reference', _ref: selectedCategory.value }
       : null,
-    unit: units.value, // <-- già solo sigle grazie a emit-value
+    unit: units.value,
     supplier: selectedSupplier.value
       ? { _type: 'reference', _ref: selectedSupplier.value }
       : null,
@@ -249,20 +267,30 @@ function onSubmit () {
     notes: notes.value?.trim() || ''
   }
 
-  emit('created', newRef)
-  modelValue.value = false
-  saving.value = false
+  try {
+    // 👇 unica entrypoint per la creazione
+    const createdOrExisting = await referenceStore.createReference(payload, {
+      initWarehouse: props.initWarehouse,
+      businessId: props.businessId
+    })
+
+    // emetto verso il genitore SEMPRE un oggetto "usabile"
+    emit('created', createdOrExisting)
+    modelValue.value = false
+  } catch (err) {
+    console.error('Errore creazione referenza:', err)
+  } finally {
+    saving.value = false
+  }
 }
 
 /* Handlers: creazione rapida categoria/fornitore */
 async function handleCategoryCreated (doc) {
-  // doc: {_type:'category', name}
   const created = await categoryStore.createCategory(doc)
   selectedCategory.value = created._id
 }
 
 async function handleSupplierCreated (doc) {
-  // doc: {_type:'supplier', name, email?, phone?}
   const created = await supplierStore.createSupplier(doc)
   selectedSupplier.value = created._id
 }
