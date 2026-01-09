@@ -2,326 +2,288 @@
   <div class="q-pa-md">
 
     <!-- Ricerca -->
-    <q-input
-      v-model="search"
-      label="Cerca prodotto"
-      filled
-      debounce="300"
-      class="q-mb-md"
-      clearable
-      :disable="loadingPage"
-    />
+    <div class="row q-col-gutter-sm items-center q-mb-md">
+      <div class="col-12 col-sm-8">
+        <q-input
+          v-model="search"
+          label="Cerca prodotto"
+          filled
+          debounce="350"
+          clearable
+          :disable="productStore.loading || loadingMore"
+        >
+          <template #append><q-icon name="search" /></template>
+        </q-input>
+      </div>
+
+      <div class="col-12 col-sm-4 text-right">
+        <q-btn
+          outline
+          color="primary"
+          icon="refresh"
+          label="Ricarica"
+          :loading="productStore.loading || loadingMore"
+          @click="refresh"
+        />
+      </div>
+    </div>
 
     <q-card class="q-pa-md shadow-2">
-
-      <div class="text-h5 text-teal-8 q-mb-sm">
-        Costi Prodotti
+      <div class="row items-center justify-between q-mb-sm">
+        <div class="text-h5 text-teal-8">Costi Prodotti</div>
+        <q-badge outline color="primary">{{ totalLabel }}</q-badge>
       </div>
 
       <q-separator class="q-my-md" />
 
-      <!-- SKELETON -->
-      <div v-if="loadingPage">
-        <div
-          v-for="n in 3"
-          :key="n"
-          class="q-mb-lg"
-        >
-          <div class="row items-center justify-between q-mb-sm">
-            <div>
-              <q-skeleton type="text" width="200px" class="q-mb-xs" />
-              <q-skeleton type="text" width="120px" />
-            </div>
-            <q-skeleton type="text" width="180px" />
-          </div>
+      <!-- LISTA (leggera) -->
+      <q-virtual-scroll
+        :items="productStore.products"
+        :virtual-scroll-item-size="120"
+        v-slot="{ item: p }"
+        @virtual-scroll="onVirtualScroll"
+      >
+        <q-card flat bordered class="q-mb-sm">
+          <q-card-section class="q-py-sm">
+            <div class="row items-center q-col-gutter-sm">
+              <div class="col-12 col-sm-7">
+                <div class="text-subtitle1 text-weight-medium">{{ p.name }}</div>
 
-          <q-separator class="q-my-md" />
+                <div class="text-caption text-grey-7">
+                  Ingredienti: {{ p.ingredientsCount ?? 0 }}
+                </div>
 
-          <q-card flat bordered class="q-pa-sm">
-            <div
-              v-for="i in 2"
-              :key="i"
-              class="q-mb-md"
-            >
-              <div class="row justify-between items-center q-col-gutter-sm">
-                <div class="col-12 col-sm-4 q-mb-xs q-mb-sm-sm">
-                  <q-skeleton type="text" class="q-mb-xs" />
-                  <q-skeleton type="text" width="80%" />
-                </div>
-                <div class="col-6 col-sm-3">
-                  <q-skeleton type="QInput" />
-                </div>
-                <div class="col-6 col-sm-3">
-                  <q-skeleton type="QInput" />
-                </div>
-                <div class="col-12 col-sm-2 q-mt-xs q-mt-none-sm">
-                  <q-skeleton type="text" />
+                <div class="text-body2 text-teal-8">
+                  Costo:
+                  <span class="text-weight-bold">
+                    {{ formatCurrency(p.ingredientsCost) }}
+                  </span>
                 </div>
               </div>
+
+              <div class="col-12 col-sm-5 text-right">
+                <q-btn
+                  color="primary"
+                  outline
+                  label="Apri ingredienti"
+                  size="sm"
+                  @click="openIngredients(p._id)"
+                />
+              </div>
             </div>
-          </q-card>
+          </q-card-section>
+        </q-card>
+      </q-virtual-scroll>
+
+      <div class="row items-center justify-center q-pa-sm">
+        <q-spinner v-if="loadingMore" />
+        <div v-else-if="!hasMore && productStore.products.length" class="text-caption text-grey-7">
+          Fine risultati
+        </div>
+        <div v-else-if="!productStore.products.length && !productStore.loading" class="text-grey-7">
+          Nessun prodotto trovato.
         </div>
       </div>
+    </q-card>
 
-      <!-- CONTENUTO REALE -->
-      <div v-else>
+    <!-- DIALOG INGREDIENTI -->
+    <q-dialog v-model="showDialog" persistent>
+      <q-card style="min-width: 95vw; max-width: 1100px">
+        <q-card-section class="row items-center justify-between">
+          <div class="text-h6">
+            Ingredienti — {{ currentProduct?.name || '...' }}
+          </div>
+          <q-btn flat round icon="close" v-close-popup />
+        </q-card-section>
 
-        <!-- VIRTUAL SCROLL SUI PRODOTTI -->
-        <q-virtual-scroll
-          :items="filteredProducts"
-          :virtual-scroll-item-size="260"
-          v-slot="{ item: p, index }"
-        >
-          <q-card
-            :key="p._id || index"
-            flat
-            bordered
-            class="q-mb-lg product-card"
-          >
-            <!-- HEADER PRODOTTO -->
-            <q-card-section class="q-pb-sm">
-              <div class="row q-col-gutter-sm items-start">
+        <q-separator />
 
-                <div class="col-12 col-sm-7">
-                  <div class="text-subtitle1 text-weight-medium">
-                    {{ p.name }}
-                  </div>
-                  <div class="text-caption text-grey-7 ellipsis">
-                    ID: {{ p._id }}
-                  </div>
-                </div>
+        <q-card-section v-if="dialogLoading" class="q-pa-md">
+          <q-spinner />
+        </q-card-section>
 
-                <div class="col-12 col-sm-5 text-right">
-                  <div class="text-body1 text-teal-8">
-                    Totale ingredienti:
-                    <span class="text-weight-bold">
-                      {{ formatCurrency(calculateProductCost(p)) }}
-                    </span>
-                  </div>
+        <q-card-section v-else class="q-pa-md">
 
-                  <q-btn
-                    class="q-mt-xs q-mt-sm-sm"
-                    size="sm"
-                    outline
-                    color="primary"
-                    label="Salva ingredienti"
-                    :loading="savingId === p._id"
-                    @click="saveIngredients(p)"
-                  />
-                </div>
+          <!-- Totale ingredienti -->
+          <div class="text-body1 text-teal-8 q-mb-md">
+            Totale ingredienti:
+            <span class="text-weight-bold">
+              {{ formatCurrency(calculateProductCost(currentProduct)) }}
+            </span>
+          </div>
 
-              </div>
-            </q-card-section>
-
-            <q-separator />
-
-            <!-- LISTA INGREDIENTI -->
-            <q-card-section class="q-pt-sm">
-              <q-list bordered separator v-if="p.ingredients?.length">
-                <q-item
-                  v-for="(ing, idx) in p.ingredients"
-                  :key="ing._key || ing.reference?._id || idx"
-                  class="q-py-sm"
-                >
-                  <q-item-section>
-                    <div class="row q-col-gutter-sm">
-
-                      <!-- Info ingrediente -->
-                      <div class="col-12 col-sm-4">
-                        <div class="text-body2 text-weight-medium">
-                          {{ ing.reference?.name || 'Ingrediente senza nome' }}
-                        </div>
-                        <div class="text-caption text-grey-7">
-                          Prezzo unitario:
-                          {{ formatCurrency(ing.reference?.price) }}
-                          / {{ ing.reference?.unit?.[0] || 'kg' }}
-                        </div>
-                      </div>
-
-                      <!-- Quantità -->
-                      <div class="col-6 col-sm-3">
-                        <q-input
-                          v-model.number="ing.quantity"
-                          type="number"
-                          label="Quantità"
-                          dense
-                          standout="bg-grey-1"
-                          input-class="text-right"
-                        />
-                      </div>
-
-                      <!-- Unità -->
-                      <div class="col-6 col-sm-3">
-                        <q-select
-                          v-model="ing.unit"
-                          :options="unitOptions"
-                          label="Unità"
-                          dense
-                          emit-value
-                          map-options
-                          standout="bg-grey-1"
-                        />
-                      </div>
-
-                      <!-- Costo + delete -->
-                      <div class="col-12 col-sm-2 text-right">
-                        <div class="text-body2 text-weight-bold text-teal-8">
-                          {{ formatCurrency(calculateIngredientCost(ing)) }}
-                        </div>
-
-                        <q-btn
-                          class="q-mt-xs"
-                          flat
-                          size="sm"
-                          icon="delete"
-                          color="negative"
-                          round
-                          @click="removeIngredient(p, idx)"
-                        />
-                      </div>
-
-                    </div>
-                  </q-item-section>
-                </q-item>
-              </q-list>
-
-              <!-- Nessun ingrediente -->
-              <div v-else class="text-negative q-mb-md">
-                Nessun ingrediente associato
-              </div>
-
-              <!-- Aggiungi nuovo ingrediente -->
-              <div class="q-mt-md">
-                <div class="text-caption text-grey-7 q-mb-xs">
-                  Aggiungi ingrediente
-                </div>
-
+          <!-- Lista ingredienti -->
+          <q-list bordered separator v-if="currentProduct?.ingredients?.length">
+            <q-item
+              v-for="(ing, idx) in currentProduct.ingredients"
+              :key="ing._key || ing.reference?._id || idx"
+              class="q-py-sm"
+            >
+              <q-item-section>
                 <div class="row q-col-gutter-sm items-center">
-                  <div class="col-12 col-sm-5">
-                    <q-select
-                      v-model="draftFor(p).reference"
-                      :options="referenceOptions"
-                      option-value="_id"
-                      option-label="name"
-                      label="Ingrediente"
-                      dense
-                      clearable
-                      :loading="loadingReferences"
-                    />
+
+                  <div class="col-12 col-sm-4">
+                    <div class="text-body2 text-weight-medium">
+                      {{ ing.reference?.name || 'Ingrediente senza nome' }}
+                    </div>
+                    <div class="text-caption text-grey-7">
+                      Prezzo unitario: {{ formatCurrency(ing.reference?.price) }}
+                      / {{ normalizeUnit(ing.reference?.unit) }}
+                    </div>
                   </div>
 
                   <div class="col-6 col-sm-3">
                     <q-input
-                      v-model.number="draftFor(p).quantity"
+                      v-model.number="ing.quantity"
                       type="number"
                       label="Quantità"
                       dense
+                      standout="bg-grey-1"
+                      input-class="text-right"
+                      :min="0"
                     />
                   </div>
 
-                  <div class="col-6 col-sm-2">
+                  <div class="col-6 col-sm-3">
                     <q-select
-                      v-model="draftFor(p).unit"
+                      v-model="ing.unit"
                       :options="unitOptions"
                       label="Unità"
                       dense
                       emit-value
                       map-options
+                      standout="bg-grey-1"
                     />
                   </div>
 
                   <div class="col-12 col-sm-2 text-right">
+                    <div class="text-body2 text-weight-bold text-teal-8">
+                      {{ formatCurrency(calculateIngredientCost(ing)) }}
+                    </div>
                     <q-btn
-                      color="primary"
-                      label="Aggiungi"
-                      class="full-width-sm"
-                      @click="addIngredientToProduct(p)"
-                      :disable="!draftFor(p).reference || !draftFor(p).quantity"
+                      class="q-mt-xs"
+                      flat
+                      size="sm"
+                      icon="delete"
+                      color="negative"
+                      round
+                      @click="removeIngredient(idx)"
                     />
                   </div>
+
                 </div>
+              </q-item-section>
+            </q-item>
+          </q-list>
+
+          <div v-else class="text-grey-7 q-mb-md">
+            Nessun ingrediente associato
+          </div>
+
+          <!-- Aggiungi ingrediente -->
+          <div class="q-mt-md">
+            <div class="text-caption text-grey-7 q-mb-xs">Aggiungi ingrediente</div>
+
+            <div class="row q-col-gutter-sm items-center">
+              <div class="col-12 col-sm-6">
+                <q-select
+                  v-model="draft.reference"
+                  :options="referenceOptions"
+                  option-value="_id"
+                  option-label="name"
+                  label="Ingrediente"
+                  dense
+                  clearable
+                  :loading="loadingReferences"
+                />
               </div>
-            </q-card-section>
-          </q-card>
-        </q-virtual-scroll>
 
-        <div v-if="!filteredProducts.length" class="text-grey-7">
-          Nessun prodotto trovato.
-        </div>
-      </div>
+              <div class="col-6 col-sm-3">
+                <q-input
+                  v-model.number="draft.quantity"
+                  type="number"
+                  label="Quantità"
+                  dense
+                  :min="0"
+                />
+              </div>
 
-    </q-card>
+              <div class="col-6 col-sm-2">
+                <q-select
+                  v-model="draft.unit"
+                  :options="unitOptions"
+                  label="Unità"
+                  dense
+                  emit-value
+                  map-options
+                />
+              </div>
+
+              <div class="col-12 col-sm-1 text-right">
+                <q-btn
+                  color="primary"
+                  icon="add"
+                  round
+                  :disable="!draft.reference || !draft.quantity"
+                  @click="addIngredient()"
+                />
+              </div>
+            </div>
+          </div>
+
+        </q-card-section>
+
+        <q-separator />
+
+        <q-card-actions align="right">
+          <q-btn flat label="Chiudi" v-close-popup :disable="saving" />
+          <q-btn
+            color="primary"
+            label="Salva"
+            :loading="saving"
+            :disable="saving || !currentProduct?._id"
+            @click="saveIngredients()"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useProductStore } from 'src/stores/productStore'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import { api } from 'boot/axios'
+import { useProductStore } from 'src/stores/productStore'
 
+const $q = useQuasar()
 const productStore = useProductStore()
 
 const search = ref('')
-const savingId = ref(null)
+const loadingMore = ref(false)
+const hasMore = ref(true)
 
-// lista ingredients base (referenceItem) da Sanity
+const totalLabel = computed(() => {
+  const t = Number(productStore.criteria.total)
+  if (Number.isFinite(t) && t > 0) return `${t} totali`
+  return `${productStore.products.length} caricati`
+})
+
+/* ============================
+   REFERENCES (ingredienti base)
+============================ */
 const referenceOptions = ref([])
 const loadingReferences = ref(false)
 const referencesLoaded = ref(false)
 
-// draft per-prodotto: { [productId]: { reference, quantity, unit } }
-const draftsByProductId = reactive({})
-
-function draftFor (product) {
-  const id = product._id || product.id || product.slug || 'no-id'
-  if (!draftsByProductId[id]) {
-    draftsByProductId[id] = {
-      reference: null,
-      quantity: null,
-      unit: 'g'
-    }
-  }
-  return draftsByProductId[id]
-}
-
-const unitOptions = [
-  { label: 'kg', value: 'kg' },
-  { label: 'g', value: 'g' },
-  { label: 'mg', value: 'mg' },
-  { label: 'l', value: 'l' },
-  { label: 'ml', value: 'ml' },
-  { label: 'pz', value: 'pz' }
-]
-
-// loading combinato
-const loadingPage = computed(() => productStore.loading || loadingReferences.value)
-
-/* ============================================
-   CARICA PRODOTTI + REFERENCES ALL'INIZIO
-============================================= */
-onMounted(async () => {
-  await productStore.fetchProducts()
-  await ensureReferencesLoaded()
-})
-
-/* ============================================
-   CARICA REFERENCES UNA VOLTA SOLA
-============================================= */
 async function ensureReferencesLoaded () {
   if (referencesLoaded.value || loadingReferences.value) return
-
   loadingReferences.value = true
   try {
     const { data } = await api.get('/references', {
-      params: {
-        status: 'active',
-        sort: 'alpha_asc',
-        page: 1,
-        pageSize: 500
-      }
+      params: { status: 'active', sort: 'alpha_asc', page: 1, pageSize: 500 }
     })
-
     referenceOptions.value = Array.isArray(data.items) ? data.items : []
     referencesLoaded.value = true
   } catch (e) {
@@ -332,131 +294,178 @@ async function ensureReferencesLoaded () {
   }
 }
 
-/* ============================================
-   FILTRO DI RICERCA
-============================================= */
-const filteredProducts = computed(() => {
-  const q = (search.value ?? '')
-    .toString()
-    .trim()
-    .toLowerCase()
+/* ============================
+   PAGINAZIONE PRODOTTI (server)
+============================ */
+async function fetchPage ({ reset = false } = {}) {
+  if (productStore.loading || loadingMore.value) return
 
-  if (!q) {
-    return productStore.products
+  if (reset) {
+    hasMore.value = true
+    productStore.resetProducts()
+    productStore.criteria.page = 1
   }
 
-  return productStore.products.filter(p =>
-    (p.name || '').toLowerCase().includes(q)
-  )
+  if (!hasMore.value) return
+
+  loadingMore.value = true
+  try {
+    const { items, total } = await productStore.fetchProducts({
+      q: search.value.trim(),
+      page: productStore.criteria.page,
+      pageSize: productStore.criteria.pageSize
+    })
+
+    const loaded = productStore.products.length
+    const t = Number(total)
+
+    if (Number.isFinite(t) && t > 0) hasMore.value = loaded < t
+    else hasMore.value = (items?.length || 0) === productStore.criteria.pageSize
+
+    if (hasMore.value) productStore.criteria.page += 1
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+function onVirtualScroll ({ to }) {
+  const threshold = 20
+  const loaded = productStore.products.length
+  if (hasMore.value && !loadingMore.value && to >= loaded - threshold) {
+    fetchPage({ reset: false })
+  }
+}
+
+function refresh () {
+  fetchPage({ reset: true })
+}
+
+watch(search, () => {
+  fetchPage({ reset: true })
 })
 
-/* ============================================
-   NORMALIZZAZIONE UNITÀ
-============================================= */
-function normalizeUnit (u) {
-  if (Array.isArray(u)) return u[0]
-  return u || 'kg'
+onMounted(async () => {
+  await ensureReferencesLoaded()
+  await fetchPage({ reset: true })
+})
+
+/* ============================
+   DIALOG INGREDIENTI
+============================ */
+const showDialog = ref(false)
+const dialogLoading = ref(false)
+const saving = ref(false)
+const currentProduct = ref(null)
+
+const unitOptions = [
+  { label: 'kg', value: 'kg' },
+  { label: 'g', value: 'g' },
+  { label: 'mg', value: 'mg' },
+  { label: 'l', value: 'l' },
+  { label: 'ml', value: 'ml' },
+  { label: 'pz', value: 'pz' }
+]
+
+const draft = ref({ reference: null, quantity: null, unit: 'g' })
+
+async function openIngredients (id) {
+  showDialog.value = true
+  dialogLoading.value = true
+  try {
+    const full = await productStore.fetchProduct(id)
+    currentProduct.value = JSON.parse(JSON.stringify(full))
+  } catch (e) {
+    console.error(e)
+    $q.notify({ type: 'negative', message: 'Impossibile caricare ingredienti' })
+    showDialog.value = false
+  } finally {
+    dialogLoading.value = false
+  }
 }
-
-/* ============================================
-   CALCOLO COSTO INGREDIENTE
-============================================= */
-function calculateIngredientCost (ing) {
-  if (!ing.reference?.price) return 0
-
-  const pricePerKg = ing.reference.price
-  const qty = ing.quantity || 0
-  const unit = normalizeUnit(ing.unit)
-
-  if (unit === 'kg') return pricePerKg * qty
-  if (unit === 'g') return pricePerKg * (qty / 1000)
-  if (unit === 'mg') return pricePerKg * (qty / 1_000_000)
-  if (unit === 'l') return pricePerKg * qty
-  if (unit === 'ml') return pricePerKg * (qty / 1000)
-  if (unit === 'pz') return pricePerKg * qty
-
-  return pricePerKg * qty
-}
-
-/* ============================================
-   COSTO TOTALE PRODOTTO
-============================================= */
-function calculateProductCost (product) {
-  return (product.ingredients || [])
-    .map(i => calculateIngredientCost(i))
-    .reduce((a, b) => a + b, 0)
-}
-
-/* ============================================
-   FORMATTATORE €
-============================================= */
-function formatCurrency (value) {
-  return new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(value || 0)
-}
-
-/* ============================================
-   GESTIONE LISTA INGREDIENTI (FE)
-============================================= */
 
 function genKey () {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID()
   return Math.random().toString(36).slice(2)
 }
 
-function addIngredientToProduct (product) {
-  const draft = draftFor(product)
+function addIngredient () {
+  const p = currentProduct.value
+  if (!p) return
+  if (!draft.value.reference || !draft.value.quantity) return
 
-  if (!draft.reference || !draft.quantity) return
-
-  if (!product.ingredients) {
-    product.ingredients = []
-  }
-
-  product.ingredients.push({
+  if (!p.ingredients) p.ingredients = []
+  p.ingredients.push({
     _key: genKey(),
-    reference: draft.reference,
-    quantity: draft.quantity,
-    unit: draft.unit
+    reference: draft.value.reference,
+    quantity: draft.value.quantity,
+    unit: draft.value.unit
   })
 
-  // reset SOLO il draft di questo prodotto
-  draftsByProductId[product._id] = {
-    reference: null,
-    quantity: null,
-    unit: 'g'
-  }
+  draft.value = { reference: null, quantity: null, unit: 'g' }
 }
 
-async function removeIngredient (product, index) {
-  if (!product.ingredients) return
-  product.ingredients.splice(index, 1)
-  await saveIngredients(product)
+function removeIngredient (idx) {
+  const p = currentProduct.value
+  if (!p?.ingredients) return
+  p.ingredients.splice(idx, 1)
 }
 
-/* ============================================
-   SALVATAGGIO SU SANITY
-============================================= */
+async function saveIngredients () {
+  const p = currentProduct.value
+  if (!p?._id) return
 
-async function saveIngredients (product) {
-  savingId.value = product._id
+  saving.value = true
   try {
-    const payloadIngredients = (product.ingredients || []).map(ing => ({
+    const payloadIngredients = (p.ingredients || []).map(ing => ({
       _key: ing._key,
       referenceId: ing.reference?._id || ing.referenceId,
       quantity: ing.quantity,
       unit: ing.unit
     }))
 
-    await productStore.updateProduct(product._id, {
-      ingredients: payloadIngredients
-    })
+    const updatedFull = await productStore.updateProduct(p._id, { ingredients: payloadIngredients })
+    currentProduct.value = JSON.parse(JSON.stringify(updatedFull))
+
+    $q.notify({ type: 'positive', message: 'Ingredienti salvati' })
   } catch (e) {
-    console.error('Errore salvataggio ingredienti:', e)
+    console.error(e)
+    $q.notify({ type: 'negative', message: 'Errore nel salvataggio' })
   } finally {
-    savingId.value = null
+    saving.value = false
   }
+}
+
+/* ============================
+   CALCOLI COSTI (dialog)
+============================ */
+function normalizeUnit (u) {
+  if (Array.isArray(u)) return u[0]
+  return u || 'kg'
+}
+
+function calculateIngredientCost (ing) {
+  if (!ing?.reference?.price) return 0
+  const price = Number(ing.reference.price) || 0
+  const qty = Number(ing.quantity) || 0
+  const unit = normalizeUnit(ing.unit)
+
+  if (unit === 'kg') return price * qty
+  if (unit === 'g') return price * (qty / 1000)
+  if (unit === 'mg') return price * (qty / 1_000_000)
+  if (unit === 'l') return price * qty
+  if (unit === 'ml') return price * (qty / 1000)
+  if (unit === 'pz') return price * qty
+  return price * qty
+}
+
+function calculateProductCost (product) {
+  return (product?.ingredients || [])
+    .map(i => calculateIngredientCost(i))
+    .reduce((a, b) => a + b, 0)
+}
+
+function formatCurrency (value) {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })
+    .format(Number(value) || 0)
 }
 </script>

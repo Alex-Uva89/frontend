@@ -5,23 +5,27 @@ import { api } from 'boot/axios'
 
 export const useProductStore = defineStore('products', () => {
   const products = ref([])
-  const product = ref(null)     // singolo prodotto
+  const product = ref(null)
   const loading = ref(false)
   const error = ref(null)
 
-  // criteri query per lista prodotti
   const criteria = reactive({
     businessId: null,
-    categoryId: null,
     q: '',
-    sort: 'alpha_asc',
     page: 1,
     pageSize: 50,
     total: 0
   })
 
+  function resetProducts () {
+    products.value = []
+    criteria.page = 1
+    criteria.total = 0
+  }
+
   /* ============================
-     FETCH LIST
+     FETCH LIST (paginata, light)
+     Ritorna: { items, total }
   ============================ */
   async function fetchProducts (overrides = {}) {
     loading.value = true
@@ -31,15 +35,28 @@ export const useProductStore = defineStore('products', () => {
     Object.assign(criteria, c)
 
     const params = {
-      businessId: c.businessId || undefined
+      businessId: c.businessId || undefined,
+      q: c.q || undefined,
+      page: c.page,
+      pageSize: c.pageSize
     }
 
     try {
       const { data } = await api.get('/cms/products', { params })
-      // data.data usa LIST_QUERY → ingredients con reference popolata
-      products.value = data.data || []
-      criteria.total = products.value.length
-      return products.value
+
+      const items = Array.isArray(data?.items) ? data.items : []
+      const total = Number.isFinite(Number(data?.total)) ? Number(data.total) : items.length
+
+      if (c.page > 1) {
+        const existing = new Set(products.value.map(p => p._id))
+        const merged = items.filter(p => !existing.has(p._id))
+        products.value = [...products.value, ...merged]
+      } else {
+        products.value = items
+      }
+
+      criteria.total = total
+      return { items, total }
     } catch (e) {
       console.error('Error fetching products:', e)
       error.value = e
@@ -50,65 +67,7 @@ export const useProductStore = defineStore('products', () => {
   }
 
   /* ============================
-     FETCH ALL DETAILS (opzionale)
-  ============================ */
-  async function fetchAllProductDetails () {
-    loading.value = true
-    error.value = null
-
-    try {
-      await fetchProducts()
-
-      const detailed = []
-      for (const p of products.value) {
-        const full = await fetchProduct(p._id)
-        detailed.push(full)
-      }
-
-      products.value = detailed
-      return detailed
-    } catch (e) {
-      error.value = e
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /* ============================
-     FETCH BY CATEGORY
-  ============================ */
-  async function fetchByCategory (categoryId, businessId = null) {
-    loading.value = true
-    error.value = null
-
-    try {
-      const params = {
-        categoryId,
-        businessId: businessId || undefined
-      }
-
-      const { data } = await api.get('/cms/products/by-category', { params })
-
-      // data.data qui è già proiettato da BY_CATEGORY_QUERY (con ingredients→reference->)
-      products.value = data.data || []
-      criteria.total = products.value.length
-
-      return {
-        category: data.category,
-        items: products.value
-      }
-    } catch (e) {
-      console.error('Error fetching products by category:', e)
-      error.value = e
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /* ============================
-     GET ONE
+     GET ONE (full)
   ============================ */
   async function fetchProduct (id) {
     loading.value = true
@@ -116,7 +75,6 @@ export const useProductStore = defineStore('products', () => {
 
     try {
       const { data } = await api.get(`/cms/products/${id}`)
-      // data.data usa ONE_QUERY → ingredients con reference popolata
       product.value = data.data
       return product.value
     } catch (e) {
@@ -135,30 +93,53 @@ export const useProductStore = defineStore('products', () => {
     const { data } = await api.post('/cms/products', payload)
     const created = data.data
 
-    products.value = [...products.value, created]
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-
+    // non forziamo sort: la lista è paginata lato server
+    products.value = [created, ...products.value]
     criteria.total++
     return created
   }
 
   /* ============================
      UPDATE
-     ⚠️ IMPORTANTE: dopo la PUT, rifacciamo GET /cms/products/:id
-     per avere il prodotto con la proiezione completa (ONE_QUERY)
+     - PUT
+     - GET full
+     - aggiorna subito la riga light in lista (cost + count)
   ============================ */
+  function calcIngredientsCostFromFull (full) {
+    const list = Array.isArray(full?.ingredients) ? full.ingredients : []
+    return list.reduce((sum, ing) => {
+      const price = Number(ing?.reference?.price) || 0
+      const qty = Number(ing?.quantity) || 0
+      const u = Array.isArray(ing?.unit) ? ing.unit[0] : (ing?.unit || 'kg')
+
+      if (u === 'kg') return sum + price * qty
+      if (u === 'g')  return sum + price * (qty / 1000)
+      if (u === 'mg') return sum + price * (qty / 1_000_000)
+      if (u === 'l')  return sum + price * qty
+      if (u === 'ml') return sum + price * (qty / 1000)
+      if (u === 'pz') return sum + price * qty
+      return sum + price * qty
+    }, 0)
+  }
+
   async function updateProduct (id, payload) {
-    // 1) scrivi su Sanity
+    // 1) scrivi
     await api.put(`/cms/products/${id}`, payload)
 
-    // 2) ricarica il prodotto con ONE_QUERY
+    // 2) ricarica full
     const { data } = await api.get(`/cms/products/${id}`)
     const full = data.data
 
-    // 3) aggiorna lista
+    // 3) aggiorna lista light (solo campi utili)
     const idx = products.value.findIndex(p => p._id === id)
     if (idx !== -1) {
-      products.value[idx] = full
+      products.value[idx] = {
+        ...products.value[idx],
+        name: full.name,
+        _updatedAt: full._updatedAt,
+        ingredientsCount: Array.isArray(full.ingredients) ? full.ingredients.length : 0,
+        ingredientsCost: calcIngredientsCostFromFull(full)
+      }
     }
 
     // 4) aggiorna dettaglio
@@ -175,21 +156,18 @@ export const useProductStore = defineStore('products', () => {
   async function deleteProduct (id) {
     await api.delete(`/cms/products/${id}`)
     products.value = products.value.filter(p => p._id !== id)
-    criteria.total--
+    criteria.total = Math.max(0, (criteria.total || 0) - 1)
   }
 
   return {
-    // state
     products,
     product,
     loading,
     error,
     criteria,
 
-    // actions
+    resetProducts,
     fetchProducts,
-    fetchAllProductDetails,
-    fetchByCategory,
     fetchProduct,
     createProduct,
     updateProduct,

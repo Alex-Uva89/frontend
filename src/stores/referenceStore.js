@@ -7,31 +7,36 @@ export const useReferenceStore = defineStore('reference', () => {
   const loading = ref(false)
   const error = ref(null)
 
-  // stato query/filtri/sort/paginazione
   const criteria = reactive({
     q: '',
     categoryId: null,
     supplierId: null,
-    units: [], // array di sigle
+    units: [],
     tags: [],
-    status: 'active', // default
-    hasPrice: null, // true/false/null
-    hasNotes: null, // true/false/null
+    status: 'active',
+    hasPrice: null,
+    hasNotes: null,
     sort: 'alpha_asc',
     page: 1,
-    pageSize: 25,
+    pageSize: 50, // default più sensato per infinite scroll
     total: 0
   })
 
+  function resetReferences () {
+    references.value = []
+    criteria.page = 1
+    criteria.total = 0
+  }
+
   async function fetchReferences (overrides = {}) {
-  loading.value = true
-  error.value = null
+    loading.value = true
+    error.value = null
 
-  // merge criteri
-  const c = { ...criteria, ...overrides }
-  Object.assign(criteria, c)
+    // merge criteri
+    const c = { ...criteria, ...overrides }
+    Object.assign(criteria, c)
 
-  const params = {
+    const params = {
       q: c.q || undefined,
       categoryId: c.categoryId || undefined,
       supplierId: c.supplierId || undefined,
@@ -42,22 +47,32 @@ export const useReferenceStore = defineStore('reference', () => {
       hasNotes: c.hasNotes ?? undefined,
       sort: c.sort || undefined,
       page: c.page,
-      // 👉 se overrides.all === true → ignora la paginazione e tira giù tutto
-      pageSize: overrides.all ? 5000 : c.pageSize
+      pageSize: c.pageSize
     }
+
+    console.log('[STORE] fetchReferences params →', params)
 
     try {
       const { data } = await api.get('references/', { params })
 
-      if (Array.isArray(data)) {
-        references.value = data
-        criteria.total = data.length
+      const items = Array.isArray(data) ? data : (data.items || [])
+      const total = Array.isArray(data) ? items.length : (data.total ?? items.length)
+
+      // ✅ append se page > 1, altrimenti replace
+      if (c.page > 1) {
+        // evita duplicati (sicurezza)
+        const existing = new Set(references.value.map(r => r._id))
+        const merged = items.filter(r => !existing.has(r._id))
+        references.value = [...references.value, ...merged]
       } else {
-        references.value = data.items || []
-        criteria.total = data.total ?? references.value.length
+        references.value = items
       }
 
-      return references.value
+      criteria.total = Number.isFinite(Number(total)) ? Number(total) : references.value.length
+      console.log('[STORE] API response →', data)
+
+      // ✅ ritorno info utile per infinite scroll
+      return { items, total: criteria.total }
     } catch (e) {
       console.error('Error fetching references:', e)
       error.value = e
@@ -67,46 +82,34 @@ export const useReferenceStore = defineStore('reference', () => {
     }
   }
 
-
   async function createReference (payload, opts = {}) {
-  try {
-    const { data } = await api.post('references/', {
-      ...payload,
-      ...(opts.initWarehouse ? { initWarehouse: true, businessId: opts.businessId } : {})
-    })
+    try {
+      const { data } = await api.post('references/', {
+        ...payload,
+        ...(opts.initWarehouse ? { initWarehouse: true, businessId: opts.businessId } : {})
+      })
 
-    const created = data.reference || data
+      const created = data.reference || data
 
-    // aggiorna stato locale evitando duplicati
-    const existingIdx = references.value.findIndex(r => r._id === created._id)
-    if (existingIdx === -1) {
-      references.value = [...references.value, created].sort((a, b) =>
-        (a.name || '').localeCompare(b.name || '', 'it', { sensitivity: 'base' })
-      )
-      criteria.total = (criteria.total || 0) + 1
-    } else {
-      references.value[existingIdx] = created
-    }
+      const existingIdx = references.value.findIndex(r => r._id === created._id)
+      if (existingIdx === -1) {
+        references.value = [...references.value, created]
+        criteria.total = (criteria.total || 0) + 1
+      } else {
+        references.value[existingIdx] = created
+      }
 
-    return created
-  } catch (e) {
-    const status = e?.response?.status
-    const data = e?.response?.data
+      return created
+    } catch (e) {
+      const status = e?.response?.status
+      const data = e?.response?.data
 
-    // caso speciale: backend dice che la referenza esiste già
-    if (status === 409 && data?.existingId) {
-      const existingId = data.existingId
-
-      // 1) ricarico tutte le referenze (anche non active, se hai lo status)
-      await fetchReferences({ all: true, status: 'all' })
-
-      // 2) cerco quella indicata dal backend
-      let existing = (references.value || []).find(r => r._id === existingId)
-
-      // 3) se non la trovo, creo almeno un oggetto minimale in memoria
-      if (!existing) {
-        existing = {
-          _id: existingId,
+      if (status === 409 && data?.existingId) {
+        // ⚠️ Non fare "all: true" con dataset enorme.
+        // Meglio: fai una fetch mirata per nome (o per id se aggiungi endpoint GET /references/:id)
+        // Intanto fallback “minimo”:
+        return {
+          _id: data.existingId,
           name: payload.name,
           supplier: payload.supplier || null,
           category: payload.category || null,
@@ -114,31 +117,21 @@ export const useReferenceStore = defineStore('reference', () => {
           price: payload.price ?? null,
           notes: payload.notes ?? ''
         }
-
-        references.value = [...references.value, existing].sort((a, b) =>
-          (a.name || '').localeCompare(b.name || '', 'it', { sensitivity: 'base' })
-        )
-        criteria.total = (criteria.total || 0) + 1
       }
 
-      // dal punto di vista del frontend, trattiamo il 409 come "usa questa referenza"
-      return existing
+      console.error('Error creating reference:', e)
+      throw e
     }
-
-    console.error('Error creating reference:', e)
-    throw e
   }
-}
 
 
-  // 👇 IMPORTANTE: esponi stato e azioni
+
   return {
-    // state
     references,
     loading,
     error,
     criteria,
-    // actions
+    resetReferences,
     fetchReferences,
     createReference
   }
