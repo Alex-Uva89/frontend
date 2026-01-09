@@ -39,7 +39,7 @@
       <!-- LISTA (leggera) -->
       <q-virtual-scroll
         :items="productStore.products"
-        :virtual-scroll-item-size="120"
+        :virtual-scroll-item-size="130"
         v-slot="{ item: p }"
         @virtual-scroll="onVirtualScroll"
       >
@@ -50,13 +50,20 @@
                 <div class="text-subtitle1 text-weight-medium">{{ p.name }}</div>
 
                 <div class="text-caption text-grey-7">
-                  Ingredienti: {{ p.ingredientsCount ?? 0 }}
+                  Ingredienti: {{ p.ingredientsCount ?? 0 }} · IVA: {{ vatLabel(p.vatRate) }}
+                </div>
+
+                <div class="text-body2">
+                  <span class="text-grey-7">Costo netto:</span>
+                  <span class="text-weight-bold q-ml-xs">
+                    {{ formatCurrency(p.ingredientsCost) }}
+                  </span>
                 </div>
 
                 <div class="text-body2 text-teal-8">
-                  Costo:
-                  <span class="text-weight-bold">
-                    {{ formatCurrency(p.ingredientsCost) }}
+                  <span class="text-grey-7">Costo IVA incl.:</span>
+                  <span class="text-weight-bold q-ml-xs">
+                    {{ formatCurrency(p.ingredientsCostVat ?? (p.ingredientsCost * vatMultiplier(p.vatRate))) }}
                   </span>
                 </div>
               </div>
@@ -104,12 +111,34 @@
 
         <q-card-section v-else class="q-pa-md">
 
-          <!-- Totale ingredienti -->
-          <div class="text-body1 text-teal-8 q-mb-md">
-            Totale ingredienti:
-            <span class="text-weight-bold">
-              {{ formatCurrency(calculateProductCost(currentProduct)) }}
-            </span>
+          <!-- IVA prodotto -->
+          <div class="row items-center q-col-gutter-sm q-mb-md">
+            <div class="col-12 col-sm-5">
+              <q-select
+                v-model="currentProduct.vatRate"
+                :options="vatOptionsProduct"
+                label="IVA prodotto"
+                dense
+                emit-value
+                map-options
+                standout="bg-grey-1"
+              />
+            </div>
+
+            <div class="col-12 col-sm-7 text-right">
+              <div class="text-body2">
+                <span class="text-grey-7">Totale netto:</span>
+                <span class="text-weight-bold q-ml-xs">
+                  {{ formatCurrency(dialogTotals.net) }}
+                </span>
+              </div>
+              <div class="text-body1 text-teal-8">
+                <span class="text-grey-7">Totale IVA incl.:</span>
+                <span class="text-weight-bold q-ml-xs">
+                  {{ formatCurrency(dialogTotals.gross) }}
+                </span>
+              </div>
+            </div>
           </div>
 
           <!-- Lista ingredienti -->
@@ -130,9 +159,13 @@
                       Prezzo unitario: {{ formatCurrency(ing.reference?.price) }}
                       / {{ normalizeUnit(ing.reference?.unit) }}
                     </div>
+                    <div class="text-caption text-grey-7">
+                      IVA applicata: <b>{{ vatLabel(effectiveIngredientVat(ing)) }}</b>
+                      <span v-if="ing.vatRate" class="text-grey-6"> (override)</span>
+                    </div>
                   </div>
 
-                  <div class="col-6 col-sm-3">
+                  <div class="col-6 col-sm-2">
                     <q-input
                       v-model.number="ing.quantity"
                       type="number"
@@ -144,7 +177,7 @@
                     />
                   </div>
 
-                  <div class="col-6 col-sm-3">
+                  <div class="col-6 col-sm-2">
                     <q-select
                       v-model="ing.unit"
                       :options="unitOptions"
@@ -156,10 +189,33 @@
                     />
                   </div>
 
+                  <!-- ✅ IVA ingrediente override -->
+                  <div class="col-12 col-sm-2">
+                    <q-select
+                      v-model="ing.vatRate"
+                      :options="vatOptionsIngredient"
+                      label="IVA ingrediente"
+                      dense
+                      emit-value
+                      map-options
+                      standout="bg-grey-1"
+                    />
+                  </div>
+
                   <div class="col-12 col-sm-2 text-right">
-                    <div class="text-body2 text-weight-bold text-teal-8">
-                      {{ formatCurrency(calculateIngredientCost(ing)) }}
+                    <div class="text-body2">
+                      <span class="text-grey-7">Netto:</span>
+                      <span class="text-weight-bold q-ml-xs">
+                        {{ formatCurrency(calculateIngredientNet(ing)) }}
+                      </span>
                     </div>
+                    <div class="text-body2 text-teal-8">
+                      <span class="text-grey-7">IVA incl.:</span>
+                      <span class="text-weight-bold q-ml-xs">
+                        {{ formatCurrency(calculateIngredientGross(ing)) }}
+                      </span>
+                    </div>
+
                     <q-btn
                       class="q-mt-xs"
                       flat
@@ -185,7 +241,7 @@
             <div class="text-caption text-grey-7 q-mb-xs">Aggiungi ingrediente</div>
 
             <div class="row q-col-gutter-sm items-center">
-              <div class="col-12 col-sm-6">
+              <div class="col-12 col-sm-5">
                 <q-select
                   v-model="draft.reference"
                   :options="referenceOptions"
@@ -198,7 +254,7 @@
                 />
               </div>
 
-              <div class="col-6 col-sm-3">
+              <div class="col-6 col-sm-2">
                 <q-input
                   v-model.number="draft.quantity"
                   type="number"
@@ -213,6 +269,17 @@
                   v-model="draft.unit"
                   :options="unitOptions"
                   label="Unità"
+                  dense
+                  emit-value
+                  map-options
+                />
+              </div>
+
+              <div class="col-12 col-sm-2">
+                <q-select
+                  v-model="draft.vatRate"
+                  :options="vatOptionsIngredient"
+                  label="IVA ingrediente"
                   dense
                   emit-value
                   map-options
@@ -269,6 +336,42 @@ const totalLabel = computed(() => {
   if (Number.isFinite(t) && t > 0) return `${t} totali`
   return `${productStore.products.length} caricati`
 })
+
+/* ============================
+   VAT helpers
+============================ */
+function vatMultiplier (vatRate) {
+  const v = String(vatRate || '22').trim()
+  if (!v || v === 'exempt') return 1
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return 1
+  return 1 + (n / 100)
+}
+
+function vatLabel (vatRate) {
+  const v = String(vatRate || '22').trim()
+  if (!v) return '—'
+  if (v === 'exempt') return 'Esente'
+  return `${v}%`
+}
+
+const vatOptionsProduct = [
+  { label: 'Esente', value: 'exempt' },
+  { label: '4%', value: '4' },
+  { label: '5%', value: '5' },
+  { label: '10%', value: '10' },
+  { label: '22%', value: '22' }
+]
+
+// ingrediente: permette “vuoto = usa prodotto”
+const vatOptionsIngredient = [
+  { label: '— usa IVA prodotto', value: '' },
+  { label: 'Esente', value: 'exempt' },
+  { label: '4%', value: '4' },
+  { label: '5%', value: '5' },
+  { label: '10%', value: '10' },
+  { label: '22%', value: '22' }
+]
 
 /* ============================
    REFERENCES (ingredienti base)
@@ -366,14 +469,27 @@ const unitOptions = [
   { label: 'pz', value: 'pz' }
 ]
 
-const draft = ref({ reference: null, quantity: null, unit: 'g' })
+const draft = ref({ reference: null, quantity: null, unit: 'g', vatRate: '' })
 
 async function openIngredients (id) {
   showDialog.value = true
   dialogLoading.value = true
   try {
     const full = await productStore.fetchProduct(id)
-    currentProduct.value = JSON.parse(JSON.stringify(full))
+    const copy = JSON.parse(JSON.stringify(full))
+
+    // default iva prodotto se mancante
+    if (!copy.vatRate) copy.vatRate = '22'
+
+    // normalizza ingredienti: vatRate vuoto se undefined
+    if (Array.isArray(copy.ingredients)) {
+      copy.ingredients = copy.ingredients.map(i => ({
+        ...i,
+        vatRate: i?.vatRate ? String(i.vatRate) : ''
+      }))
+    }
+
+    currentProduct.value = copy
   } catch (e) {
     console.error(e)
     $q.notify({ type: 'negative', message: 'Impossibile caricare ingredienti' })
@@ -398,10 +514,11 @@ function addIngredient () {
     _key: genKey(),
     reference: draft.value.reference,
     quantity: draft.value.quantity,
-    unit: draft.value.unit
+    unit: draft.value.unit,
+    vatRate: draft.value.vatRate || '' // override opzionale
   })
 
-  draft.value = { reference: null, quantity: null, unit: 'g' }
+  draft.value = { reference: null, quantity: null, unit: 'g', vatRate: '' }
 }
 
 function removeIngredient (idx) {
@@ -410,6 +527,61 @@ function removeIngredient (idx) {
   p.ingredients.splice(idx, 1)
 }
 
+/* ============================
+   COSTI (dialog)
+============================ */
+function normalizeUnit (u) {
+  if (Array.isArray(u)) return u[0]
+  return String(u || 'kg').trim() || 'kg'
+}
+
+function effectiveIngredientVat (ing) {
+  const iv = String(ing?.vatRate || '').trim()
+  if (iv) return iv
+  return String(currentProduct.value?.vatRate || '22').trim() || '22'
+}
+
+function calculateIngredientNet (ing) {
+  const price = Number(ing?.reference?.price) || 0
+  const qty = Number(ing?.quantity) || 0
+  const unit = normalizeUnit(ing?.unit)
+
+  if (!price || !qty) return 0
+
+  if (unit === 'kg') return price * qty
+  if (unit === 'g') return price * (qty / 1000)
+  if (unit === 'mg') return price * (qty / 1_000_000)
+  if (unit === 'l') return price * qty
+  if (unit === 'ml') return price * (qty / 1000)
+  if (unit === 'pz') return price * qty
+
+  return price * qty
+}
+
+function calculateIngredientGross (ing) {
+  const net = calculateIngredientNet(ing)
+  const vr = effectiveIngredientVat(ing)
+  return net * vatMultiplier(vr)
+}
+
+const dialogTotals = computed(() => {
+  const p = currentProduct.value
+  const list = Array.isArray(p?.ingredients) ? p.ingredients : []
+
+  const net = list.reduce((sum, ing) => sum + calculateIngredientNet(ing), 0)
+  const gross = list.reduce((sum, ing) => sum + calculateIngredientGross(ing), 0)
+
+  return { net, gross }
+})
+
+function formatCurrency (value) {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })
+    .format(Number(value) || 0)
+}
+
+/* ============================
+   SALVATAGGIO SU SANITY
+============================ */
 async function saveIngredients () {
   const p = currentProduct.value
   if (!p?._id) return
@@ -420,11 +592,24 @@ async function saveIngredients () {
       _key: ing._key,
       referenceId: ing.reference?._id || ing.referenceId,
       quantity: ing.quantity,
-      unit: ing.unit
+      unit: ing.unit,
+      vatRate: (String(ing.vatRate || '').trim()) || '' // '' => usa prodotto
     }))
 
-    const updatedFull = await productStore.updateProduct(p._id, { ingredients: payloadIngredients })
-    currentProduct.value = JSON.parse(JSON.stringify(updatedFull))
+    const payload = {
+      vatRate: p.vatRate || '22',
+      ingredients: payloadIngredients
+    }
+
+    const updatedFull = await productStore.updateProduct(p._id, payload)
+
+    // riallinea il dialog col full aggiornato
+    const copy = JSON.parse(JSON.stringify(updatedFull))
+    if (!copy.vatRate) copy.vatRate = '22'
+    if (Array.isArray(copy.ingredients)) {
+      copy.ingredients = copy.ingredients.map(i => ({ ...i, vatRate: i?.vatRate ? String(i.vatRate) : '' }))
+    }
+    currentProduct.value = copy
 
     $q.notify({ type: 'positive', message: 'Ingredienti salvati' })
   } catch (e) {
@@ -433,39 +618,5 @@ async function saveIngredients () {
   } finally {
     saving.value = false
   }
-}
-
-/* ============================
-   CALCOLI COSTI (dialog)
-============================ */
-function normalizeUnit (u) {
-  if (Array.isArray(u)) return u[0]
-  return u || 'kg'
-}
-
-function calculateIngredientCost (ing) {
-  if (!ing?.reference?.price) return 0
-  const price = Number(ing.reference.price) || 0
-  const qty = Number(ing.quantity) || 0
-  const unit = normalizeUnit(ing.unit)
-
-  if (unit === 'kg') return price * qty
-  if (unit === 'g') return price * (qty / 1000)
-  if (unit === 'mg') return price * (qty / 1_000_000)
-  if (unit === 'l') return price * qty
-  if (unit === 'ml') return price * (qty / 1000)
-  if (unit === 'pz') return price * qty
-  return price * qty
-}
-
-function calculateProductCost (product) {
-  return (product?.ingredients || [])
-    .map(i => calculateIngredientCost(i))
-    .reduce((a, b) => a + b, 0)
-}
-
-function formatCurrency (value) {
-  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })
-    .format(Number(value) || 0)
 }
 </script>
