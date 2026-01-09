@@ -1019,27 +1019,61 @@ function toMoney (v) {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 async function loadProducts () {
-  const { data: json } = await api.get(`${API}/cms/products`, {
-    params: { businessId: businessId.value }
-  })
-  if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
-  // Normalizzo per UI
-  const rows = (json.data || []).map(p => {
-    const glass  = (typeof p.priceGlass  !== 'undefined') ? p.priceGlass  : (p?.prices?.glass  ?? null)
-    const bottle = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
-    const special1 = (typeof p.priceSpecial1 !== 'undefined') ? p.priceSpecial1 : null
-    const special2 = (typeof p.priceSpecial2 !== 'undefined') ? p.priceSpecial2 : null
-    return {
-      ...p,
-      _priceGlass: toMoney(glass),
-      _priceBottle: toMoney(bottle),
-      _priceSpecial1: toMoney(special1),
-      _priceSpecial2: toMoney(special2),
-      price: toMoney(p.price)
-    }
-  })
-  allProducts.value = rows
+  // Se non ho business, svuoto e fine
+  if (!businessId.value) {
+    allProducts.value = []
+    return
+  }
+
+  const pageSize = 200 // tienila “ragionevole”, poi loopo
+  let page = 1
+  let total = 0
+  const acc = []
+
+  while (true) {
+    const { data: json } = await api.get(`${API}/cms/products`, {
+      params: {
+        businessId: businessId.value,
+        page,
+        pageSize
+      }
+    })
+
+    if (!json?.ok) throw new Error(json?.error || 'Errore prodotti')
+
+    // ✅ nuova shape: items/total
+    const items = Array.isArray(json?.items) ? json.items : []
+    total = Number.isFinite(Number(json?.total)) ? Number(json.total) : total
+
+    // Normalizzo per UI (mantengo il tuo schema, anche se alcuni campi possono non esistere nella list light)
+    const rows = items.map(p => {
+      const glass    = (typeof p.priceGlass !== 'undefined') ? p.priceGlass : (p?.prices?.glass ?? null)
+      const bottle   = (typeof p.priceBottle !== 'undefined') ? p.priceBottle : (p?.prices?.bottle ?? null)
+      const special1 = (typeof p.priceSpecial1 !== 'undefined') ? p.priceSpecial1 : null
+      const special2 = (typeof p.priceSpecial2 !== 'undefined') ? p.priceSpecial2 : null
+
+      return {
+        ...p,
+        _priceGlass: toMoney(glass),
+        _priceBottle: toMoney(bottle),
+        _priceSpecial1: toMoney(special1),
+        _priceSpecial2: toMoney(special2),
+        price: toMoney(p.price)
+      }
+    })
+
+    acc.push(...rows)
+
+    // stop conditions
+    if (items.length < pageSize) break
+    if (total && acc.length >= total) break
+
+    page++
+  }
+
+  allProducts.value = acc
 }
+
 async function loadAttributes () {
   const { data: json } = await api.get(`${API}/cms/attributes`)
   if (!json?.ok) throw new Error(json?.error || 'Errore attributi')
